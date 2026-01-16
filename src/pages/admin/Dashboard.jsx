@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
+import { userService, jadwalService, matkulService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Users,
     FileText,
@@ -12,11 +13,13 @@ import {
     Clock,
     Activity,
     Eye,
-    Play
+    Play,
+    RefreshCw,
+    Database
 } from 'lucide-react'
 import './Dashboard.css'
 
-// LocalStorage keys
+// LocalStorage keys for fallback
 const USERS_STORAGE_KEY = 'cat_users_data'
 const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
 const MATKUL_STORAGE_KEY = 'cat_matkul_data'
@@ -39,6 +42,8 @@ function AdminDashboard() {
     const navigate = useNavigate()
     const { settings, saveSettings } = useSettings()
     const [selectedTahunAkademik, setSelectedTahunAkademik] = useState('')
+    const [isLoading, setIsLoading] = useState(true)
+    const [useSupabase, setUseSupabase] = useState(false)
 
     const [stats, setStats] = useState([
         { label: 'Total User', value: '0', icon: Users, color: 'primary', trend: '-' },
@@ -62,98 +67,148 @@ function AdminDashboard() {
     // Handle tahun akademik change
     const handleTahunAkademikChange = (value) => {
         setSelectedTahunAkademik(value)
-        // Save to settings
         saveSettings({ ...settings, tahunAkademik: value })
     }
 
-    useEffect(() => {
-        const users = localStorage.getItem(USERS_STORAGE_KEY)
-        const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-        const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-        const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
+    // Helper functions for field names (Supabase vs localStorage)
+    const getJadwalMatkul = (j) => j.matkul_id || j.matkulId
+    const getJadwalProdi = (j) => j.prodi_id || j.prodiId
+    const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian
+    const getJadwalWaktuMulai = (j) => j.waktu_mulai || j.waktuMulai
+    const getJadwalWaktuSelesai = (j) => j.waktu_selesai || j.waktuSelesai
+    const getJadwalRuang = (j) => j.ruangan || j.ruang || 'Lab'
 
-        const usersList = users ? JSON.parse(users) : []
-        let jadwalList = jadwal ? JSON.parse(jadwal) : []
-        const matkulList = matkul ? JSON.parse(matkul) : []
-        const prodiList = prodi ? JSON.parse(prodi) : []
+    const loadData = async () => {
+        setIsLoading(true)
+        try {
+            let usersList = []
+            let jadwalList = []
+            let matkulList = []
+            let prodiList = []
 
-        // Filter jadwal by tahun akademik (if jadwal has tahunAkademik field)
-        if (selectedTahunAkademik) {
-            jadwalList = jadwalList.filter(j =>
-                !j.tahunAkademik || j.tahunAkademik === selectedTahunAkademik
-            )
-        }
+            if (isSupabaseConfigured()) {
+                const [usersData, jadwalData, matkulData, prodiData] = await Promise.all([
+                    userService.getAll(),
+                    jadwalService.getAll(),
+                    matkulService.getAll(),
+                    prodiService.getAll()
+                ])
+                usersList = usersData
+                jadwalList = jadwalData
+                matkulList = matkulData
+                prodiList = prodiData
+                setUseSupabase(true)
+            } else {
+                // Fallback to localStorage
+                const users = localStorage.getItem(USERS_STORAGE_KEY)
+                const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
+                usersList = users ? JSON.parse(users) : []
+                jadwalList = jadwal ? JSON.parse(jadwal) : []
+                matkulList = matkul ? JSON.parse(matkul) : []
+                prodiList = prodi ? JSON.parse(prodi) : []
+                setUseSupabase(false)
+            }
 
-        const now = new Date()
-        const today = now.toISOString().split('T')[0]
+            // Filter jadwal by tahun akademik (if jadwal has tahunAkademik field)
+            if (selectedTahunAkademik) {
+                jadwalList = jadwalList.filter(j =>
+                    !j.tahunAkademik && !j.tahun_akademik || j.tahunAkademik === selectedTahunAkademik || j.tahun_akademik === selectedTahunAkademik
+                )
+            }
 
-        // Calculate stats
-        const totalUsers = usersList.length
-        const activeExams = jadwalList.filter(j => {
-            const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-            const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-            return now >= examStart && now <= examEnd
-        }).length
-        const completedToday = jadwalList.filter(j => {
-            const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-            return j.tanggal === today && now > examEnd
-        }).length
+            const now = new Date()
+            const today = now.toISOString().split('T')[0]
 
-        setStats([
-            { label: 'Total User', value: String(totalUsers), icon: Users, color: 'primary', trend: '-' },
-            { label: 'Ujian Aktif', value: String(activeExams), icon: FileText, color: 'accent', trend: '-' },
-            { label: 'Selesai Hari Ini', value: String(completedToday), icon: CheckCircle, color: 'success', trend: '-' },
-            { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
-        ])
+            // Calculate stats
+            const totalUsers = usersList.length
+            const activeExams = jadwalList.filter(j => {
+                const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
+                const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
+                return now >= examStart && now <= examEnd
+            }).length
+            const completedToday = jadwalList.filter(j => {
+                const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
+                return j.tanggal === today && now > examEnd
+            }).length
 
-        // Recent exams (last 5 by date)
-        const recent = jadwalList
-            .sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))
-            .slice(0, 5)
-            .map(j => {
-                const mk = matkulList.find(m => String(m.id) === String(j.matkulId))
-                const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-                const isActive = now >= new Date(`${j.tanggal}T${j.waktuMulai}`) && now <= examEnd
+            setStats([
+                { label: 'Total User', value: String(totalUsers), icon: Users, color: 'primary', trend: '-' },
+                { label: 'Ujian Aktif', value: String(activeExams), icon: FileText, color: 'accent', trend: '-' },
+                { label: 'Selesai Hari Ini', value: String(completedToday), icon: CheckCircle, color: 'success', trend: '-' },
+                { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
+            ])
+
+            // Recent exams (last 5 by date)
+            const recent = jadwalList
+                .sort((a, b) => new Date(b.tanggal) - new Date(a.tanggal))
+                .slice(0, 5)
+                .map(j => {
+                    const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
+                    const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
+                    const isActive = now >= new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`) && now <= examEnd
+                    return {
+                        id: j.id,
+                        name: `${getJadwalTipe(j)} ${mk?.nama || 'Ujian'}`,
+                        date: j.tanggal,
+                        participants: '-',
+                        status: isActive ? 'active' : 'completed'
+                    }
+                })
+            setRecentExams(recent)
+
+            // Recent users (last 5)
+            const recentU = usersList.slice(-5).reverse().map(u => ({
+                id: u.id,
+                name: u.nama || u.name,
+                role: u.role,
+                nim: u.nim_nip || u.nim || '-'
+            }))
+            setRecentUsers(recentU)
+
+            // Ujian berlangsung
+            const berlangsung = jadwalList.filter(j => {
+                const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
+                const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
+                return now >= examStart && now <= examEnd
+            }).map(j => {
+                const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
+                const pr = prodiList.find(p => String(p.id) === String(getJadwalProdi(j)))
                 return {
                     id: j.id,
-                    name: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                    date: j.tanggal,
-                    participants: '-',
-                    status: isActive ? 'active' : 'completed'
+                    name: `${getJadwalTipe(j)} ${mk?.nama || 'Ujian'}`,
+                    startTime: getJadwalWaktuMulai(j),
+                    endTime: getJadwalWaktuSelesai(j),
+                    room: getJadwalRuang(j),
+                    prodi: pr?.kode || '-',
+                    participants: 0,
+                    online: 0,
+                    pengawas: '-'
                 }
             })
-        setRecentExams(recent)
+            setUjianBerlangsung(berlangsung)
+        } catch (err) {
+            console.error('Error loading dashboard data:', err)
+            // Fallback to localStorage
+            const users = localStorage.getItem(USERS_STORAGE_KEY)
+            const usersList = users ? JSON.parse(users) : []
+            setStats([
+                { label: 'Total User', value: String(usersList.length), icon: Users, color: 'primary', trend: '-' },
+                { label: 'Ujian Aktif', value: '0', icon: FileText, color: 'accent', trend: '-' },
+                { label: 'Selesai Hari Ini', value: '0', icon: CheckCircle, color: 'success', trend: '-' },
+                { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
+            ])
+            setUseSupabase(false)
+        } finally {
+            setIsLoading(false)
+        }
+    }
 
-        // Recent users (last 5)
-        const recentU = usersList.slice(-5).reverse().map(u => ({
-            id: u.id,
-            name: u.nama || u.name,
-            role: u.role,
-            nim: u.nim || '-'
-        }))
-        setRecentUsers(recentU)
-
-        // Ujian berlangsung
-        const berlangsung = jadwalList.filter(j => {
-            const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-            const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-            return now >= examStart && now <= examEnd
-        }).map(j => {
-            const mk = matkulList.find(m => String(m.id) === String(j.matkulId))
-            const pr = prodiList.find(p => String(p.id) === String(j.prodiId))
-            return {
-                id: j.id,
-                name: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                startTime: j.waktuMulai,
-                endTime: j.waktuSelesai,
-                room: j.ruang || 'Lab',
-                prodi: pr?.kode || '-',
-                participants: 0,
-                online: 0,
-                pengawas: '-'
-            }
-        })
-        setUjianBerlangsung(berlangsung)
+    useEffect(() => {
+        if (selectedTahunAkademik) {
+            loadData()
+        }
     }, [selectedTahunAkademik])
 
     return (
