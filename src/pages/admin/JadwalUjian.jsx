@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { jadwalService, matkulService, prodiService, kelasService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Calendar,
     Plus,
@@ -13,37 +14,42 @@ import {
     MapPin,
     Users,
     Filter,
-    Printer
+    Printer,
+    RefreshCw,
+    AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
+// LocalStorage keys for fallback
 const STORAGE_KEY = 'cat_jadwal_data'
 const MATKUL_STORAGE_KEY = 'cat_matkul_data'
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 const KELAS_STORAGE_KEY = 'cat_kelas_data'
 
-function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [] }) {
+function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], isLoading }) {
     const getDefaultFormData = () => ({
-        matkulId: matkulList[0]?.id || '',
-        kelasId: kelasList[0]?.id || '',
-        tipeUjian: 'UTS',
+        matkul_id: matkulList[0]?.id || '',
+        kelas_id: kelasList[0]?.id || '',
+        tipe_ujian: 'UTS',
         tanggal: '',
-        waktuMulai: '08:00',
-        waktuSelesai: '10:00',
-        deadlineKoreksi: '' // Default empty, will be set automatically
+        waktu_mulai: '08:00',
+        waktu_selesai: '10:00',
+        ruangan: ''
     })
 
     const [formData, setFormData] = useState(jadwal || getDefaultFormData())
 
-    // Update formData when jadwal changes (for edit mode)
     useEffect(() => {
         if (isOpen) {
             if (jadwal) {
                 setFormData({
                     ...jadwal,
-                    matkulId: jadwal.matkulId || matkulList[0]?.id || '',
-                    kelasId: jadwal.kelasId || kelasList[0]?.id || ''
+                    matkul_id: jadwal.matkul_id || jadwal.matkulId || matkulList[0]?.id || '',
+                    kelas_id: jadwal.kelas_id || jadwal.kelasId || kelasList[0]?.id || '',
+                    tipe_ujian: jadwal.tipe_ujian || jadwal.tipeUjian || 'UTS',
+                    waktu_mulai: jadwal.waktu_mulai || jadwal.waktuMulai || '08:00',
+                    waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '10:00',
+                    ruangan: jadwal.ruangan || jadwal.ruang || ''
                 })
             } else {
                 setFormData(getDefaultFormData())
@@ -53,12 +59,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
 
     const handleSubmit = (e) => {
         e.preventDefault()
-        onSave({
-            ...formData,
-            matkulId: Number(formData.matkulId),
-            kelasId: Number(formData.kelasId)
-        })
-        onClose()
+        onSave(formData)
     }
 
     if (!isOpen) return null
@@ -79,10 +80,11 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 <label className="form-label">Mata Kuliah</label>
                                 <select
                                     className="form-input"
-                                    value={formData.matkulId}
-                                    onChange={e => setFormData({ ...formData, matkulId: e.target.value })}
+                                    value={formData.matkul_id}
+                                    onChange={e => setFormData({ ...formData, matkul_id: e.target.value })}
                                     required
                                 >
+                                    <option value="">Pilih Mata Kuliah</option>
                                     {matkulList.map(m => (
                                         <option key={m.id} value={m.id}>{m.kode} - {m.nama}</option>
                                     ))}
@@ -92,10 +94,11 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 <label className="form-label">Kelas</label>
                                 <select
                                     className="form-input"
-                                    value={formData.kelasId}
-                                    onChange={e => setFormData({ ...formData, kelasId: e.target.value })}
+                                    value={formData.kelas_id}
+                                    onChange={e => setFormData({ ...formData, kelas_id: e.target.value })}
                                     required
                                 >
+                                    <option value="">Pilih Kelas</option>
                                     {kelasList.map(k => (
                                         <option key={k.id} value={k.id}>{k.nama} ({k.angkatan})</option>
                                     ))}
@@ -107,13 +110,23 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 <label className="form-label">Tipe Ujian</label>
                                 <select
                                     className="form-input"
-                                    value={formData.tipeUjian}
-                                    onChange={e => setFormData({ ...formData, tipeUjian: e.target.value })}
+                                    value={formData.tipe_ujian}
+                                    onChange={e => setFormData({ ...formData, tipe_ujian: e.target.value })}
                                     required
                                 >
                                     <option value="UTS">UTS</option>
                                     <option value="UAS">UAS</option>
                                 </select>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Ruangan</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={formData.ruangan || ''}
+                                    onChange={e => setFormData({ ...formData, ruangan: e.target.value })}
+                                    placeholder="Contoh: Lab 1"
+                                />
                             </div>
                         </div>
                         <div className="form-group">
@@ -132,8 +145,8 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 <input
                                     type="time"
                                     className="form-input"
-                                    value={formData.waktuMulai}
-                                    onChange={e => setFormData({ ...formData, waktuMulai: e.target.value })}
+                                    value={formData.waktu_mulai}
+                                    onChange={e => setFormData({ ...formData, waktu_mulai: e.target.value })}
                                     required
                                 />
                             </div>
@@ -142,30 +155,18 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 <input
                                     type="time"
                                     className="form-input"
-                                    value={formData.waktuSelesai}
-                                    onChange={e => setFormData({ ...formData, waktuSelesai: e.target.value })}
+                                    value={formData.waktu_selesai}
+                                    onChange={e => setFormData({ ...formData, waktu_selesai: e.target.value })}
                                     required
                                 />
                             </div>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Deadline Koreksi</label>
-                            <input
-                                type="date"
-                                className="form-input"
-                                value={formData.deadlineKoreksi || ''}
-                                onChange={e => setFormData({ ...formData, deadlineKoreksi: e.target.value })}
-                                min={formData.tanggal}
-                                placeholder="Deadline koreksi untuk dosen"
-                            />
-                            <small style={{ color: 'var(--text-muted)', fontSize: '12px' }}>Batas waktu dosen menyelesaikan koreksi</small>
-                        </div>
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
-                        <button type="submit" className="btn btn-primary">
-                            <Save size={16} />
-                            Simpan
+                        <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                            {isLoading ? <span className="spinner"></span> : <Save size={16} />}
+                            {isLoading ? 'Menyimpan...' : 'Simpan'}
                         </button>
                     </div>
                 </form>
@@ -178,62 +179,103 @@ function JadwalUjianPage() {
     const { user } = useAuth()
     const { showConfirm } = useConfirm()
 
-    // Load from localStorage
-    const [jadwalList, setJadwalList] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [matkulList, setMatkulList] = useState(() => {
-        const saved = localStorage.getItem(MATKUL_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [prodiList, setProdiList] = useState(() => {
-        const saved = localStorage.getItem(PRODI_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [kelasList, setKelasList] = useState(() => {
-        const saved = localStorage.getItem(KELAS_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
+    // State
+    const [jadwalList, setJadwalList] = useState([])
+    const [matkulList, setMatkulList] = useState([])
+    const [prodiList, setProdiList] = useState([])
+    const [kelasList, setKelasList] = useState([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [isSaving, setIsSaving] = useState(false)
+    const [error, setError] = useState(null)
+    const [useSupabase, setUseSupabase] = useState(false)
 
     const [modalOpen, setModalOpen] = useState(false)
     const [editingJadwal, setEditingJadwal] = useState(null)
     const [dateFilter, setDateFilter] = useState('')
     const [prodiFilter, setProdiFilter] = useState(user?.role === 'superadmin' ? 'all' : (user?.prodiId || 'all'))
 
-    // Save to localStorage whenever jadwalList changes
+    // Load data on mount
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(jadwalList))
-    }, [jadwalList])
+        loadData()
+    }, [])
 
-    // Reload dependent lists when window regains focus
-    useEffect(() => {
-        const handleFocus = () => {
+    const loadData = async () => {
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            if (isSupabaseConfigured()) {
+                const [jadwalData, matkulData, prodiData, kelasData] = await Promise.all([
+                    jadwalService.getAll(),
+                    matkulService.getAll(),
+                    prodiService.getAll(),
+                    kelasService.getAll()
+                ])
+                setJadwalList(jadwalData)
+                setMatkulList(matkulData)
+                setProdiList(prodiData)
+                setKelasList(kelasData)
+                setUseSupabase(true)
+            } else {
+                // Fallback to localStorage
+                const jadwal = localStorage.getItem(STORAGE_KEY)
+                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
+                const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
+                setJadwalList(jadwal ? JSON.parse(jadwal) : [])
+                setMatkulList(matkul ? JSON.parse(matkul) : [])
+                setProdiList(prodi ? JSON.parse(prodi) : [])
+                setKelasList(kelas ? JSON.parse(kelas) : [])
+                setUseSupabase(false)
+            }
+        } catch (err) {
+            console.error('Error loading jadwal:', err)
+            setError('Gagal memuat data. Menggunakan data lokal.')
+            const jadwal = localStorage.getItem(STORAGE_KEY)
             const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
             const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
             const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-            if (matkul) setMatkulList(JSON.parse(matkul))
-            if (prodi) setProdiList(JSON.parse(prodi))
-            if (kelas) setKelasList(JSON.parse(kelas))
+            setJadwalList(jadwal ? JSON.parse(jadwal) : [])
+            setMatkulList(matkul ? JSON.parse(matkul) : [])
+            setProdiList(prodi ? JSON.parse(prodi) : [])
+            setKelasList(kelas ? JSON.parse(kelas) : [])
+            setUseSupabase(false)
+        } finally {
+            setIsLoading(false)
         }
-        window.addEventListener('focus', handleFocus)
-        return () => window.removeEventListener('focus', handleFocus)
-    }, [])
+    }
+
+    // Backup to localStorage
+    useEffect(() => {
+        if (jadwalList.length > 0 && !useSupabase) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(jadwalList))
+        }
+    }, [jadwalList, useSupabase])
 
     const isSuperAdmin = user?.role === 'superadmin'
 
-    // Filter hanya berdasarkan prodi (tanpa filter tanggal) untuk stats
+    // Helper to get prodi_id from jadwal (handles both Supabase and localStorage field names)
+    const getJadwalProdiId = (j) => j.prodi_id || j.prodiId
+    const getJadwalMatkul = (j) => j.matkul_id || j.matkulId
+    const getJadwalKelas = (j) => j.kelas_id || j.kelasId
+    const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian
+    const getJadwalWaktuMulai = (j) => j.waktu_mulai || j.waktuMulai
+    const getJadwalWaktuSelesai = (j) => j.waktu_selesai || j.waktuSelesai
+    const getJadwalRuang = (j) => j.ruangan || j.ruang || '-'
+
+    // Filter berdasarkan prodi untuk stats
     const prodiFilteredJadwal = jadwalList.filter(j => {
+        const prodiId = getJadwalProdiId(j)
         return isSuperAdmin
-            ? (prodiFilter === 'all' || j.prodiId === parseInt(prodiFilter))
-            : j.prodiId === user?.prodiId
+            ? (prodiFilter === 'all' || prodiId === parseInt(prodiFilter))
+            : prodiId === user?.prodiId
     })
 
     const filteredJadwal = prodiFilteredJadwal.filter(j => {
         return !dateFilter || j.tanggal === dateFilter
     }).sort((a, b) => {
         if (a.tanggal !== b.tanggal) return a.tanggal.localeCompare(b.tanggal)
-        return a.waktuMulai.localeCompare(b.waktuMulai)
+        return (getJadwalWaktuMulai(a) || '').localeCompare(getJadwalWaktuMulai(b) || '')
     })
 
     const handleAdd = () => {
@@ -246,49 +288,99 @@ function JadwalUjianPage() {
         setModalOpen(true)
     }
 
-    const handleSave = (data) => {
-        // Tambahkan prodiId dari user yang login
-        const jadwalData = {
-            ...data,
-            prodiId: user?.prodiId || 1
-        }
+    const handleSave = async (data) => {
+        setIsSaving(true)
+        try {
+            const jadwalData = {
+                matkul_id: parseInt(data.matkul_id) || parseInt(data.matkulId),
+                kelas_id: parseInt(data.kelas_id) || parseInt(data.kelasId),
+                tipe_ujian: data.tipe_ujian || data.tipeUjian || 'UTS',
+                tanggal: data.tanggal,
+                waktu_mulai: data.waktu_mulai || data.waktuMulai,
+                waktu_selesai: data.waktu_selesai || data.waktuSelesai,
+                ruangan: data.ruangan || data.ruang || '',
+                prodi_id: user?.prodiId || 1
+            }
 
-        if (editingJadwal) {
-            setJadwalList(jadwalList.map(j => j.id === editingJadwal.id ? { ...jadwalData, id: editingJadwal.id } : j))
-        } else {
-            setJadwalList([...jadwalList, { ...jadwalData, id: Date.now() }])
+            if (useSupabase) {
+                if (editingJadwal) {
+                    await jadwalService.update(editingJadwal.id, jadwalData)
+                } else {
+                    await jadwalService.create(jadwalData)
+                }
+                await loadData()
+            } else {
+                // LocalStorage fallback
+                const localData = {
+                    ...jadwalData,
+                    prodiId: jadwalData.prodi_id,
+                    matkulId: jadwalData.matkul_id,
+                    kelasId: jadwalData.kelas_id,
+                    tipeUjian: jadwalData.tipe_ujian,
+                    waktuMulai: jadwalData.waktu_mulai,
+                    waktuSelesai: jadwalData.waktu_selesai,
+                    ruang: jadwalData.ruangan
+                }
+                if (editingJadwal) {
+                    setJadwalList(jadwalList.map(j => j.id === editingJadwal.id ? { ...localData, id: editingJadwal.id } : j))
+                } else {
+                    setJadwalList([...jadwalList, { ...localData, id: Date.now() }])
+                }
+            }
+            setModalOpen(false)
+        } catch (err) {
+            console.error('Error saving jadwal:', err)
+            setError('Gagal menyimpan jadwal.')
+        } finally {
+            setIsSaving(false)
         }
     }
 
-    const handleDelete = (id) => {
+    const handleDelete = async (id) => {
         showConfirm({
             title: 'Konfirmasi Hapus',
             message: 'Hapus jadwal ujian ini?',
-            onConfirm: () => setJadwalList(jadwalList.filter(j => j.id !== id))
+            onConfirm: async () => {
+                try {
+                    if (useSupabase) {
+                        await jadwalService.delete(id)
+                        await loadData()
+                    } else {
+                        setJadwalList(jadwalList.filter(j => j.id !== id))
+                    }
+                } catch (err) {
+                    console.error('Error deleting:', err)
+                    setError('Gagal menghapus jadwal.')
+                }
+            }
         })
     }
 
     const getMatkulName = (id) => {
-        const m = matkulList.find(mk => mk.id === id)
+        const mId = parseInt(id)
+        const m = matkulList.find(mk => mk.id === mId)
         return m ? `${m.kode} - ${m.nama}` : '-'
     }
 
     const getKelasName = (id) => {
-        const k = kelasList.find(kl => kl.id === id)
+        const kId = parseInt(id)
+        const k = kelasList.find(kl => kl.id === kId)
         return k ? `Kelas ${k.nama}` : '-'
     }
 
     const getProdiName = (prodiId, kelasId) => {
         // First try direct prodiId
-        if (prodiId) {
-            const p = prodiList.find(pr => pr.id === prodiId)
+        const pId = parseInt(prodiId)
+        if (pId) {
+            const p = prodiList.find(pr => pr.id === pId)
             if (p) return p.kode
         }
         // Fallback: get prodi from kelas
-        if (kelasId) {
-            const k = kelasList.find(kl => kl.id === kelasId)
-            if (k?.prodiId) {
-                const p = prodiList.find(pr => pr.id === k.prodiId)
+        const kId = parseInt(kelasId)
+        if (kId) {
+            const k = kelasList.find(kl => kl.id === kId)
+            if (k?.prodi_id || k?.prodiId) {
+                const p = prodiList.find(pr => pr.id === (k.prodi_id || k.prodiId))
                 if (p) return p.kode
             }
         }
@@ -345,11 +437,11 @@ function JadwalUjianPage() {
                             <tbody>
                                 ${groupedJadwal[date].map(j => `
                                     <tr>
-                                        <td>${j.waktuMulai} - ${j.waktuSelesai}</td>
-                                        <td>${getMatkulName(j.matkulId)}</td>
-                                        <td>${getKelasName(j.kelasId)}</td>
-                                        <td>${j.tipeUjian}</td>
-                                        <td>${j.ruang}</td>
+                                        <td>${getJadwalWaktuMulai(j)} - ${getJadwalWaktuSelesai(j)}</td>
+                                        <td>${getMatkulName(getJadwalMatkul(j))}</td>
+                                        <td>${getKelasName(getJadwalKelas(j))}</td>
+                                        <td>${getJadwalTipe(j)}</td>
+                                        <td>${getJadwalRuang(j)}</td>
                                     </tr>
                                 `).join('')}
                             </tbody>
@@ -370,7 +462,12 @@ function JadwalUjianPage() {
             <div className="dashboard-page animate-fadeIn">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Jadwal Ujian</h1>
+                        <h1 className="page-title">
+                            Jadwal Ujian
+                            <span className={`badge badge-${useSupabase ? 'success' : 'warning'}`} style={{ marginLeft: '12px', fontSize: '12px' }}>
+                                {useSupabase ? 'Database' : 'Local'}
+                            </span>
+                        </h1>
                         <p className="page-subtitle">
                             {isSuperAdmin
                                 ? 'Lihat jadwal ujian dari seluruh program studi'
@@ -378,6 +475,10 @@ function JadwalUjianPage() {
                         </p>
                     </div>
                     <div className="header-actions">
+                        <button className="btn btn-outline" onClick={loadData} disabled={isLoading}>
+                            <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
+                            {isLoading ? 'Memuat...' : 'Refresh'}
+                        </button>
                         <button className="btn btn-outline" onClick={handlePrint}>
                             <Printer size={18} />
                             Cetak
@@ -390,6 +491,17 @@ function JadwalUjianPage() {
                         )}
                     </div>
                 </div>
+
+                {/* Error Alert */}
+                {error && (
+                    <div className="alert alert-error mb-4" style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <AlertCircle size={18} />
+                        {error}
+                        <button onClick={() => setError(null)} style={{ marginLeft: 'auto', background: 'none', border: 'none', cursor: 'pointer' }}>
+                            <X size={16} />
+                        </button>
+                    </div>
+                )}
 
                 {/* Stats */}
                 <div className="mini-stats">
@@ -477,23 +589,23 @@ function JadwalUjianPage() {
                                                     <td>
                                                         <div className="time-cell">
                                                             <Clock size={14} />
-                                                            <span>{j.waktuMulai} - {j.waktuSelesai}</span>
+                                                            <span>{getJadwalWaktuMulai(j)} - {getJadwalWaktuSelesai(j)}</span>
                                                         </div>
                                                     </td>
-                                                    <td className="font-medium">{getMatkulName(j.matkulId)}</td>
-                                                    <td>{getKelasName(j.kelasId)}</td>
+                                                    <td className="font-medium">{getMatkulName(getJadwalMatkul(j))}</td>
+                                                    <td>{getKelasName(getJadwalKelas(j))}</td>
                                                     {isSuperAdmin && (
                                                         <td>
-                                                            <span className="badge badge-primary">{getProdiName(j.prodiId, j.kelasId)}</span>
+                                                            <span className="badge badge-primary">{getProdiName(getJadwalProdiId(j), getJadwalKelas(j))}</span>
                                                         </td>
                                                     )}
                                                     <td>
-                                                        <span className={`badge badge-${getTipeBadge(j.tipeUjian)}`}>{j.tipeUjian}</span>
+                                                        <span className={`badge badge-${getTipeBadge(getJadwalTipe(j))}`}>{getJadwalTipe(j)}</span>
                                                     </td>
                                                     <td>
                                                         <div className="room-cell">
                                                             <MapPin size={14} />
-                                                            {j.ruang}
+                                                            {getJadwalRuang(j)}
                                                         </div>
                                                     </td>
                                                     {!isSuperAdmin && (
@@ -541,8 +653,9 @@ function JadwalUjianPage() {
                     onClose={() => setModalOpen(false)}
                     jadwal={editingJadwal}
                     onSave={handleSave}
-                    matkulList={user?.role === 'superadmin' ? matkulList : matkulList.filter(m => m.prodiId === user?.prodiId)}
-                    kelasList={user?.role === 'superadmin' ? kelasList : kelasList.filter(k => k.prodiId === user?.prodiId)}
+                    isLoading={isSaving}
+                    matkulList={user?.role === 'superadmin' ? matkulList : matkulList.filter(m => (m.prodi_id || m.prodiId) === user?.prodiId)}
+                    kelasList={user?.role === 'superadmin' ? kelasList : kelasList.filter(k => (k.prodi_id || k.prodiId) === user?.prodiId)}
                 />
             </div>
 
