@@ -202,3 +202,154 @@ Fonts akan loading dari Google CDN. Pastikan:
 ---
 
 *Panduan ini dibuat untuk CAT Poltektrans SDP Palembang - Januari 2026*
+
+---
+
+## 6. GitHub + Auto Deploy (Recommended) 🚀
+
+Dengan cara ini, setiap kali Anda update kode dan `git push`, website otomatis ter-update!
+
+---
+
+### 6.1 Buat Repository GitHub
+
+**Langkah 1: Buka GitHub**
+1. Buka https://github.com
+2. Login dengan akun Anda (atau daftar gratis jika belum punya)
+
+**Langkah 2: Buat Repository Baru**
+1. Klik tombol **"+"** di pojok kanan atas
+2. Pilih **"New repository"**
+3. Isi form:
+   - **Repository name**: `cat-poltektrans-sdp-palembang`
+   - **Description**: `Sistem CAT Politeknik Transportasi SDP Palembang`
+   - **Visibility**: Pilih `Private` (rahasia) atau `Public`
+   - **⚠️ JANGAN centang** "Add a README file"
+4. Klik **"Create repository"**
+
+**Langkah 3: Hubungkan dengan Repository Lokal**
+
+Setelah repository dibuat, jalankan perintah ini di Terminal:
+
+```bash
+cd /Users/dadangaziz/Desktop/cat-poltektrans-sdp-palembang
+
+# Tambahkan remote GitHub (ganti USERNAME dengan username GitHub Anda)
+git remote add origin https://github.com/USERNAME/cat-poltektrans-sdp-palembang.git
+
+# Push ke GitHub
+git branch -M main
+git push -u origin main
+```
+
+Jika diminta login, masukkan:
+- Username: username GitHub Anda
+- Password: **Personal Access Token** (bukan password biasa!)
+
+> **Cara buat Personal Access Token:**
+> 1. Buka: https://github.com/settings/tokens
+> 2. Klik "Generate new token (classic)"
+> 3. Beri nama, centang "repo"
+> 4. Klik "Generate token"
+> 5. Copy token dan gunakan sebagai password
+
+---
+
+### 6.2 Deploy ke Vercel (GRATIS)
+
+**Langkah 1: Buka Vercel**
+1. Buka https://vercel.com
+2. Klik **"Sign Up"** → Pilih **"Continue with GitHub"**
+3. Authorize Vercel mengakses GitHub Anda
+
+**Langkah 2: Import Project**
+1. Di Dashboard, klik **"Add New..."** → **"Project"**
+2. Pilih **"Import Git Repository"**
+3. Cari `cat-poltektrans-sdp-palembang` → Klik **"Import"**
+
+**Langkah 3: Konfigurasi**
+1. Framework Preset: Vercel akan otomatis detect **Vite**
+2. Build Command: Biarkan default (`npm run build`)
+3. Output Directory: Biarkan default (`dist`)
+4. Klik **"Deploy"**
+
+**Langkah 4: Tunggu Deploy**
+- Vercel akan build dan deploy (sekitar 1-2 menit)
+- Setelah selesai, Anda dapat URL seperti: `https://cat-poltektrans-xxx.vercel.app`
+
+**🎉 Selesai! Website sudah live!**
+
+---
+
+### 6.3 Deploy ke Netlify (Alternatif - GRATIS)
+
+**Langkah 1: Buka Netlify**
+1. Buka https://netlify.com
+2. Klik **"Sign Up"** → Pilih **"GitHub"**
+
+**Langkah 2: Import Project**
+1. Klik **"Add new site"** → **"Import an existing project"**
+2. Pilih **"GitHub"**
+3. Authorize dan pilih repo `cat-poltektrans-sdp-palembang`
+
+**Langkah 3: Konfigurasi Build**
+1. Build command: `npm run build`
+2. Publish directory: `dist`
+3. Klik **"Deploy site"**
+
+---
+
+### 6.4 Custom Domain (Opsional)
+
+**Di Vercel:**
+1. Buka project di Dashboard
+2. Klik **"Settings"** → **"Domains"**
+3. Masukkan domain Anda (contoh: `cat.poltektrans.ac.id`)
+4. Ikuti instruksi DNS:
+   - Tambahkan CNAME record di DNS hosting
+   - Name: `cat`
+   - Value: `cname.vercel-dns.com`
+
+**Di Netlify:**
+1. Buka **"Site settings"** → **"Domain management"**
+2. Klik **"Add custom domain"**
+3. Ikuti instruksi DNS-nya
+
+---
+
+### 6.5 Cara Update Website
+
+Setelah setup selesai, untuk update website:
+
+```bash
+# 1. Edit kode sesuai kebutuhan
+# 2. Test lokal dengan: npm run dev
+# 3. Commit perubahan:
+git add -A
+git commit -m "Deskripsi perubahan"
+
+# 4. Push ke GitHub:
+git push
+
+# 5. 🎉 Tunggu 1-2 menit, website otomatis terupdate!
+```
+
+**Ringkasan Alur Update:**
+```
+Edit Kode → git add → git commit → git push → ✅ Website Live!
+```
+
+---
+
+## 📊 Perbandingan Hosting
+
+| Fitur | Shared Hosting | Vercel/Netlify |
+|-------|---------------|----------------|
+| Harga | Berbayar | **GRATIS** |
+| Auto Deploy | ❌ Manual | ✅ Otomatis |
+| SSL/HTTPS | Manual setup | ✅ Otomatis |
+| CDN Global | ❌ Tidak | ✅ Ya |
+| Kecepatan | Tergantung server | ⚡ Sangat cepat |
+| Update | Upload manual | `git push` saja |
+
+**Rekomendasi:** Gunakan **Vercel** untuk kemudahan dan performa terbaik!
