@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Building2,
     Search,
@@ -9,23 +10,28 @@ import {
     Trash2,
     X,
     Save,
-    BookOpen
+    RefreshCw,
+    AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage key
+// LocalStorage key for fallback
 const STORAGE_KEY = 'cat_prodi_data'
 
-function ProdiModal({ isOpen, onClose, prodi, onSave }) {
+function ProdiModal({ isOpen, onClose, prodi, onSave, isLoading }) {
     const [formData, setFormData] = useState(prodi || {
         kode: '',
-        nama: ''
+        nama: '',
+        ketua: ''
     })
+
+    useEffect(() => {
+        setFormData(prodi || { kode: '', nama: '', ketua: '' })
+    }, [prodi])
 
     const handleSubmit = (e) => {
         e.preventDefault()
         onSave(formData)
-        onClose()
     }
 
     if (!isOpen) return null
@@ -48,7 +54,7 @@ function ProdiModal({ isOpen, onClose, prodi, onSave }) {
                                 className="form-input"
                                 value={formData.kode}
                                 onChange={e => setFormData({ ...formData, kode: e.target.value.toUpperCase() })}
-                                placeholder="Contoh: DPS"
+                                placeholder="Contoh: TI"
                                 maxLength={10}
                                 required
                             />
@@ -60,16 +66,26 @@ function ProdiModal({ isOpen, onClose, prodi, onSave }) {
                                 className="form-input"
                                 value={formData.nama}
                                 onChange={e => setFormData({ ...formData, nama: e.target.value })}
-                                placeholder="Contoh: D4 Pengelolaan Pelabuhan dan Pelayaran Sungai"
+                                placeholder="Contoh: Teknologi Informasi"
                                 required
+                            />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Ketua Prodi</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.ketua || ''}
+                                onChange={e => setFormData({ ...formData, ketua: e.target.value })}
+                                placeholder="Contoh: Dr. Ahmad Suryadi"
                             />
                         </div>
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
-                        <button type="submit" className="btn btn-primary">
-                            <Save size={16} />
-                            Simpan
+                        <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                            {isLoading ? <span className="spinner"></span> : <Save size={16} />}
+                            {isLoading ? 'Menyimpan...' : 'Simpan'}
                         </button>
                     </div>
                 </form>
@@ -80,19 +96,52 @@ function ProdiModal({ isOpen, onClose, prodi, onSave }) {
 
 function ProdiPage() {
     const { showConfirm } = useConfirm()
-
-    // Load from localStorage on mount
-    const [prodiList, setProdiList] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
+    const [prodiList, setProdiList] = useState([])
     const [search, setSearch] = useState('')
     const [modalOpen, setModalOpen] = useState(false)
     const [editingProdi, setEditingProdi] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [isSaving, setIsSaving] = useState(false)
+    const [error, setError] = useState(null)
+    const [useSupabase, setUseSupabase] = useState(false)
 
-    // Save to localStorage whenever prodiList changes
+    // Load data on mount
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(prodiList))
+        loadData()
+    }, [])
+
+    const loadData = async () => {
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            if (isSupabaseConfigured()) {
+                const data = await prodiService.getAll()
+                setProdiList(data)
+                setUseSupabase(true)
+            } else {
+                // Fallback to localStorage
+                const saved = localStorage.getItem(STORAGE_KEY)
+                setProdiList(saved ? JSON.parse(saved) : [])
+                setUseSupabase(false)
+            }
+        } catch (err) {
+            console.error('Error loading prodi:', err)
+            setError('Gagal memuat data. Menggunakan data lokal.')
+            // Fallback to localStorage on error
+            const saved = localStorage.getItem(STORAGE_KEY)
+            setProdiList(saved ? JSON.parse(saved) : [])
+            setUseSupabase(false)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // Save to localStorage as backup
+    useEffect(() => {
+        if (prodiList.length > 0) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(prodiList))
+        }
     }, [prodiList])
 
     const filteredProdi = prodiList.filter(p =>
@@ -110,11 +159,30 @@ function ProdiPage() {
         setModalOpen(true)
     }
 
-    const handleSaveProdi = (data) => {
-        if (editingProdi) {
-            setProdiList(prodiList.map(p => p.id === editingProdi.id ? { ...data, id: editingProdi.id } : p))
-        } else {
-            setProdiList([...prodiList, { ...data, id: Date.now() }])
+    const handleSaveProdi = async (data) => {
+        setIsSaving(true)
+        try {
+            if (useSupabase) {
+                if (editingProdi) {
+                    await prodiService.update(editingProdi.id, data)
+                } else {
+                    await prodiService.create(data)
+                }
+                await loadData() // Reload from database
+            } else {
+                // localStorage fallback
+                if (editingProdi) {
+                    setProdiList(prodiList.map(p => p.id === editingProdi.id ? { ...data, id: editingProdi.id } : p))
+                } else {
+                    setProdiList([...prodiList, { ...data, id: Date.now() }])
+                }
+            }
+            setModalOpen(false)
+        } catch (err) {
+            console.error('Error saving prodi:', err)
+            alert('Gagal menyimpan data: ' + err.message)
+        } finally {
+            setIsSaving(false)
         }
     }
 
@@ -122,7 +190,19 @@ function ProdiPage() {
         showConfirm({
             title: 'Konfirmasi Hapus',
             message: 'Apakah Anda yakin ingin menghapus program studi ini?',
-            onConfirm: () => setProdiList(prodiList.filter(p => p.id !== id))
+            onConfirm: async () => {
+                try {
+                    if (useSupabase) {
+                        await prodiService.delete(id)
+                        await loadData()
+                    } else {
+                        setProdiList(prodiList.filter(p => p.id !== id))
+                    }
+                } catch (err) {
+                    console.error('Error deleting prodi:', err)
+                    alert('Gagal menghapus: ' + err.message)
+                }
+            }
         })
     }
 
@@ -132,13 +212,32 @@ function ProdiPage() {
                 <div className="page-header">
                     <div>
                         <h1 className="page-title">Manajemen Program Studi</h1>
-                        <p className="page-subtitle">Kelola data program studi</p>
+                        <p className="page-subtitle">
+                            Kelola data program studi
+                            {useSupabase ? (
+                                <span className="badge badge-success" style={{ marginLeft: '8px' }}>Database</span>
+                            ) : (
+                                <span className="badge badge-warning" style={{ marginLeft: '8px' }}>Local</span>
+                            )}
+                        </p>
                     </div>
-                    <button className="btn btn-primary" onClick={handleAddProdi}>
-                        <Plus size={18} />
-                        Tambah Prodi
-                    </button>
+                    <div className="flex gap-2">
+                        <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
+                            <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
+                        </button>
+                        <button className="btn btn-primary" onClick={handleAddProdi}>
+                            <Plus size={18} />
+                            Tambah Prodi
+                        </button>
+                    </div>
                 </div>
+
+                {error && (
+                    <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
+                        <AlertCircle size={18} />
+                        {error}
+                    </div>
+                )}
 
                 <div className="mini-stats">
                     <div className="mini-stat">
@@ -162,55 +261,63 @@ function ProdiPage() {
                             </div>
                         </div>
 
-                        <div className="table-container">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '80px' }}>Kode</th>
-                                        <th>Nama Program Studi</th>
-                                        <th style={{ width: '120px' }}>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredProdi.map(prodi => (
-                                        <tr key={prodi.id}>
-                                            <td>
-                                                <span className="badge badge-primary">{prodi.kode}</span>
-                                            </td>
-                                            <td>
-                                                <div className="prodi-cell">
-                                                    <Building2 size={18} className="prodi-icon" />
-                                                    <span className="font-medium">{prodi.nama}</span>
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        className="btn btn-icon btn-ghost btn-sm"
-                                                        onClick={() => handleEditProdi(prodi)}
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-icon btn-ghost btn-sm text-error"
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteProdi(prodi.id); }}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredProdi.length === 0 && (
+                        {isLoading ? (
+                            <div className="flex items-center justify-center" style={{ padding: '48px' }}>
+                                <div className="spinner-lg"></div>
+                            </div>
+                        ) : (
+                            <div className="table-container">
+                                <table className="table">
+                                    <thead>
                                         <tr>
-                                            <td colSpan={3} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
-                                                Tidak ada data program studi
-                                            </td>
+                                            <th style={{ width: '80px' }}>Kode</th>
+                                            <th>Nama Program Studi</th>
+                                            <th>Ketua Prodi</th>
+                                            <th style={{ width: '120px' }}>Aksi</th>
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {filteredProdi.map(prodi => (
+                                            <tr key={prodi.id}>
+                                                <td>
+                                                    <span className="badge badge-primary">{prodi.kode}</span>
+                                                </td>
+                                                <td>
+                                                    <div className="prodi-cell">
+                                                        <Building2 size={18} className="prodi-icon" />
+                                                        <span className="font-medium">{prodi.nama}</span>
+                                                    </div>
+                                                </td>
+                                                <td>{prodi.ketua || '-'}</td>
+                                                <td>
+                                                    <div className="flex gap-2">
+                                                        <button
+                                                            className="btn btn-icon btn-ghost btn-sm"
+                                                            onClick={() => handleEditProdi(prodi)}
+                                                        >
+                                                            <Edit2 size={16} />
+                                                        </button>
+                                                        <button
+                                                            className="btn btn-icon btn-ghost btn-sm text-error"
+                                                            onClick={(e) => { e.stopPropagation(); handleDeleteProdi(prodi.id); }}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                        </button>
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        ))}
+                                        {filteredProdi.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
+                                                    Tidak ada data program studi
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -219,6 +326,7 @@ function ProdiPage() {
                     onClose={() => setModalOpen(false)}
                     prodi={editingProdi}
                     onSave={handleSaveProdi}
+                    isLoading={isSaving}
                 />
             </div>
 
@@ -235,6 +343,15 @@ function ProdiPage() {
         
         .text-error {
           color: var(--error-500);
+        }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
         </DashboardLayout>

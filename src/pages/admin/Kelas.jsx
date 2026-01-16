@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { kelasService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Users as UsersIcon,
     Search,
@@ -10,22 +11,22 @@ import {
     Trash2,
     X,
     Save,
-    Filter
+    Filter,
+    RefreshCw,
+    AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
+// LocalStorage keys for fallback
 const STORAGE_KEY = 'cat_kelas_data'
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 
-// Angkatan options - unlimited, starting from 34 (2023)
-// Generate dynamically: 34=2023, 35=2024, etc.
+// Angkatan options
 const generateAngkatanOptions = () => {
     const options = []
-    const startAngkatan = 34 // 2023
+    const startAngkatan = 34
     const startYear = 2023
     const currentYear = new Date().getFullYear()
-    // Generate from angkatan 34 to 10 years ahead
     for (let i = 0; i <= (currentYear - startYear + 10); i++) {
         options.push({
             value: startAngkatan + i,
@@ -36,17 +37,24 @@ const generateAngkatanOptions = () => {
 }
 const ANGKATAN_OPTIONS = generateAngkatanOptions()
 
-function KelasModal({ isOpen, onClose, kelas, onSave, prodiList }) {
+function KelasModal({ isOpen, onClose, kelas, onSave, prodiList, isLoading }) {
     const [formData, setFormData] = useState(kelas || {
         nama: '',
-        prodiId: prodiList[0]?.id || '',
-        angkatan: 35 // Default to current angkatan
+        prodi_id: prodiList[0]?.id || '',
+        angkatan: new Date().getFullYear()
     })
+
+    useEffect(() => {
+        setFormData(kelas || {
+            nama: '',
+            prodi_id: prodiList[0]?.id || '',
+            angkatan: new Date().getFullYear()
+        })
+    }, [kelas, prodiList])
 
     const handleSubmit = (e) => {
         e.preventDefault()
-        onSave({ ...formData, prodiId: Number(formData.prodiId), angkatan: Number(formData.angkatan) })
-        onClose()
+        onSave(formData)
     }
 
     if (!isOpen) return null
@@ -66,10 +74,11 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList }) {
                             <label className="form-label">Program Studi</label>
                             <select
                                 className="form-input"
-                                value={formData.prodiId}
-                                onChange={e => setFormData({ ...formData, prodiId: e.target.value })}
+                                value={formData.prodi_id}
+                                onChange={e => setFormData({ ...formData, prodi_id: e.target.value })}
                                 required
                             >
+                                <option value="">Pilih Prodi</option>
                                 {prodiList.map(p => (
                                     <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
                                 ))}
@@ -83,8 +92,8 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList }) {
                                     className="form-input"
                                     value={formData.nama}
                                     onChange={e => setFormData({ ...formData, nama: e.target.value.toUpperCase() })}
-                                    placeholder="Contoh: 1A"
-                                    maxLength={5}
+                                    placeholder="Contoh: TI-1A"
+                                    maxLength={20}
                                     required
                                 />
                             </div>
@@ -105,9 +114,9 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList }) {
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
-                        <button type="submit" className="btn btn-primary">
-                            <Save size={16} />
-                            Simpan
+                        <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                            {isLoading ? <span className="spinner"></span> : <Save size={16} />}
+                            {isLoading ? 'Menyimpan...' : 'Simpan'}
                         </button>
                     </div>
                 </form>
@@ -120,47 +129,72 @@ function KelasPage() {
     const { user } = useAuth()
     const { showConfirm } = useConfirm()
 
-    // Load from localStorage
-    const [kelasList, setKelasList] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [prodiList, setProdiList] = useState(() => {
-        const saved = localStorage.getItem(PRODI_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-
+    const [kelasList, setKelasList] = useState([])
+    const [prodiList, setProdiList] = useState([])
     const [search, setSearch] = useState('')
-    const [prodiFilter, setProdiFilter] = useState(user?.role === 'admin_prodi' ? user.prodiId : 'all')
+    const [prodiFilter, setProdiFilter] = useState('all')
     const [modalOpen, setModalOpen] = useState(false)
     const [editingKelas, setEditingKelas] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [isSaving, setIsSaving] = useState(false)
+    const [error, setError] = useState(null)
+    const [useSupabase, setUseSupabase] = useState(false)
 
-    // Save to localStorage whenever kelasList changes
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(kelasList))
-    }, [kelasList])
-
-    // Reload prodi list when window regains focus
-    useEffect(() => {
-        const handleFocus = () => {
-            const saved = localStorage.getItem(PRODI_STORAGE_KEY)
-            if (saved) setProdiList(JSON.parse(saved))
-        }
-        window.addEventListener('focus', handleFocus)
-        return () => window.removeEventListener('focus', handleFocus)
+        loadData()
     }, [])
 
-    // For admin_prodi, always filter by their prodi
+    const loadData = async () => {
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            if (isSupabaseConfigured()) {
+                const [kelasData, prodiData] = await Promise.all([
+                    kelasService.getAll(),
+                    prodiService.getAll()
+                ])
+                setKelasList(kelasData)
+                setProdiList(prodiData)
+                setUseSupabase(true)
+            } else {
+                // Fallback to localStorage
+                const savedKelas = localStorage.getItem(STORAGE_KEY)
+                const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
+                setKelasList(savedKelas ? JSON.parse(savedKelas) : [])
+                setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
+                setUseSupabase(false)
+            }
+        } catch (err) {
+            console.error('Error loading data:', err)
+            setError('Gagal memuat data. Menggunakan data lokal.')
+            const savedKelas = localStorage.getItem(STORAGE_KEY)
+            const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
+            setKelasList(savedKelas ? JSON.parse(savedKelas) : [])
+            setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
+            setUseSupabase(false)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // Backup to localStorage
+    useEffect(() => {
+        if (kelasList.length > 0) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(kelasList))
+        }
+    }, [kelasList])
+
     const effectiveProdiFilter = user?.role === 'admin_prodi' ? user.prodiId : prodiFilter
     const availableProdiList = user?.role === 'admin_prodi'
         ? prodiList.filter(p => p.id === user.prodiId)
         : prodiList
 
     const filteredKelas = kelasList.filter(k => {
-        const prodi = prodiList.find(p => p.id === k.prodiId)
+        const prodi = k.prodi || prodiList.find(p => p.id === k.prodi_id)
         const matchesSearch = k.nama.toLowerCase().includes(search.toLowerCase()) ||
-            prodi?.nama.toLowerCase().includes(search.toLowerCase())
-        const matchesProdi = effectiveProdiFilter === 'all' || k.prodiId === Number(effectiveProdiFilter)
+            prodi?.nama?.toLowerCase().includes(search.toLowerCase())
+        const matchesProdi = effectiveProdiFilter === 'all' || k.prodi_id === effectiveProdiFilter
         return matchesSearch && matchesProdi
     })
 
@@ -174,11 +208,29 @@ function KelasPage() {
         setModalOpen(true)
     }
 
-    const handleSaveKelas = (data) => {
-        if (editingKelas) {
-            setKelasList(kelasList.map(k => k.id === editingKelas.id ? { ...data, id: editingKelas.id } : k))
-        } else {
-            setKelasList([...kelasList, { ...data, id: Date.now() }])
+    const handleSaveKelas = async (data) => {
+        setIsSaving(true)
+        try {
+            if (useSupabase) {
+                if (editingKelas) {
+                    await kelasService.update(editingKelas.id, data)
+                } else {
+                    await kelasService.create(data)
+                }
+                await loadData()
+            } else {
+                if (editingKelas) {
+                    setKelasList(kelasList.map(k => k.id === editingKelas.id ? { ...data, id: editingKelas.id } : k))
+                } else {
+                    setKelasList([...kelasList, { ...data, id: Date.now() }])
+                }
+            }
+            setModalOpen(false)
+        } catch (err) {
+            console.error('Error saving kelas:', err)
+            alert('Gagal menyimpan: ' + err.message)
+        } finally {
+            setIsSaving(false)
         }
     }
 
@@ -186,13 +238,25 @@ function KelasPage() {
         showConfirm({
             title: 'Konfirmasi Hapus',
             message: 'Apakah Anda yakin ingin menghapus kelas ini?',
-            onConfirm: () => setKelasList(kelasList.filter(k => k.id !== id))
+            onConfirm: async () => {
+                try {
+                    if (useSupabase) {
+                        await kelasService.delete(id)
+                        await loadData()
+                    } else {
+                        setKelasList(kelasList.filter(k => k.id !== id))
+                    }
+                } catch (err) {
+                    console.error('Error deleting:', err)
+                    alert('Gagal menghapus: ' + err.message)
+                }
+            }
         })
     }
 
-    const getProdiName = (prodiId) => {
-        const prodi = prodiList.find(p => p.id === prodiId)
-        return prodi ? prodi.kode : '-'
+    const getProdiInfo = (kelas) => {
+        const prodi = kelas.prodi || prodiList.find(p => p.id === kelas.prodi_id)
+        return prodi || { kode: '-', nama: '-' }
     }
 
     return (
@@ -201,22 +265,41 @@ function KelasPage() {
                 <div className="page-header">
                     <div>
                         <h1 className="page-title">Manajemen Kelas</h1>
-                        <p className="page-subtitle">Kelola data kelas per program studi</p>
+                        <p className="page-subtitle">
+                            Kelola data kelas per program studi
+                            {useSupabase ? (
+                                <span className="badge badge-success" style={{ marginLeft: '8px' }}>Database</span>
+                            ) : (
+                                <span className="badge badge-warning" style={{ marginLeft: '8px' }}>Local</span>
+                            )}
+                        </p>
                     </div>
-                    <button className="btn btn-primary" onClick={handleAddKelas}>
-                        <Plus size={18} />
-                        Tambah Kelas
-                    </button>
+                    <div className="flex gap-2">
+                        <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
+                            <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
+                        </button>
+                        <button className="btn btn-primary" onClick={handleAddKelas}>
+                            <Plus size={18} />
+                            Tambah Kelas
+                        </button>
+                    </div>
                 </div>
+
+                {error && (
+                    <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
+                        <AlertCircle size={18} />
+                        {error}
+                    </div>
+                )}
 
                 <div className="mini-stats">
                     <div className="mini-stat">
                         <span className="mini-stat-value">{kelasList.length}</span>
                         <span className="mini-stat-label">Total Kelas</span>
                     </div>
-                    {prodiList.map(p => (
+                    {prodiList.slice(0, 3).map(p => (
                         <div key={p.id} className="mini-stat">
-                            <span className="mini-stat-value">{kelasList.filter(k => k.prodiId === p.id).length}</span>
+                            <span className="mini-stat-value">{kelasList.filter(k => k.prodi_id === p.id).length}</span>
                             <span className="mini-stat-label">{p.kode}</span>
                         </div>
                     ))}
@@ -252,60 +335,67 @@ function KelasPage() {
                             )}
                         </div>
 
-                        <div className="table-container">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '100px' }}>Kelas</th>
-                                        <th>Program Studi</th>
-                                        <th style={{ width: '100px' }}>Angkatan</th>
-                                        <th style={{ width: '100px' }}>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredKelas.map(kelas => (
-                                        <tr key={kelas.id}>
-                                            <td>
-                                                <div className="kelas-badge">
-                                                    <UsersIcon size={14} />
-                                                    {kelas.nama}
-                                                </div>
-                                            </td>
-                                            <td>
-                                                <span className="badge badge-primary">{getProdiName(kelas.prodiId)}</span>
-                                                <span className="prodi-full-name">
-                                                    {prodiList.find(p => p.id === kelas.prodiId)?.nama}
-                                                </span>
-                                            </td>
-                                            <td className="font-medium">Angkatan {kelas.angkatan} ({1989 + kelas.angkatan})</td>
-                                            <td>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        className="btn btn-icon btn-ghost btn-sm"
-                                                        onClick={() => handleEditKelas(kelas)}
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-icon btn-ghost btn-sm text-error"
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteKelas(kelas.id); }}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredKelas.length === 0 && (
+                        {isLoading ? (
+                            <div className="flex items-center justify-center" style={{ padding: '48px' }}>
+                                <div className="spinner-lg"></div>
+                            </div>
+                        ) : (
+                            <div className="table-container">
+                                <table className="table">
+                                    <thead>
                                         <tr>
-                                            <td colSpan={4} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
-                                                Tidak ada data kelas
-                                            </td>
+                                            <th style={{ width: '120px' }}>Kelas</th>
+                                            <th>Program Studi</th>
+                                            <th style={{ width: '120px' }}>Angkatan</th>
+                                            <th style={{ width: '100px' }}>Aksi</th>
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {filteredKelas.map(kelas => {
+                                            const prodi = getProdiInfo(kelas)
+                                            return (
+                                                <tr key={kelas.id}>
+                                                    <td>
+                                                        <div className="kelas-badge">
+                                                            <UsersIcon size={14} />
+                                                            {kelas.nama}
+                                                        </div>
+                                                    </td>
+                                                    <td>
+                                                        <span className="badge badge-primary">{prodi.kode}</span>
+                                                        <span className="prodi-full-name">{prodi.nama}</span>
+                                                    </td>
+                                                    <td className="font-medium">{kelas.angkatan}</td>
+                                                    <td>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                className="btn btn-icon btn-ghost btn-sm"
+                                                                onClick={() => handleEditKelas(kelas)}
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-icon btn-ghost btn-sm text-error"
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteKelas(kelas.id); }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                        {filteredKelas.length === 0 && (
+                                            <tr>
+                                                <td colSpan={4} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
+                                                    Tidak ada data kelas
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -315,6 +405,7 @@ function KelasPage() {
                     kelas={editingKelas}
                     onSave={handleSaveKelas}
                     prodiList={availableProdiList}
+                    isLoading={isSaving}
                 />
             </div>
 
@@ -345,6 +436,10 @@ function KelasPage() {
           display: grid;
           grid-template-columns: 1fr 1fr;
           gap: var(--space-4);
+        }
+
+        .spin {
+          animation: spin 1s linear infinite;
         }
         
         @media (max-width: 640px) {
