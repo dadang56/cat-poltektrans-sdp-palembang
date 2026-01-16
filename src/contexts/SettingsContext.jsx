@@ -2,12 +2,12 @@ import { createContext, useContext, useState, useEffect } from 'react'
 
 // Default settings
 const DEFAULT_SETTINGS = {
-    appName: 'CAT POLTEKTRANS',
+    appName: 'POLTEKTRANS EXAM',
     appSubtitle: 'Sistem Ujian Online',
-    logoUrl: null,
-    primaryColor: '#0891b2', // Default cyan-600
-    secondaryColor: '#ca8a04', // Default yellow-600
-    institution: 'Politeknik Transportasi SDP Palembang',
+    logoUrl: '/logo.png',
+    primaryColor: '#1e3a5f', // Navy blue
+    secondaryColor: '#d4af37', // Gold
+    institution: 'Politeknik Transportasi Sungai, Danau dan Penyeberangan Palembang',
     address: 'Jl. Residen Abdul Rozak, Palembang',
     phone: '(0711) 712345',
     email: 'info@poltektrans.ac.id'
