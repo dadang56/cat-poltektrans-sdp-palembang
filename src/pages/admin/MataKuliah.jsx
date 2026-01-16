@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { matkulService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     BookOpen,
     Search,
@@ -11,42 +12,39 @@ import {
     X,
     Save,
     Filter,
-    Info
+    Info,
+    RefreshCw,
+    AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
+// LocalStorage keys for fallback
 const STORAGE_KEY = 'cat_matkul_data'
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 
-function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList }) {
+function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) {
     const [formData, setFormData] = useState(matkul || {
         kode: '',
         nama: '',
-        semester: 1,
-        sksTeori: 2,
-        sksPraktek: 0,
-        prodiId: prodiList[0]?.id || ''
+        sks: 3,
+        prodi_id: prodiList[0]?.id || ''
     })
+
+    useEffect(() => {
+        setFormData(matkul || {
+            kode: '',
+            nama: '',
+            sks: 3,
+            prodi_id: prodiList[0]?.id || ''
+        })
+    }, [matkul, prodiList])
 
     const handleSubmit = (e) => {
         e.preventDefault()
         onSave({
             ...formData,
-            prodiId: Number(formData.prodiId),
-            semester: Number(formData.semester),
-            sksTeori: Number(formData.sksTeori),
-            sksPraktek: Number(formData.sksPraktek)
+            sks: Number(formData.sks)
         })
-        onClose()
-    }
-
-    // Get grading formula based on praktek
-    const getGradingFormula = () => {
-        if (formData.sksPraktek > 0) {
-            return 'NT (10%) + NUTS (20%) + NP (20%) + UAS (50%)'
-        }
-        return 'NT (10%) + NUTS (30%) + UAS (60%)'
     }
 
     if (!isOpen) return null
@@ -66,10 +64,11 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList }) {
                             <label className="form-label">Program Studi</label>
                             <select
                                 className="form-input"
-                                value={formData.prodiId}
-                                onChange={e => setFormData({ ...formData, prodiId: e.target.value })}
+                                value={formData.prodi_id}
+                                onChange={e => setFormData({ ...formData, prodi_id: e.target.value })}
                                 required
                             >
+                                <option value="">Pilih Prodi</option>
                                 {prodiList.map(p => (
                                     <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
                                 ))}
@@ -83,23 +82,22 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList }) {
                                     className="form-input"
                                     value={formData.kode}
                                     onChange={e => setFormData({ ...formData, kode: e.target.value.toUpperCase() })}
-                                    placeholder="Contoh: NAV101"
-                                    maxLength={10}
+                                    placeholder="Contoh: TI101"
+                                    maxLength={20}
                                     required
                                 />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">Semester</label>
-                                <select
+                                <label className="form-label">SKS</label>
+                                <input
+                                    type="number"
                                     className="form-input"
-                                    value={formData.semester || 1}
-                                    onChange={e => setFormData({ ...formData, semester: e.target.value })}
+                                    value={formData.sks}
+                                    onChange={e => setFormData({ ...formData, sks: e.target.value })}
+                                    min={1}
+                                    max={6}
                                     required
-                                >
-                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                                        <option key={s} value={s}>Semester {s}</option>
-                                    ))}
-                                </select>
+                                />
                             </div>
                         </div>
                         <div className="form-group">
@@ -109,51 +107,16 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList }) {
                                 className="form-input"
                                 value={formData.nama}
                                 onChange={e => setFormData({ ...formData, nama: e.target.value })}
-                                placeholder="Contoh: Navigasi Sungai"
+                                placeholder="Contoh: Algoritma dan Pemrograman"
                                 required
                             />
-                        </div>
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label className="form-label">SKS Teori</label>
-                                <input
-                                    type="number"
-                                    className="form-input"
-                                    value={formData.sksTeori}
-                                    onChange={e => setFormData({ ...formData, sksTeori: e.target.value })}
-                                    min={0}
-                                    max={6}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">SKS Praktek</label>
-                                <input
-                                    type="number"
-                                    className="form-input"
-                                    value={formData.sksPraktek}
-                                    onChange={e => setFormData({ ...formData, sksPraktek: e.target.value })}
-                                    min={0}
-                                    max={6}
-                                    required
-                                />
-                            </div>
-                        </div>
-
-                        {/* Grading Formula Info */}
-                        <div className="formula-info">
-                            <Info size={16} />
-                            <div>
-                                <strong>Rumus Nilai:</strong>
-                                <span>{getGradingFormula()}</span>
-                            </div>
                         </div>
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
-                        <button type="submit" className="btn btn-primary">
-                            <Save size={16} />
-                            Simpan
+                        <button type="submit" className="btn btn-primary" disabled={isLoading}>
+                            {isLoading ? <span className="spinner"></span> : <Save size={16} />}
+                            {isLoading ? 'Menyimpan...' : 'Simpan'}
                         </button>
                     </div>
                 </form>
@@ -166,50 +129,73 @@ function MataKuliahPage() {
     const { user } = useAuth()
     const { showConfirm } = useConfirm()
 
-    // Load from localStorage
-    const [matkulList, setMatkulList] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [prodiList, setProdiList] = useState(() => {
-        const saved = localStorage.getItem(PRODI_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-
+    const [matkulList, setMatkulList] = useState([])
+    const [prodiList, setProdiList] = useState([])
     const [search, setSearch] = useState('')
-    const [prodiFilter, setProdiFilter] = useState(user?.role === 'admin_prodi' || user?.role === 'admin-prodi' ? String(user.prodiId) : 'all')
-    const [semesterFilter, setSemesterFilter] = useState('all')
+    const [prodiFilter, setProdiFilter] = useState('all')
     const [modalOpen, setModalOpen] = useState(false)
     const [editingMatkul, setEditingMatkul] = useState(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [isSaving, setIsSaving] = useState(false)
+    const [error, setError] = useState(null)
+    const [useSupabase, setUseSupabase] = useState(false)
 
-    // Save to localStorage whenever matkulList changes
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(matkulList))
-    }, [matkulList])
-
-    // Reload prodi list when window regains focus
-    useEffect(() => {
-        const handleFocus = () => {
-            const saved = localStorage.getItem(PRODI_STORAGE_KEY)
-            if (saved) setProdiList(JSON.parse(saved))
-        }
-        window.addEventListener('focus', handleFocus)
-        return () => window.removeEventListener('focus', handleFocus)
+        loadData()
     }, [])
 
-    // For admin_prodi, always filter by their prodi
-    const isAdminProdi = user?.role === 'admin_prodi' || user?.role === 'admin-prodi'
-    const effectiveProdiFilter = isAdminProdi ? String(user.prodiId) : prodiFilter
+    const loadData = async () => {
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            if (isSupabaseConfigured()) {
+                const [matkulData, prodiData] = await Promise.all([
+                    matkulService.getAll(),
+                    prodiService.getAll()
+                ])
+                setMatkulList(matkulData)
+                setProdiList(prodiData)
+                setUseSupabase(true)
+            } else {
+                const savedMatkul = localStorage.getItem(STORAGE_KEY)
+                const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
+                setMatkulList(savedMatkul ? JSON.parse(savedMatkul) : [])
+                setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
+                setUseSupabase(false)
+            }
+        } catch (err) {
+            console.error('Error loading data:', err)
+            setError('Gagal memuat data. Menggunakan data lokal.')
+            const savedMatkul = localStorage.getItem(STORAGE_KEY)
+            const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
+            setMatkulList(savedMatkul ? JSON.parse(savedMatkul) : [])
+            setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
+            setUseSupabase(false)
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    // Backup to localStorage
+    useEffect(() => {
+        if (matkulList.length > 0) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(matkulList))
+        }
+    }, [matkulList])
+
+    const isAdminProdi = user?.role === 'admin_prodi'
+    const effectiveProdiFilter = isAdminProdi ? user.prodiId : prodiFilter
     const availableProdiList = isAdminProdi
         ? prodiList.filter(p => p.id === user.prodiId)
         : prodiList
 
     const filteredMatkul = matkulList.filter(m => {
+        const prodi = m.prodi || prodiList.find(p => p.id === m.prodi_id)
         const matchesSearch = m.nama.toLowerCase().includes(search.toLowerCase()) ||
             m.kode.toLowerCase().includes(search.toLowerCase())
-        const matchesProdi = effectiveProdiFilter === 'all' || String(m.prodiId) === String(effectiveProdiFilter)
-        const matchesSemester = semesterFilter === 'all' || String(m.semester) === String(semesterFilter)
-        return matchesSearch && matchesProdi && matchesSemester
+        const matchesProdi = effectiveProdiFilter === 'all' || m.prodi_id === effectiveProdiFilter
+        return matchesSearch && matchesProdi
     })
 
     const handleAddMatkul = () => {
@@ -222,11 +208,29 @@ function MataKuliahPage() {
         setModalOpen(true)
     }
 
-    const handleSaveMatkul = (data) => {
-        if (editingMatkul) {
-            setMatkulList(matkulList.map(m => m.id === editingMatkul.id ? { ...data, id: editingMatkul.id } : m))
-        } else {
-            setMatkulList([...matkulList, { ...data, id: Date.now() }])
+    const handleSaveMatkul = async (data) => {
+        setIsSaving(true)
+        try {
+            if (useSupabase) {
+                if (editingMatkul) {
+                    await matkulService.update(editingMatkul.id, data)
+                } else {
+                    await matkulService.create(data)
+                }
+                await loadData()
+            } else {
+                if (editingMatkul) {
+                    setMatkulList(matkulList.map(m => m.id === editingMatkul.id ? { ...data, id: editingMatkul.id } : m))
+                } else {
+                    setMatkulList([...matkulList, { ...data, id: Date.now() }])
+                }
+            }
+            setModalOpen(false)
+        } catch (err) {
+            console.error('Error saving matkul:', err)
+            alert('Gagal menyimpan: ' + err.message)
+        } finally {
+            setIsSaving(false)
         }
     }
 
@@ -234,21 +238,28 @@ function MataKuliahPage() {
         showConfirm({
             title: 'Konfirmasi Hapus',
             message: 'Apakah Anda yakin ingin menghapus mata kuliah ini?',
-            onConfirm: () => setMatkulList(matkulList.filter(m => m.id !== id))
+            onConfirm: async () => {
+                try {
+                    if (useSupabase) {
+                        await matkulService.delete(id)
+                        await loadData()
+                    } else {
+                        setMatkulList(matkulList.filter(m => m.id !== id))
+                    }
+                } catch (err) {
+                    console.error('Error deleting:', err)
+                    alert('Gagal menghapus: ' + err.message)
+                }
+            }
         })
     }
 
-    const getProdiName = (prodiId) => {
-        const prodi = prodiList.find(p => p.id === prodiId)
-        return prodi ? prodi.kode : '-'
+    const getProdiInfo = (matkul) => {
+        const prodi = matkul.prodi || prodiList.find(p => p.id === matkul.prodi_id)
+        return prodi || { kode: '-', nama: '-' }
     }
 
-    // Stats - use filtered matkul for admin_prodi
-    const statsBaseMatkul = isAdminProdi
-        ? matkulList.filter(m => String(m.prodiId) === String(user.prodiId))
-        : filteredMatkul
-    const totalSKSTeori = statsBaseMatkul.reduce((sum, m) => sum + (m.sksTeori || 0), 0)
-    const totalSKSPraktek = statsBaseMatkul.reduce((sum, m) => sum + (m.sksPraktek || 0), 0)
+    const totalSKS = filteredMatkul.reduce((sum, m) => sum + (m.sks || 0), 0)
 
     return (
         <DashboardLayout>
@@ -256,29 +267,40 @@ function MataKuliahPage() {
                 <div className="page-header">
                     <div>
                         <h1 className="page-title">Manajemen Mata Kuliah</h1>
-                        <p className="page-subtitle">Kelola data mata kuliah per program studi</p>
+                        <p className="page-subtitle">
+                            Kelola data mata kuliah per program studi
+                            {useSupabase ? (
+                                <span className="badge badge-success" style={{ marginLeft: '8px' }}>Database</span>
+                            ) : (
+                                <span className="badge badge-warning" style={{ marginLeft: '8px' }}>Local</span>
+                            )}
+                        </p>
                     </div>
-                    <button className="btn btn-primary" onClick={handleAddMatkul}>
-                        <Plus size={18} />
-                        Tambah Mata Kuliah
-                    </button>
+                    <div className="flex gap-2">
+                        <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
+                            <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
+                        </button>
+                        <button className="btn btn-primary" onClick={handleAddMatkul}>
+                            <Plus size={18} />
+                            Tambah Mata Kuliah
+                        </button>
+                    </div>
                 </div>
+
+                {error && (
+                    <div className="alert alert-warning" style={{ marginBottom: '16px' }}>
+                        <AlertCircle size={18} />
+                        {error}
+                    </div>
+                )}
 
                 <div className="mini-stats">
                     <div className="mini-stat">
-                        <span className="mini-stat-value">{statsBaseMatkul.length}</span>
+                        <span className="mini-stat-value">{filteredMatkul.length}</span>
                         <span className="mini-stat-label">Total Matkul</span>
                     </div>
                     <div className="mini-stat">
-                        <span className="mini-stat-value">{totalSKSTeori}</span>
-                        <span className="mini-stat-label">Total SKS Teori</span>
-                    </div>
-                    <div className="mini-stat">
-                        <span className="mini-stat-value">{totalSKSPraktek}</span>
-                        <span className="mini-stat-label">Total SKS Praktek</span>
-                    </div>
-                    <div className="mini-stat">
-                        <span className="mini-stat-value">{totalSKSTeori + totalSKSPraktek}</span>
+                        <span className="mini-stat-value">{totalSKS}</span>
                         <span className="mini-stat-label">Total SKS</span>
                     </div>
                 </div>
@@ -311,97 +333,74 @@ function MataKuliahPage() {
                                     </select>
                                 </div>
                             )}
-                            <div className="filter-group">
-                                <select
-                                    className="form-input"
-                                    value={semesterFilter}
-                                    onChange={e => setSemesterFilter(e.target.value)}
-                                >
-                                    <option value="all">Semua Semester</option>
-                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
-                                        <option key={s} value={s}>Semester {s}</option>
-                                    ))}
-                                </select>
-                            </div>
                         </div>
 
-                        <div className="table-container">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th style={{ width: '100px' }}>Kode</th>
-                                        <th>Nama Mata Kuliah</th>
-                                        <th style={{ width: '80px' }} className="text-center">Semester</th>
-                                        <th style={{ width: '100px' }} className="text-center">SKS Teori</th>
-                                        <th style={{ width: '100px' }} className="text-center">SKS Praktek</th>
-                                        <th style={{ width: '80px' }} className="text-center">Total</th>
-                                        <th style={{ width: '100px' }}>Prodi</th>
-                                        <th style={{ width: '150px' }}>Rumus Nilai</th>
-                                        <th style={{ width: '100px' }}>Aksi</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredMatkul.map(matkul => (
-                                        <tr key={matkul.id}>
-                                            <td>
-                                                <span className="matkul-kode">{matkul.kode}</span>
-                                            </td>
-                                            <td>
-                                                <div className="matkul-cell">
-                                                    <BookOpen size={18} className="matkul-icon" />
-                                                    <span className="font-medium">{matkul.nama}</span>
-                                                </div>
-                                            </td>
-                                            <td className="text-center">
-                                                <span className="badge badge-info">Sem {matkul.semester || 1}</span>
-                                            </td>
-                                            <td className="text-center">
-                                                <span className="sks-badge teori">{matkul.sksTeori}</span>
-                                            </td>
-                                            <td className="text-center">
-                                                <span className={`sks-badge ${matkul.sksPraktek > 0 ? 'praktek' : 'zero'}`}>
-                                                    {matkul.sksPraktek}
-                                                </span>
-                                            </td>
-                                            <td className="text-center">
-                                                <strong>{matkul.sksTeori + matkul.sksPraktek}</strong>
-                                            </td>
-                                            <td>
-                                                <span className="badge badge-primary">{getProdiName(matkul.prodiId)}</span>
-                                            </td>
-                                            <td>
-                                                <span className={`formula-badge ${matkul.sksPraktek > 0 ? 'with-praktek' : 'no-praktek'}`}>
-                                                    {matkul.sksPraktek > 0 ? 'Dengan NP' : 'Tanpa NP'}
-                                                </span>
-                                            </td>
-                                            <td>
-                                                <div className="flex gap-2">
-                                                    <button
-                                                        className="btn btn-icon btn-ghost btn-sm"
-                                                        onClick={() => handleEditMatkul(matkul)}
-                                                    >
-                                                        <Edit2 size={16} />
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-icon btn-ghost btn-sm text-error"
-                                                        onClick={(e) => { e.stopPropagation(); handleDeleteMatkul(matkul.id); }}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                    </button>
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    ))}
-                                    {filteredMatkul.length === 0 && (
+                        {isLoading ? (
+                            <div className="flex items-center justify-center" style={{ padding: '48px' }}>
+                                <div className="spinner-lg"></div>
+                            </div>
+                        ) : (
+                            <div className="table-container">
+                                <table className="table">
+                                    <thead>
                                         <tr>
-                                            <td colSpan={9} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
-                                                Tidak ada data mata kuliah
-                                            </td>
+                                            <th style={{ width: '100px' }}>Kode</th>
+                                            <th>Nama Mata Kuliah</th>
+                                            <th style={{ width: '80px' }} className="text-center">SKS</th>
+                                            <th style={{ width: '120px' }}>Prodi</th>
+                                            <th style={{ width: '100px' }}>Aksi</th>
                                         </tr>
-                                    )}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {filteredMatkul.map(matkul => {
+                                            const prodi = getProdiInfo(matkul)
+                                            return (
+                                                <tr key={matkul.id}>
+                                                    <td>
+                                                        <span className="matkul-kode">{matkul.kode}</span>
+                                                    </td>
+                                                    <td>
+                                                        <div className="matkul-cell">
+                                                            <BookOpen size={18} className="matkul-icon" />
+                                                            <span className="font-medium">{matkul.nama}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <span className="sks-badge">{matkul.sks}</span>
+                                                    </td>
+                                                    <td>
+                                                        <span className="badge badge-primary">{prodi.kode}</span>
+                                                    </td>
+                                                    <td>
+                                                        <div className="flex gap-2">
+                                                            <button
+                                                                className="btn btn-icon btn-ghost btn-sm"
+                                                                onClick={() => handleEditMatkul(matkul)}
+                                                            >
+                                                                <Edit2 size={16} />
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-icon btn-ghost btn-sm text-error"
+                                                                onClick={(e) => { e.stopPropagation(); handleDeleteMatkul(matkul.id); }}
+                                                            >
+                                                                <Trash2 size={16} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                        {filteredMatkul.length === 0 && (
+                                            <tr>
+                                                <td colSpan={5} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
+                                                    Tidak ada data mata kuliah
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
                     </div>
                 </div>
 
@@ -411,6 +410,7 @@ function MataKuliahPage() {
                     matkul={editingMatkul}
                     onSave={handleSaveMatkul}
                     prodiList={availableProdiList}
+                    isLoading={isSaving}
                 />
             </div>
 
@@ -445,65 +445,8 @@ function MataKuliahPage() {
           border-radius: var(--radius-md);
           font-size: var(--font-size-sm);
           font-weight: var(--font-semibold);
-        }
-        
-        .sks-badge.teori {
           background: var(--info-100);
           color: var(--info-700);
-        }
-        
-        .sks-badge.praktek {
-          background: var(--success-100);
-          color: var(--success-700);
-        }
-        
-        .sks-badge.zero {
-          background: var(--gray-100);
-          color: var(--gray-500);
-        }
-        
-        .formula-badge {
-          display: inline-block;
-          padding: var(--space-1) var(--space-2);
-          border-radius: var(--radius-md);
-          font-size: var(--font-size-xs);
-          font-weight: var(--font-medium);
-        }
-        
-        .formula-badge.with-praktek {
-          background: var(--success-100);
-          color: var(--success-700);
-        }
-        
-        .formula-badge.no-praktek {
-          background: var(--warning-100);
-          color: var(--warning-700);
-        }
-        
-        .formula-info {
-          display: flex;
-          align-items: flex-start;
-          gap: var(--space-3);
-          padding: var(--space-3);
-          background: var(--info-50);
-          border: 1px solid var(--info-200);
-          border-radius: var(--radius-lg);
-          margin-top: var(--space-4);
-          color: var(--info-700);
-        }
-        
-        .formula-info > div {
-          display: flex;
-          flex-direction: column;
-          gap: var(--space-1);
-        }
-        
-        .formula-info strong {
-          font-size: var(--font-size-sm);
-        }
-        
-        .formula-info span {
-          font-size: var(--font-size-sm);
         }
         
         .text-error {
@@ -515,32 +458,15 @@ function MataKuliahPage() {
           grid-template-columns: 1fr 1fr;
           gap: var(--space-4);
         }
+
+        .spin {
+          animation: spin 1s linear infinite;
+        }
         
         @media (max-width: 640px) {
           .form-row {
             grid-template-columns: 1fr;
           }
-        }
-        
-        [data-theme="dark"] .sks-badge.teori {
-          background: rgba(59, 130, 246, 0.15);
-        }
-        
-        [data-theme="dark"] .sks-badge.praktek {
-          background: rgba(34, 197, 94, 0.15);
-        }
-        
-        [data-theme="dark"] .formula-badge.with-praktek {
-          background: rgba(34, 197, 94, 0.15);
-        }
-        
-        [data-theme="dark"] .formula-badge.no-praktek {
-          background: rgba(245, 158, 11, 0.15);
-        }
-        
-        [data-theme="dark"] .formula-info {
-          background: rgba(59, 130, 246, 0.1);
-          border-color: rgba(59, 130, 246, 0.2);
         }
       `}</style>
         </DashboardLayout>
