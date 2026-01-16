@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { downloadTemplate, importFromFile, isValidSpreadsheetFile } from '../../utils/excelUtils'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { userService, prodiService, kelasService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Users,
     Search,
@@ -23,11 +24,13 @@ import {
     Download,
     Upload,
     FileSpreadsheet,
-    ChevronDown
+    ChevronDown,
+    RefreshCw,
+    AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
+// LocalStorage keys for fallback
 const STORAGE_KEY = 'cat_users_data'
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 const KELAS_STORAGE_KEY = 'cat_kelas_data'
@@ -465,23 +468,15 @@ function UsersPage() {
     const { user: currentUser } = useAuth()
     const { showConfirm } = useConfirm()
 
-    // Load from localStorage
-    const [users, setUsers] = useState(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [prodiList, setProdiList] = useState(() => {
-        const saved = localStorage.getItem(PRODI_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [kelasList, setKelasList] = useState(() => {
-        const saved = localStorage.getItem(KELAS_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
-    const [matkulList, setMatkulList] = useState(() => {
-        const saved = localStorage.getItem(MATKUL_STORAGE_KEY)
-        return saved ? JSON.parse(saved) : []
-    })
+    // State
+    const [users, setUsers] = useState([])
+    const [prodiList, setProdiList] = useState([])
+    const [kelasList, setKelasList] = useState([])
+    const [matkulList, setMatkulList] = useState([])
+    const [isLoading, setIsLoading] = useState(true)
+    const [isSaving, setIsSaving] = useState(false)
+    const [error, setError] = useState(null)
+    const [useSupabase, setUseSupabase] = useState(false)
 
     const [search, setSearch] = useState('')
     const [roleFilter, setRoleFilter] = useState('all')
@@ -490,32 +485,86 @@ function UsersPage() {
     const [currentPage, setCurrentPage] = useState(1)
     const [modalOpen, setModalOpen] = useState(false)
     const [editingUser, setEditingUser] = useState(null)
-    const itemsPerPage = 5
+    const itemsPerPage = 10
 
-    // Save users to localStorage whenever it changes
+    // Load data on mount
     useEffect(() => {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(users))
-    }, [users])
+        loadData()
+    }, [])
 
-    // Reload dependent lists when window regains focus
-    useEffect(() => {
-        const handleFocus = () => {
+    const loadData = async () => {
+        setIsLoading(true)
+        setError(null)
+
+        try {
+            if (isSupabaseConfigured()) {
+                const [usersData, prodiData, kelasData, matkulData] = await Promise.all([
+                    userService.getAll(),
+                    prodiService.getAll(),
+                    kelasService.getAll(),
+                    matkulService.getAll()
+                ])
+                // Map Supabase data to local format
+                const mappedUsers = usersData.map(u => ({
+                    id: u.id,
+                    name: u.nama,
+                    username: u.nim_nip,
+                    nim: u.nim_nip,
+                    email: u.email || '',
+                    role: u.role,
+                    status: u.status || 'active',
+                    prodiId: u.prodi_id,
+                    kelasId: u.kelas_id,
+                    prodi: u.prodi,
+                    kelas: u.kelas
+                }))
+                setUsers(mappedUsers)
+                setProdiList(prodiData)
+                setKelasList(kelasData)
+                setMatkulList(matkulData)
+                setUseSupabase(true)
+            } else {
+                // Fallback to localStorage
+                const saved = localStorage.getItem(STORAGE_KEY)
+                const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
+                const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
+                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                setUsers(saved ? JSON.parse(saved) : [])
+                setProdiList(prodi ? JSON.parse(prodi) : [])
+                setKelasList(kelas ? JSON.parse(kelas) : [])
+                setMatkulList(matkul ? JSON.parse(matkul) : [])
+                setUseSupabase(false)
+            }
+        } catch (err) {
+            console.error('Error loading users:', err)
+            setError('Gagal memuat data dari database. Menggunakan data lokal.')
+            // Fallback to localStorage
+            const saved = localStorage.getItem(STORAGE_KEY)
             const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
             const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
             const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-            if (prodi) setProdiList(JSON.parse(prodi))
-            if (kelas) setKelasList(JSON.parse(kelas))
-            if (matkul) setMatkulList(JSON.parse(matkul))
+            setUsers(saved ? JSON.parse(saved) : [])
+            setProdiList(prodi ? JSON.parse(prodi) : [])
+            setKelasList(kelas ? JSON.parse(kelas) : [])
+            setMatkulList(matkul ? JSON.parse(matkul) : [])
+            setUseSupabase(false)
+        } finally {
+            setIsLoading(false)
         }
-        window.addEventListener('focus', handleFocus)
-        return () => window.removeEventListener('focus', handleFocus)
-    }, [])
+    }
+
+    // Backup to localStorage
+    useEffect(() => {
+        if (users.length > 0 && !useSupabase) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(users))
+        }
+    }, [users, useSupabase])
 
     // Filter users
     const filteredUsers = users.filter(user => {
-        const matchesSearch = user.name.toLowerCase().includes(search.toLowerCase()) ||
-            user.email.toLowerCase().includes(search.toLowerCase()) ||
-            user.nim.includes(search)
+        const matchesSearch = (user.name || '').toLowerCase().includes(search.toLowerCase()) ||
+            (user.email || '').toLowerCase().includes(search.toLowerCase()) ||
+            (user.nim || '').includes(search)
         const matchesRole = roleFilter === 'all' || user.role === roleFilter
 
         // Prodi filter
