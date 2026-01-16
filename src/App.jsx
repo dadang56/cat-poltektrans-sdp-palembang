@@ -1,0 +1,417 @@
+import { Routes, Route, Navigate } from 'react-router-dom'
+import { useState, useEffect, createContext, useContext } from 'react'
+import { SettingsProvider } from './contexts/SettingsContext'
+import { ConfirmProvider } from './components/ConfirmDialog'
+
+// Pages
+import Login from './pages/Login'
+
+// Admin Pages
+import AdminDashboard from './pages/admin/Dashboard'
+import AdminUsers from './pages/admin/Users'
+import AdminProdi from './pages/admin/Prodi'
+import AdminKelas from './pages/admin/Kelas'
+import AdminMataKuliah from './pages/admin/MataKuliah'
+import AdminReports from './pages/admin/Reports'
+import AdminSettings from './pages/admin/Settings'
+import AdminStudentCard from './pages/admin/StudentCard'
+import AdminExamRoom from './pages/admin/ExamRoom'
+import RekapNilai from './pages/admin/RekapNilai'
+import RekapKehadiran from './pages/admin/RekapKehadiran'
+import RekapBeritaAcara from './pages/admin/RekapBeritaAcara'
+import AdminProdiDashboard from './pages/admin/AdminProdiDashboard'
+import AdminProdiSettings from './pages/admin/AdminProdiSettings'
+import JadwalUjian from './pages/admin/JadwalUjian'
+
+// Dosen Pages
+import DosenDashboard from './pages/dosen/Dashboard'
+import BuatSoal from './pages/dosen/BuatSoal'
+import KoreksiUjian from './pages/dosen/KoreksiUjian'
+import NilaiUAS from './pages/dosen/NilaiUAS'
+import NilaiAkhir from './pages/dosen/NilaiAkhir'
+
+// Mahasiswa Pages
+import MahasiswaDashboard from './pages/mahasiswa/Dashboard'
+import TakeExam from './pages/mahasiswa/TakeExam'
+import UjianPage from './pages/mahasiswa/UjianMendatang'
+import HasilUjian from './pages/mahasiswa/HasilUjian'
+import SEBInstructions from './pages/mahasiswa/SEBInstructions'
+
+// Pengawas Pages
+import PengawasDashboard from './pages/pengawas/Dashboard'
+import MonitorUjian from './pages/pengawas/MonitorUjian'
+import PengawasAttendance from './pages/pengawas/Attendance'
+import PengawasBeritaAcara from './pages/pengawas/BeritaAcara'
+
+// Auth Context
+export const AuthContext = createContext(null)
+
+export function useAuth() {
+  return useContext(AuthContext)
+}
+
+// Protected Route Component
+function ProtectedRoute({ children, allowedRoles }) {
+  const { user, isLoading } = useAuth()
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center" style={{ minHeight: '100vh' }}>
+        <div className="spinner-lg"></div>
+      </div>
+    )
+  }
+
+  if (!user) {
+    return <Navigate to="/login" replace />
+  }
+
+  if (allowedRoles && !allowedRoles.includes(user.role)) {
+    return <Navigate to={`/${user.role.replace('_', '-')}`} replace />
+  }
+
+  return children
+}
+
+function App() {
+  const [user, setUser] = useState(null)
+  const [isLoading, setIsLoading] = useState(true)
+  const [theme, setTheme] = useState('light')
+
+  // Check for existing session on mount
+  useEffect(() => {
+    const savedUser = localStorage.getItem('cat_user')
+    const savedTheme = localStorage.getItem('cat_theme') || 'light'
+
+    if (savedUser) {
+      try {
+        setUser(JSON.parse(savedUser))
+      } catch (e) {
+        localStorage.removeItem('cat_user')
+      }
+    }
+
+    setTheme(savedTheme)
+    document.documentElement.setAttribute('data-theme', savedTheme)
+    setIsLoading(false)
+  }, [])
+
+  const login = (userData) => {
+    setUser(userData)
+    localStorage.setItem('cat_user', JSON.stringify(userData))
+  }
+
+  const logout = () => {
+    setUser(null)
+    localStorage.removeItem('cat_user')
+  }
+
+  const toggleTheme = () => {
+    const newTheme = theme === 'light' ? 'dark' : 'light'
+    setTheme(newTheme)
+    localStorage.setItem('cat_theme', newTheme)
+    document.documentElement.setAttribute('data-theme', newTheme)
+  }
+
+  const authValue = {
+    user,
+    isLoading,
+    login,
+    logout,
+    theme,
+    toggleTheme
+  }
+
+  return (
+    <SettingsProvider>
+      <ConfirmProvider>
+        <AuthContext.Provider value={authValue}>
+          <Routes>
+            {/* Public Routes */}
+            <Route path="/login" element={
+              user ? <Navigate to={`/${user.role.replace('_', '-')}`} replace /> : <Login />
+            } />
+
+            {/* Super Admin Routes */}
+            <Route path="/superadmin" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/users" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminUsers />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/prodi" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminProdi />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/kelas" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminKelas />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/matkul" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminMataKuliah />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/student-card" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminStudentCard />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/exam-room" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminExamRoom />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/rekap-nilai" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <RekapNilai />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/rekap-kehadiran" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <RekapKehadiran />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/reports" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminReports />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/settings" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <AdminSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/monitor-ujian" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <MonitorUjian />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/rekap-nilai-mahasiswa" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <RekapNilai />
+              </ProtectedRoute>
+            } />
+            <Route path="/superadmin/jadwal-ujian" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <JadwalUjian />
+              </ProtectedRoute>
+            } />
+
+            {/* Admin Prodi Routes */}
+            <Route path="/admin-prodi" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminProdiDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/users" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminUsers />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/kelas" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminKelas />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/matkul" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminMataKuliah />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/rekap-nilai" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <RekapNilai />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/rekap-kehadiran" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <RekapKehadiran />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/rekap-berita-acara" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <RekapBeritaAcara />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/jadwal-ujian" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <JadwalUjian />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/student-card" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminStudentCard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/exam-room" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminExamRoom />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/settings" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminProdiSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/rekap-nilai-mahasiswa" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <RekapNilai />
+              </ProtectedRoute>
+            } />
+
+            {/* Legacy Admin Routes (redirect to superadmin) */}
+            <Route path="/admin" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/users" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminUsers />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/prodi" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminProdi />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/kelas" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminKelas />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/matkul" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminMataKuliah />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/reports" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminReports />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/settings" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/student-card" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminStudentCard />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin/exam-room" element={
+              <ProtectedRoute allowedRoles={['admin']}>
+                <AdminExamRoom />
+              </ProtectedRoute>
+            } />
+
+            {/* Dosen Routes */}
+            <Route path="/dosen" element={
+              <ProtectedRoute allowedRoles={['dosen']}>
+                <DosenDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/dosen/buat-soal" element={
+              <ProtectedRoute allowedRoles={['dosen']}>
+                <BuatSoal />
+              </ProtectedRoute>
+            } />
+            <Route path="/dosen/koreksi" element={
+              <ProtectedRoute allowedRoles={['dosen']}>
+                <KoreksiUjian />
+              </ProtectedRoute>
+            } />
+            <Route path="/dosen/nilai-uas" element={
+              <ProtectedRoute allowedRoles={['dosen']}>
+                <NilaiUAS />
+              </ProtectedRoute>
+            } />
+            <Route path="/dosen/nilai-ujian" element={
+              <ProtectedRoute allowedRoles={['dosen']}>
+                <NilaiUAS />
+              </ProtectedRoute>
+            } />
+            <Route path="/dosen/nilai-akhir" element={
+              <ProtectedRoute allowedRoles={['dosen']}>
+                <NilaiAkhir />
+              </ProtectedRoute>
+            } />
+
+            {/* Mahasiswa Routes */}
+            <Route path="/mahasiswa" element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <MahasiswaDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/mahasiswa/ujian/:id" element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <TakeExam />
+              </ProtectedRoute>
+            } />
+            <Route path="/mahasiswa/ujian" element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <UjianPage />
+              </ProtectedRoute>
+            } />
+            <Route path="/mahasiswa/hasil" element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <HasilUjian />
+              </ProtectedRoute>
+            } />
+            <Route path="/mahasiswa/take-exam/:id" element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <TakeExam />
+              </ProtectedRoute>
+            } />
+            <Route path="/mahasiswa/seb-instructions" element={
+              <ProtectedRoute allowedRoles={['mahasiswa']}>
+                <SEBInstructions />
+              </ProtectedRoute>
+            } />
+
+            {/* Pengawas Routes */}
+            <Route path="/pengawas" element={
+              <ProtectedRoute allowedRoles={['pengawas']}>
+                <PengawasDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/pengawas/monitor" element={
+              <ProtectedRoute allowedRoles={['pengawas']}>
+                <MonitorUjian />
+              </ProtectedRoute>
+            } />
+            <Route path="/pengawas/monitor/:id" element={
+              <ProtectedRoute allowedRoles={['pengawas']}>
+                <MonitorUjian />
+              </ProtectedRoute>
+            } />
+            <Route path="/pengawas/attendance" element={
+              <ProtectedRoute allowedRoles={['pengawas']}>
+                <PengawasAttendance />
+              </ProtectedRoute>
+            } />
+            <Route path="/pengawas/berita-acara" element={
+              <ProtectedRoute allowedRoles={['pengawas']}>
+                <PengawasBeritaAcara />
+              </ProtectedRoute>
+            } />
+
+            {/* Default Redirect */}
+            <Route path="/" element={<Navigate to="/login" replace />} />
+            <Route path="*" element={<Navigate to="/login" replace />} />
+          </Routes>
+        </AuthContext.Provider>
+      </ConfirmProvider>
+    </SettingsProvider>
+  )
+}
+
+export default App
