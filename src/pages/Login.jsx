@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../App'
 import { useSettings } from '../contexts/SettingsContext'
+import { userService, isSupabaseConfigured } from '../services/supabaseService'
 import {
     User,
     Lock,
@@ -27,13 +28,13 @@ const generateTahunAjaranOptions = () => {
 
 const TAHUN_AJARAN_OPTIONS = generateTahunAjaranOptions()
 
-// Demo users for testing
+// Demo users for testing (fallback when Supabase is not configured)
 const DEMO_USERS = {
     superadmin: { id: 0, username: 'superadmin', name: 'Super Administrator', role: 'superadmin', email: 'superadmin@poltektrans.ac.id' },
-    admin: { id: 1, username: 'admin', name: 'Admin Prodi DPS', role: 'admin_prodi', email: 'admin.dps@poltektrans.ac.id', prodiId: 1 },
-    dosen: { id: 2, username: 'dosen', name: 'Dr. Ahmad Fauzi, M.T.', role: 'dosen', email: 'ahmad.fauzi@poltektrans.ac.id', nip: '197203151998031002' },
-    mahasiswa: { id: 3, username: 'mahasiswa', name: 'Budi Santoso', role: 'mahasiswa', nim: '2024010001', email: 'budi.santoso@student.poltektrans.ac.id' },
-    pengawas: { id: 4, username: 'pengawas', name: 'Ir. Siti Rahayu', role: 'pengawas', email: 'siti.rahayu@poltektrans.ac.id', nip: '198501012010011001' }
+    admin: { id: 1, username: 'admin', name: 'Admin Prodi TI', role: 'admin_prodi', email: 'admin.ti@poltektrans.ac.id', prodiId: 1 },
+    dosen: { id: 2, username: 'dosen', name: 'Dr. Ahmad Suryadi, M.Kom', role: 'dosen', email: 'ahmad.suryadi@poltektrans.ac.id', nip: '197203151998031002' },
+    mahasiswa: { id: 3, username: 'mahasiswa', name: 'Budi Santoso', role: 'mahasiswa', nim: '2024001', email: 'budi.santoso@student.poltektrans.ac.id' },
+    pengawas: { id: 4, username: 'pengawas', name: 'Pengawas Ujian', role: 'pengawas', email: 'pengawas@poltektrans.ac.id', nip: '198501012010011001' }
 }
 
 function Login() {
@@ -66,9 +67,6 @@ function Login() {
         setError('')
         setIsLoading(true)
 
-        // Quick delay for smooth UX
-        await new Promise(resolve => setTimeout(resolve, 200))
-
         const { username, password, tahunAkademik } = formData
 
         // Save tahunAkademik to settings (non-blocking)
@@ -80,41 +78,71 @@ function Login() {
             console.error('Error saving settings:', e)
         }
 
-        // First check demo users
-        if (DEMO_USERS[username] && password === '123456') {
-            const user = { ...DEMO_USERS[username] }
-            login(user)
-            setIsLoading(false)
-            return
-        }
+        try {
+            // Try Supabase first if configured
+            if (isSupabaseConfigured()) {
+                try {
+                    const userData = await userService.getByNimNip(username)
 
-        // Then check users from localStorage
-        const savedUsers = localStorage.getItem('cat_users_data')
-        if (savedUsers) {
-            try {
-                const users = JSON.parse(savedUsers)
-                // Find user by username or NIM
-                const foundUser = users.find(u =>
-                    (u.username === username || u.nim === username) &&
-                    u.password === password &&
-                    u.status === 'active'
-                )
-
-                if (foundUser) {
-                    // Create login user object (don't include password)
-                    const { password: _, ...userWithoutPassword } = foundUser
-                    login(userWithoutPassword)
-                    setIsLoading(false)
-                    return
+                    if (userData && password === '123456') {
+                        // User found in Supabase
+                        const user = {
+                            id: userData.id,
+                            username: userData.nim_nip,
+                            name: userData.nama,
+                            role: userData.role,
+                            email: userData.email,
+                            prodi: userData.prodi,
+                            kelas: userData.kelas,
+                            prodiId: userData.prodi_id
+                        }
+                        login(user)
+                        setIsLoading(false)
+                        return
+                    }
+                } catch (supabaseError) {
+                    console.log('Supabase lookup failed, trying demo users:', supabaseError.message)
                 }
-            } catch (e) {
-                console.error('Error parsing saved users:', e)
             }
-        }
 
-        // If no match found
-        setError('Username atau password salah. Gunakan: admin/dosen/mahasiswa/pengawas dengan password: 123456')
-        setIsLoading(false)
+            // Fallback to demo users
+            if (DEMO_USERS[username] && password === '123456') {
+                const user = { ...DEMO_USERS[username] }
+                login(user)
+                setIsLoading(false)
+                return
+            }
+
+            // Then check users from localStorage
+            const savedUsers = localStorage.getItem('cat_users_data')
+            if (savedUsers) {
+                try {
+                    const users = JSON.parse(savedUsers)
+                    const foundUser = users.find(u =>
+                        (u.username === username || u.nim === username) &&
+                        u.password === password &&
+                        u.status === 'active'
+                    )
+
+                    if (foundUser) {
+                        const { password: _, ...userWithoutPassword } = foundUser
+                        login(userWithoutPassword)
+                        setIsLoading(false)
+                        return
+                    }
+                } catch (e) {
+                    console.error('Error parsing saved users:', e)
+                }
+            }
+
+            // If no match found
+            setError('Username atau password salah. Gunakan demo login atau password: 123456')
+        } catch (err) {
+            console.error('Login error:', err)
+            setError('Terjadi kesalahan saat login. Silakan coba lagi.')
+        } finally {
+            setIsLoading(false)
+        }
     }
 
     const handleDemoLogin = (role) => {
