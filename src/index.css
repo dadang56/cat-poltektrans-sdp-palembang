@@ -79,7 +79,7 @@
   --font-size-3xl: 1.875rem;
   --font-size-4xl: 2.25rem;
   --font-size-5xl: 3rem;
-  
+
   /* Font Weights */
   --font-light: 300;
   --font-normal: 400;
@@ -158,7 +158,9 @@
    Base Styles
    ============================================ */
 
-*, *::before, *::after {
+*,
+*::before,
+*::after {
   box-sizing: border-box;
   margin: 0;
   padding: 0;
@@ -238,25 +240,69 @@ img {
   justify-content: space-between;
 }
 
-.gap-2 { gap: var(--space-2); }
-.gap-3 { gap: var(--space-3); }
-.gap-4 { gap: var(--space-4); }
-.gap-6 { gap: var(--space-6); }
-.gap-8 { gap: var(--space-8); }
+.gap-2 {
+  gap: var(--space-2);
+}
 
-.text-center { text-align: center; }
-.text-sm { font-size: var(--font-size-sm); }
-.text-lg { font-size: var(--font-size-lg); }
-.text-xl { font-size: var(--font-size-xl); }
-.text-2xl { font-size: var(--font-size-2xl); }
-.text-3xl { font-size: var(--font-size-3xl); }
+.gap-3 {
+  gap: var(--space-3);
+}
 
-.font-medium { font-weight: var(--font-medium); }
-.font-semibold { font-weight: var(--font-semibold); }
-.font-bold { font-weight: var(--font-bold); }
+.gap-4 {
+  gap: var(--space-4);
+}
 
-.text-muted { color: var(--text-muted); }
-.text-secondary { color: var(--text-secondary); }
+.gap-6 {
+  gap: var(--space-6);
+}
+
+.gap-8 {
+  gap: var(--space-8);
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-sm {
+  font-size: var(--font-size-sm);
+}
+
+.text-lg {
+  font-size: var(--font-size-lg);
+}
+
+.text-xl {
+  font-size: var(--font-size-xl);
+}
+
+.text-2xl {
+  font-size: var(--font-size-2xl);
+}
+
+.text-3xl {
+  font-size: var(--font-size-3xl);
+}
+
+.font-medium {
+  font-weight: var(--font-medium);
+}
+
+.font-semibold {
+  font-weight: var(--font-semibold);
+}
+
+.font-bold {
+  font-weight: var(--font-bold);
+}
+
+.text-muted {
+  color: var(--text-muted);
+}
+
+.text-secondary {
+  color: var(--text-secondary);
+}
 
 /* ============================================
    Component Styles
@@ -589,7 +635,9 @@ img {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ============================================
@@ -697,8 +745,13 @@ img {
    ============================================ */
 
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slideUp {
@@ -706,6 +759,7 @@ img {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -717,6 +771,7 @@ img {
     opacity: 0;
     transform: translateY(-20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
@@ -728,6 +783,7 @@ img {
     opacity: 0;
     transform: scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: scale(1);
@@ -735,22 +791,58 @@ img {
 }
 
 @keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.5; }
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
 }
 
 @keyframes shake {
-  0%, 100% { transform: translateX(0); }
-  20%, 60% { transform: translateX(-5px); }
-  40%, 80% { transform: translateX(5px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20%,
+  60% {
+    transform: translateX(-5px);
+  }
+
+  40%,
+  80% {
+    transform: translateX(5px);
+  }
 }
 
-.animate-fadeIn { animation: fadeIn var(--transition-normal) ease-out; }
-.animate-slideUp { animation: slideUp var(--transition-normal) ease-out; }
-.animate-slideDown { animation: slideDown var(--transition-normal) ease-out; }
-.animate-scaleIn { animation: scaleIn var(--transition-normal) ease-out; }
-.animate-pulse { animation: pulse 2s ease-in-out infinite; }
-.animate-shake { animation: shake 0.5s ease-in-out; }
+.animate-fadeIn {
+  animation: fadeIn var(--transition-normal) ease-out;
+}
+
+.animate-slideUp {
+  animation: slideUp var(--transition-normal) ease-out;
+}
+
+.animate-slideDown {
+  animation: slideDown var(--transition-normal) ease-out;
+}
+
+.animate-scaleIn {
+  animation: scaleIn var(--transition-normal) ease-out;
+}
+
+.animate-pulse {
+  animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-shake {
+  animation: shake 0.5s ease-in-out;
+}
 
 /* ============================================
    Responsive Design - Enhanced Mobile Support
@@ -760,14 +852,32 @@ img {
 @media (max-width: 1024px) {
   .sidebar {
     transform: translateX(-100%);
+    height: 100vh;
+    max-height: 100vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
   }
-  
+
   .sidebar.open {
     transform: translateX(0);
   }
-  
+
   .main-content {
     margin-left: 0;
+  }
+
+  /* Make sidebar content scrollable */
+  .sidebar-nav {
+    flex: 1;
+    overflow-y: auto;
+    max-height: calc(100vh - 250px);
+  }
+
+  /* Ensure footer is visible */
+  .sidebar-footer {
+    position: relative;
+    margin-top: auto;
+    flex-shrink: 0;
   }
 }
 
@@ -776,15 +886,15 @@ img {
   html {
     font-size: 15px;
   }
-  
+
   .container {
     padding: 0 var(--space-3);
   }
-  
+
   .main-body {
     padding: var(--space-4);
   }
-  
+
   .page-title {
     font-size: var(--font-size-2xl);
   }
@@ -798,13 +908,16 @@ img {
     margin-bottom: var(--space-4);
   }
 
-  .card-header, .card-body, .card-footer {
+  .card-header,
+  .card-body,
+  .card-footer {
     padding: var(--space-4);
   }
 
   /* Form elements on tablet */
   .form-input {
-    font-size: 16px !important; /* Prevent zoom on iOS */
+    font-size: 16px !important;
+    /* Prevent zoom on iOS */
     padding: var(--space-4);
   }
 }
@@ -836,7 +949,7 @@ img {
     width: 48px;
     height: 48px;
   }
-  
+
   .card-body {
     padding: var(--space-3);
   }
@@ -851,8 +964,13 @@ img {
   }
 
   /* Mobile-friendly spacing */
-  .gap-6 { gap: var(--space-4); }
-  .gap-8 { gap: var(--space-5); }
+  .gap-6 {
+    gap: var(--space-4);
+  }
+
+  .gap-8 {
+    gap: var(--space-5);
+  }
 
   /* Badge sizing */
   .badge {
@@ -937,6 +1055,7 @@ img {
    ============================================ */
 
 @media (hover: none) and (pointer: coarse) {
+
   /* Remove hover effects on touch devices */
   .btn:hover:not(:disabled) {
     transform: none;
@@ -972,6 +1091,7 @@ img {
    ============================================ */
 
 @media print {
+
   .sidebar,
   .main-header,
   .mobile-menu-btn {
