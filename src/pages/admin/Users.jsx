@@ -627,8 +627,12 @@ function UsersPage() {
 
 
                 if (editingUser) {
-                    // Update existing user
-                    const updated = await userService.update(editingUser.id, supabaseData)
+                    // Update existing user - include password only if provided
+                    const updateData = { ...supabaseData }
+                    if (userData.password && userData.password.trim()) {
+                        updateData.password = userData.password
+                    }
+                    const updated = await userService.update(editingUser.id, updateData)
                     setUsers(users.map(u => u.id === editingUser.id ? {
                         ...userData,
                         id: editingUser.id,
@@ -636,9 +640,12 @@ function UsersPage() {
                         username: supabaseData.nim_nip
                     } : u))
                 } else {
-                    // Create new user with custom password
-                    const password = userData.password || '123456'
-                    const created = await userService.create(supabaseData, password)
+                    // Create new user - include password in data object
+                    const createData = {
+                        ...supabaseData,
+                        password: userData.password || '123456'
+                    }
+                    const created = await userService.create(createData)
                     const newUser = {
                         id: created.id,
                         name: created.nama,

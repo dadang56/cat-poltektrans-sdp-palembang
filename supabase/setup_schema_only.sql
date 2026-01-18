@@ -124,13 +124,14 @@ CREATE TABLE kelas (
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Users (linked to Supabase Auth)
+-- Users (with database-stored password for simple auth)
 CREATE TABLE users (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
-    auth_id UUID UNIQUE,  -- Links to auth.users.id
+    auth_id UUID UNIQUE,  -- Optional: Links to auth.users.id (for future OAuth)
     nim_nip VARCHAR(50) NOT NULL UNIQUE,
     nama VARCHAR(100) NOT NULL,
     email VARCHAR(100),
+    password TEXT NOT NULL DEFAULT '123456',  -- Database-only auth password
     role user_role NOT NULL DEFAULT 'mahasiswa',
     status user_status NOT NULL DEFAULT 'active',
     prodi_id UUID REFERENCES prodi(id) ON DELETE SET NULL,

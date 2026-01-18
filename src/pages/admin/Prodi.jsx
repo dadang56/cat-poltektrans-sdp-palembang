@@ -21,12 +21,11 @@ const STORAGE_KEY = 'cat_prodi_data'
 function ProdiModal({ isOpen, onClose, prodi, onSave, isLoading }) {
     const [formData, setFormData] = useState(prodi || {
         kode: '',
-        nama: '',
-        ketua: ''
+        nama: ''
     })
 
     useEffect(() => {
-        setFormData(prodi || { kode: '', nama: '', ketua: '' })
+        setFormData(prodi || { kode: '', nama: '' })
     }, [prodi])
 
     const handleSubmit = (e) => {
@@ -70,16 +69,7 @@ function ProdiModal({ isOpen, onClose, prodi, onSave, isLoading }) {
                                 required
                             />
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Ketua Prodi</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.ketua || ''}
-                                onChange={e => setFormData({ ...formData, ketua: e.target.value })}
-                                placeholder="Contoh: Dr. Ahmad Suryadi"
-                            />
-                        </div>
+
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
@@ -272,7 +262,6 @@ function ProdiPage() {
                                         <tr>
                                             <th style={{ width: '80px' }}>Kode</th>
                                             <th>Nama Program Studi</th>
-                                            <th>Ketua Prodi</th>
                                             <th style={{ width: '120px' }}>Aksi</th>
                                         </tr>
                                     </thead>
@@ -288,7 +277,7 @@ function ProdiPage() {
                                                         <span className="font-medium">{prodi.nama}</span>
                                                     </div>
                                                 </td>
-                                                <td>{prodi.ketua || '-'}</td>
+
                                                 <td>
                                                     <div className="flex gap-2">
                                                         <button
@@ -309,7 +298,7 @@ function ProdiPage() {
                                         ))}
                                         {filteredProdi.length === 0 && (
                                             <tr>
-                                                <td colSpan={4} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
+                                                <td colSpan={3} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
                                                     Tidak ada data program studi
                                                 </td>
                                             </tr>

@@ -58,10 +58,15 @@ export function AuthProvider({ children }) {
                     throw new Error('User tidak ditemukan')
                 }
 
-                // For now, simple password check (in production, use proper auth)
-                // TODO: Implement proper Supabase Auth
-                if (password !== '123456') {
+                // Check password from database
+                const storedPassword = userData.password || '123456'
+                if (password !== storedPassword) {
                     throw new Error('Password salah')
+                }
+
+                // Check if user is active
+                if (userData.status !== 'active') {
+                    throw new Error('Akun tidak aktif. Hubungi administrator.')
                 }
 
                 const userWithSession = {
