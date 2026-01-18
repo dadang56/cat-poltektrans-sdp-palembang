@@ -210,6 +210,7 @@ function KelasPage() {
 
     const handleSaveKelas = async (data) => {
         setIsSaving(true)
+        setError(null)
         try {
             if (useSupabase) {
                 if (editingKelas) {
@@ -228,7 +229,8 @@ function KelasPage() {
             setModalOpen(false)
         } catch (err) {
             console.error('Error saving kelas:', err)
-            alert('Gagal menyimpan: ' + err.message)
+            setError('Gagal menyimpan: ' + err.message)
+            // Don't close modal so user can see error
         } finally {
             setIsSaving(false)
         }
