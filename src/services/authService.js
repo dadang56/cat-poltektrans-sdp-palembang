@@ -64,26 +64,25 @@ export async function signInWithNimNip(nimNip, password) {
             return { data: formatUserProfile(existingUser, authData.session), error: null }
         } else {
             // STEP 3: User exists but NO auth_id (manually created user)
-            // Allow login with default password for migration period
-            // In production, you should enforce password creation
+            // Validate password from database
 
-            console.log('[AuthService] Legacy user login (no auth_id):', nimNip)
+            console.log('[AuthService] Database user login (no auth_id):', nimNip)
 
-            // For manually created users, accept default password "123456"
-            // TODO: In production, prompt user to create Supabase Auth account
-            if (password === '123456') {
+            // Check password from database (or use 123456 as default if not set)
+            const storedPassword = existingUser.password || '123456'
+
+            if (password === storedPassword) {
                 const formattedUser = formatUserProfile(existingUser, null)
 
-                // Store in localStorage as session (temporary until they get auth_id)
+                // Store in localStorage as session
                 localStorage.setItem(DEMO_USER_KEY, JSON.stringify(formattedUser))
 
                 return {
                     data: formattedUser,
-                    error: null,
-                    requiresMigration: true  // Flag to prompt for password setup
+                    error: null
                 }
             } else {
-                throw new Error('Password salah. Gunakan password default: 123456')
+                throw new Error('Password salah')
             }
         }
     } catch (error) {

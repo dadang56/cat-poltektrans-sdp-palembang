@@ -56,12 +56,17 @@ export const userService = {
         return data
     },
 
-    // Create user (simple INSERT to public.users)
-    // Users can login with default password: 123456
-    async create(userData) {
+    // Create user with custom password
+    async create(userData, password = '123456') {
+        // Add password to user data
+        const userWithPassword = {
+            ...userData,
+            password: password
+        }
+
         const { data, error } = await supabase
             .from('users')
-            .insert([userData])
+            .insert([userWithPassword])
             .select()
             .single()
 
