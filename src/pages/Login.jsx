@@ -79,7 +79,7 @@ function Login() {
             console.error('Login error:', err)
             if (err.message?.includes('Invalid login credentials')) {
                 setError('Username atau password salah.')
-            } else if (err.message?.includes('tidak ditemukan')) {
+            } else if (err.message) {
                 setError(err.message)
             } else {
                 setError('Terjadi kesalahan saat login. Silakan coba lagi.')
