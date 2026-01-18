@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, createContext, useContext } from 'react'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { ConfirmProvider } from './components/ConfirmDialog'
+import authService from './services/authService'
 
 // Pages
 import Login from './pages/Login'
@@ -78,32 +79,56 @@ function App() {
   const [isLoading, setIsLoading] = useState(true)
   const [theme, setTheme] = useState('light')
 
-  // Check for existing session on mount
+  // Check for existing session on mount using authService
   useEffect(() => {
-    const savedUser = localStorage.getItem('cat_user')
-    const savedTheme = localStorage.getItem('cat_theme') || 'light'
-
-    if (savedUser) {
+    const initAuth = async () => {
       try {
-        setUser(JSON.parse(savedUser))
-      } catch (e) {
-        localStorage.removeItem('cat_user')
+        // Get current user from authService
+        const currentUser = await authService.getCurrentUser()
+        if (currentUser) {
+          setUser(currentUser)
+        }
+
+        // Load theme preference
+        const savedTheme = localStorage.getItem('cat_theme') || 'light'
+        setTheme(savedTheme)
+        document.documentElement.setAttribute('data-theme', savedTheme)
+      } catch (error) {
+        console.error('[App] Auth init error:', error)
+      } finally {
+        setIsLoading(false)
       }
     }
 
-    setTheme(savedTheme)
-    document.documentElement.setAttribute('data-theme', savedTheme)
-    setIsLoading(false)
+    initAuth()
+
+    // Subscribe to auth state changes
+    const { data: { subscription } } = authService.onAuthStateChange((event, session) => {
+      console.log('[App] Auth state change:', event)
+      if (event === 'SIGNED_IN' && session?.profile) {
+        setUser(session.profile)
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null)
+      }
+    })
+
+    return () => {
+      subscription?.unsubscribe()
+    }
   }, [])
 
-  const login = (userData) => {
-    setUser(userData)
-    localStorage.setItem('cat_user', JSON.stringify(userData))
+  const login = async (nimNip, password) => {
+    const { data, error } = await authService.signInWithNimNip(nimNip, password)
+    if (error) {
+      throw error
+    }
+    setUser(data)
+    return data
   }
 
-  const logout = () => {
+  const logout = async () => {
+    await authService.signOut()
     setUser(null)
-    localStorage.removeItem('cat_user')
   }
 
   const toggleTheme = () => {

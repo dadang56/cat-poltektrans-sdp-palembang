@@ -159,7 +159,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
     const handleSubmit = (e) => {
         e.preventDefault()
         onSave(formData)
-        onClose()
+        // Modal will be closed by parent on successful save
     }
 
     if (!isOpen) return null
@@ -600,26 +600,100 @@ function UsersPage() {
         setModalOpen(true)
     }
 
-    const handleSaveUser = (userData) => {
-        if (editingUser) {
-            setUsers(users.map(u => u.id === editingUser.id ? { ...userData, id: editingUser.id } : u))
-        } else {
-            setUsers([...users, { ...userData, id: Date.now() }])
+    const handleSaveUser = async (userData) => {
+        setIsSaving(true)
+        setError(null)
+
+        try {
+            if (useSupabase) {
+                // Map form data to Supabase format
+                const supabaseData = {
+                    nim_nip: userData.nim || userData.username,
+                    nama: userData.name,
+                    email: userData.email || null,
+                    role: userData.role,
+                    status: userData.status || 'active',
+                    prodi_id: userData.prodiId || null,
+                    kelas_id: userData.kelasId || null
+                }
+
+                if (editingUser) {
+                    // Update existing user
+                    const updated = await userService.update(editingUser.id, supabaseData)
+                    setUsers(users.map(u => u.id === editingUser.id ? {
+                        ...userData,
+                        id: editingUser.id,
+                        nim: supabaseData.nim_nip,
+                        username: supabaseData.nim_nip
+                    } : u))
+                } else {
+                    // Create new user in Supabase
+                    const created = await userService.create(supabaseData)
+                    const newUser = {
+                        id: created.id,
+                        name: created.nama,
+                        username: created.nim_nip,
+                        nim: created.nim_nip,
+                        email: created.email,
+                        role: created.role,
+                        status: created.status,
+                        prodiId: created.prodi_id,
+                        kelasId: created.kelas_id
+                    }
+                    setUsers([...users, newUser])
+                }
+            } else {
+                // Fallback to localStorage
+                if (editingUser) {
+                    setUsers(users.map(u => u.id === editingUser.id ? { ...userData, id: editingUser.id } : u))
+                } else {
+                    setUsers([...users, { ...userData, id: Date.now() }])
+                }
+            }
+            setModalOpen(false)
+        } catch (err) {
+            console.error('Error saving user:', err)
+            setError(`Gagal menyimpan user: ${err.message}`)
+        } finally {
+            setIsSaving(false)
         }
     }
 
-    const handleDeleteUser = (id) => {
+    const handleDeleteUser = async (id) => {
         showConfirm({
             title: 'Konfirmasi Hapus',
             message: 'Apakah Anda yakin ingin menghapus user ini?',
-            onConfirm: () => setUsers(users.filter(u => u.id !== id))
+            onConfirm: async () => {
+                try {
+                    if (useSupabase) {
+                        await userService.delete(id)
+                    }
+                    setUsers(users.filter(u => u.id !== id))
+                } catch (err) {
+                    console.error('Error deleting user:', err)
+                    setError(`Gagal menghapus user: ${err.message}`)
+                }
+            }
         })
     }
 
-    const handleToggleStatus = (id) => {
-        setUsers(users.map(u =>
-            u.id === id ? { ...u, status: u.status === 'active' ? 'inactive' : 'active' } : u
-        ))
+    const handleToggleStatus = async (id) => {
+        const user = users.find(u => u.id === id)
+        if (!user) return
+
+        const newStatus = user.status === 'active' ? 'inactive' : 'active'
+
+        try {
+            if (useSupabase) {
+                await userService.update(id, { status: newStatus })
+            }
+            setUsers(users.map(u =>
+                u.id === id ? { ...u, status: newStatus } : u
+            ))
+        } catch (err) {
+            console.error('Error updating status:', err)
+            setError(`Gagal mengubah status: ${err.message}`)
+        }
     }
 
     const getProdiKelasInfo = (user) => {

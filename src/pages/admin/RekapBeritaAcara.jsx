@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { exportToXLSX } from '../../utils/excelUtils'
+import { beritaAcaraService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     FileText,
     Search,
@@ -10,11 +11,12 @@ import {
     Filter,
     Calendar,
     Eye,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Loader2
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
+// LocalStorage keys (fallback)
 const BERITA_ACARA_KEY = 'cat_berita_acara_data'
 const PRODI_KEY = 'cat_prodi_data'
 
@@ -24,23 +26,74 @@ function RekapBeritaAcaraPage() {
     const [prodiFilter, setProdiFilter] = useState(user?.prodiId || 'all')
     const [dateFilter, setDateFilter] = useState('')
     const [viewModal, setViewModal] = useState(null)
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
-    // Data from localStorage
+    // Data from Supabase or localStorage
     const [beritaAcaraData, setBeritaAcaraData] = useState([])
     const [prodiList, setProdiList] = useState([])
 
-    // Load data from localStorage
+    // Load data from Supabase or fallback to localStorage
     useEffect(() => {
-        const baData = localStorage.getItem(BERITA_ACARA_KEY)
-        const prodiData = localStorage.getItem(PRODI_KEY)
+        const loadData = async () => {
+            setLoading(true)
+            setError(null)
 
-        if (prodiData) {
-            setProdiList(JSON.parse(prodiData))
+            try {
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const [baData, prodi] = await Promise.all([
+                        beritaAcaraService.getAll(),
+                        prodiService.getAll()
+                    ])
+
+                    // Transform berita acara data to match expected format
+                    const transformedData = baData.map(item => ({
+                        id: item.id,
+                        examName: item.jadwal?.matkul?.nama || 'Unknown',
+                        room: item.jadwal?.ruangan?.nama || '-',
+                        date: item.jadwal?.tanggal || '',
+                        time: `${item.jadwal?.waktu_mulai || ''} - ${item.jadwal?.waktu_selesai || ''}`,
+                        pengawas: item.pengawas?.nama || '-',
+                        nip: item.pengawas?.nim_nip || '-',
+                        prodiId: item.jadwal?.kelas?.prodi_id,
+                        attendance: {
+                            total: (item.jumlah_hadir || 0) + (item.jumlah_tidak_hadir || 0),
+                            hadir: item.jumlah_hadir || 0,
+                            sakit: 0,
+                            izin: 0,
+                            alpha: item.jumlah_tidak_hadir || 0
+                        },
+                        incidents: item.catatan || 'Tidak ada kejadian',
+                        notes: item.catatan || '',
+                        createdAt: new Date(item.created_at).toLocaleDateString('id-ID')
+                    }))
+
+                    setBeritaAcaraData(transformedData)
+                    setProdiList(prodi)
+                } else {
+                    // Fallback to localStorage
+                    const baData = localStorage.getItem(BERITA_ACARA_KEY)
+                    const prodiData = localStorage.getItem(PRODI_KEY)
+
+                    if (prodiData) setProdiList(JSON.parse(prodiData))
+                    if (baData) setBeritaAcaraData(JSON.parse(baData))
+                }
+            } catch (err) {
+                console.error('Error loading data:', err)
+                setError('Gagal memuat data dari Supabase. Menggunakan data lokal.')
+
+                // Fallback to localStorage on error
+                const baData = localStorage.getItem(BERITA_ACARA_KEY)
+                const prodiData = localStorage.getItem(PRODI_KEY)
+                if (prodiData) setProdiList(JSON.parse(prodiData))
+                if (baData) setBeritaAcaraData(JSON.parse(baData))
+            } finally {
+                setLoading(false)
+            }
         }
 
-        if (baData) {
-            setBeritaAcaraData(JSON.parse(baData))
-        }
+        loadData()
     }, [])
 
     // Filter based on admin prodi or show all for superadmin
@@ -238,6 +291,25 @@ function RekapBeritaAcaraPage() {
                         </button>
                     </div>
                 </div>
+
+                {/* Loading State */}
+                {loading && (
+                    <div className="card mb-4">
+                        <div className="card-body" style={{ textAlign: 'center', padding: 'var(--space-8)' }}>
+                            <Loader2 size={32} className="animate-spin" style={{ margin: '0 auto' }} />
+                            <p style={{ marginTop: 'var(--space-2)', color: 'var(--text-muted)' }}>Memuat data...</p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Error State */}
+                {error && (
+                    <div className="card mb-4" style={{ borderColor: 'var(--warning-500)' }}>
+                        <div className="card-body" style={{ color: 'var(--warning-700)', background: 'var(--warning-50)' }}>
+                            ⚠️ {error}
+                        </div>
+                    </div>
+                )}
 
                 {/* Filters */}
                 <div className="card mb-4">

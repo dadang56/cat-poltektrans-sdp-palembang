@@ -28,14 +28,6 @@ const generateTahunAjaranOptions = () => {
 
 const TAHUN_AJARAN_OPTIONS = generateTahunAjaranOptions()
 
-// Demo users for testing (fallback when Supabase is not configured)
-const DEMO_USERS = {
-    superadmin: { id: 0, username: 'superadmin', name: 'Super Administrator', role: 'superadmin', email: 'superadmin@poltektrans.ac.id' },
-    admin: { id: 1, username: 'admin', name: 'Admin Prodi TI', role: 'admin_prodi', email: 'admin.ti@poltektrans.ac.id', prodiId: 1 },
-    dosen: { id: 2, username: 'dosen', name: 'Dr. Ahmad Suryadi, M.Kom', role: 'dosen', email: 'ahmad.suryadi@poltektrans.ac.id', nip: '197203151998031002' },
-    mahasiswa: { id: 3, username: 'mahasiswa', name: 'Budi Santoso', role: 'mahasiswa', nim: '2024001', email: 'budi.santoso@student.poltektrans.ac.id' },
-    pengawas: { id: 4, username: 'pengawas', name: 'Pengawas Ujian', role: 'pengawas', email: 'pengawas@poltektrans.ac.id', nip: '198501012010011001' }
-}
 
 function Login() {
     const { login } = useAuth()
@@ -79,75 +71,25 @@ function Login() {
         }
 
         try {
-            // Try Supabase first if configured
-            if (isSupabaseConfigured()) {
-                try {
-                    const userData = await userService.getByNimNip(username)
-
-                    if (userData && password === '123456') {
-                        // User found in Supabase
-                        const user = {
-                            id: userData.id,
-                            username: userData.nim_nip,
-                            name: userData.nama,
-                            role: userData.role,
-                            email: userData.email,
-                            prodi: userData.prodi,
-                            kelas: userData.kelas,
-                            prodiId: userData.prodi_id
-                        }
-                        login(user)
-                        setIsLoading(false)
-                        return
-                    }
-                } catch (supabaseError) {
-                    console.log('Supabase lookup failed, trying demo users:', supabaseError.message)
-                }
-            }
-
-            // Fallback to demo users
-            if (DEMO_USERS[username] && password === '123456') {
-                const user = { ...DEMO_USERS[username] }
-                login(user)
-                setIsLoading(false)
-                return
-            }
-
-            // Then check users from localStorage
-            const savedUsers = localStorage.getItem('cat_users_data')
-            if (savedUsers) {
-                try {
-                    const users = JSON.parse(savedUsers)
-                    const foundUser = users.find(u =>
-                        (u.username === username || u.nim === username) &&
-                        u.password === password &&
-                        u.status === 'active'
-                    )
-
-                    if (foundUser) {
-                        const { password: _, ...userWithoutPassword } = foundUser
-                        login(userWithoutPassword)
-                        setIsLoading(false)
-                        return
-                    }
-                } catch (e) {
-                    console.error('Error parsing saved users:', e)
-                }
-            }
-
-            // If no match found
-            setError('Username atau password salah. Gunakan demo login atau password: 123456')
+            // Use authService via the login function from AuthContext
+            // The login function now handles both Supabase Auth and demo mode
+            await login(username, password)
+            // On success, App.jsx will handle navigation via user state change
         } catch (err) {
             console.error('Login error:', err)
-            setError('Terjadi kesalahan saat login. Silakan coba lagi.')
+            if (err.message?.includes('Invalid login credentials')) {
+                setError('Username atau password salah.')
+            } else if (err.message?.includes('tidak ditemukan')) {
+                setError(err.message)
+            } else {
+                setError('Terjadi kesalahan saat login. Silakan coba lagi.')
+            }
         } finally {
             setIsLoading(false)
         }
     }
 
-    const handleDemoLogin = (role) => {
-        setFormData(prev => ({ ...prev, username: role, password: '123456' }))
-    }
+
 
     return (
         <div className="login-page">
@@ -293,48 +235,7 @@ function Login() {
                             </button>
                         </form>
 
-                        {/* Demo Login Buttons */}
-                        <div className="demo-section">
-                            <p className="demo-label">Login Demo:</p>
-                            <div className="demo-buttons">
-                                <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => handleDemoLogin('superadmin')}
-                                >
-                                    Super Admin
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => handleDemoLogin('admin')}
-                                >
-                                    Admin Prodi
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => handleDemoLogin('dosen')}
-                                >
-                                    Dosen
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => handleDemoLogin('mahasiswa')}
-                                >
-                                    Mahasiswa
-                                </button>
-                                <button
-                                    type="button"
-                                    className="btn btn-ghost btn-sm"
-                                    onClick={() => handleDemoLogin('pengawas')}
-                                >
-                                    Pengawas
-                                </button>
-                            </div>
-                            <p className="demo-hint">Password demo: 123456</p>
-                        </div>
+
 
                         <div className="login-footer">
                             <p>© 2026 Politeknik Transportasi SDP Palembang</p>

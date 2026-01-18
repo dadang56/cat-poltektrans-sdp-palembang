@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react'
+import { appSettingsService, isSupabaseConfigured } from '../services/supabaseService'
 
 // Default settings
 const DEFAULT_SETTINGS = {
@@ -34,19 +35,43 @@ export function useSettings() {
 export function SettingsProvider({ children }) {
     const [settings, setSettings] = useState(DEFAULT_SETTINGS)
     const [isLoaded, setIsLoaded] = useState(false)
+    const [isSaving, setIsSaving] = useState(false)
 
-    // Load settings from localStorage on mount
+    // Load settings from Supabase or fallback to localStorage on mount
     useEffect(() => {
-        const savedSettings = localStorage.getItem('cat_app_settings')
-        if (savedSettings) {
+        const loadSettings = async () => {
             try {
-                const parsed = JSON.parse(savedSettings)
-                setSettings({ ...DEFAULT_SETTINGS, ...parsed })
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const supabaseSettings = await appSettingsService.get('app_config')
+                    if (supabaseSettings) {
+                        setSettings({ ...DEFAULT_SETTINGS, ...supabaseSettings })
+                    }
+                } else {
+                    // Fallback to localStorage
+                    const savedSettings = localStorage.getItem('cat_app_settings')
+                    if (savedSettings) {
+                        const parsed = JSON.parse(savedSettings)
+                        setSettings({ ...DEFAULT_SETTINGS, ...parsed })
+                    }
+                }
             } catch (e) {
-                console.error('Failed to parse settings:', e)
+                console.error('Failed to load settings from Supabase:', e)
+                // Fallback to localStorage on error
+                const savedSettings = localStorage.getItem('cat_app_settings')
+                if (savedSettings) {
+                    try {
+                        const parsed = JSON.parse(savedSettings)
+                        setSettings({ ...DEFAULT_SETTINGS, ...parsed })
+                    } catch (parseErr) {
+                        console.error('Failed to parse localStorage settings:', parseErr)
+                    }
+                }
             }
+            setIsLoaded(true)
         }
-        setIsLoaded(true)
+
+        loadSettings()
     }, [])
 
     // Apply CSS custom properties when settings change
@@ -66,15 +91,38 @@ export function SettingsProvider({ children }) {
         }
     }, [settings, isLoaded])
 
-    const updateSettings = (newSettings) => {
+    const updateSettings = async (newSettings) => {
         const updated = { ...settings, ...newSettings }
         setSettings(updated)
+
+        // Always save to localStorage as backup
         localStorage.setItem('cat_app_settings', JSON.stringify(updated))
+
+        // Try to save to Supabase if configured
+        if (isSupabaseConfigured()) {
+            setIsSaving(true)
+            try {
+                await appSettingsService.set('app_config', updated)
+            } catch (e) {
+                console.error('Failed to save settings to Supabase:', e)
+            } finally {
+                setIsSaving(false)
+            }
+        }
     }
 
-    const resetSettings = () => {
+    const resetSettings = async () => {
         setSettings(DEFAULT_SETTINGS)
         localStorage.removeItem('cat_app_settings')
+
+        // Try to delete from Supabase if configured
+        if (isSupabaseConfigured()) {
+            try {
+                await appSettingsService.delete('app_config')
+            } catch (e) {
+                console.error('Failed to delete settings from Supabase:', e)
+            }
+        }
     }
 
     const value = {
@@ -82,7 +130,8 @@ export function SettingsProvider({ children }) {
         updateSettings,
         saveSettings: updateSettings, // Alias for updateSettings
         resetSettings,
-        isLoaded
+        isLoaded,
+        isSaving
     }
 
     return (

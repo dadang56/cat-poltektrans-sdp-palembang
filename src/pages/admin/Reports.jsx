@@ -11,8 +11,12 @@ import {
     GraduationCap,
     Calendar,
     User,
-    BookOpen
+    BookOpen,
+    Database,
+    HardDrive,
+    RefreshCw
 } from 'lucide-react'
+import { isSupabaseConfigured, hasilUjianService, prodiService, kelasService, matkulService, userService } from '../../services/supabaseService'
 
 // LocalStorage keys
 const EXAM_RESULTS_KEY = 'cat_exam_results'
@@ -39,15 +43,88 @@ function ReportsPage() {
     const [showFilters, setShowFilters] = useState(false)
     const printRef = useRef(null)
 
-    // Data from localStorage
+    // Data state
     const [grades, setGrades] = useState([])
     const [dosenList, setDosenList] = useState(['Semua Dosen'])
     const [matkulList, setMatkulList] = useState(['Semua Mata Kuliah'])
     const [prodiList, setProdiList] = useState(['Semua Prodi'])
     const [kelasList, setKelasList] = useState(['Semua Kelas'])
 
-    // Load data from localStorage
+    // Loading and data source state
+    const [isLoading, setIsLoading] = useState(true)
+    const [dataSource, setDataSource] = useState('local') // 'supabase' or 'local'
+    const [error, setError] = useState(null)
+
+    // Load data
     useEffect(() => {
+        loadData()
+    }, [])
+
+    const loadData = async () => {
+        setIsLoading(true)
+        setError(null)
+
+        if (isSupabaseConfigured()) {
+            try {
+                await loadFromSupabase()
+                setDataSource('supabase')
+            } catch (err) {
+                console.error('Error loading from Supabase, falling back to localStorage:', err)
+                setError('Gagal memuat dari database, menggunakan data lokal')
+                loadFromLocalStorage()
+                setDataSource('local')
+            }
+        } else {
+            loadFromLocalStorage()
+            setDataSource('local')
+        }
+
+        setIsLoading(false)
+    }
+
+    const loadFromSupabase = async () => {
+        // Load all required data in parallel
+        const [hasilData, prodiData, kelasData, matkulData, usersData] = await Promise.all([
+            hasilUjianService.getAll(),
+            prodiService.getAll(),
+            kelasService.getAll(),
+            matkulService.getAll(),
+            userService.getAll({ role: 'dosen' })
+        ])
+
+        // Build filter lists
+        setProdiList(['Semua Prodi', ...prodiData.map(p => p.nama)])
+        setKelasList(['Semua Kelas', ...kelasData.map(k => k.nama)])
+        setMatkulList(['Semua Mata Kuliah', ...matkulData.map(m => m.nama)])
+        setDosenList(['Semua Dosen', ...usersData.map(d => d.nama)])
+
+        // Transform hasil ujian data for display
+        const enrichedResults = hasilData.map(r => {
+            const mahasiswa = r.mahasiswa
+            const jadwal = r.jadwal
+            const matkul = jadwal?.matkul
+            const dosen = jadwal?.dosen
+            const kelas = mahasiswa?.kelas
+            const prodi = kelas?.prodi
+
+            return {
+                id: r.id,
+                nim: mahasiswa?.nim_nip || '-',
+                nama: mahasiswa?.nama || '-',
+                prodi: prodi?.nama || '-',
+                kelas: kelas?.nama || '-',
+                matkul: matkul?.nama || '-',
+                dosen: dosen?.nama || '-',
+                nilai: r.nilai_total || 0,
+                tanggal: jadwal?.tanggal || '-',
+                tipe: jadwal?.tipe || '-'
+            }
+        })
+
+        setGrades(enrichedResults)
+    }
+
+    const loadFromLocalStorage = () => {
         const examResults = localStorage.getItem(EXAM_RESULTS_KEY)
         const users = localStorage.getItem(USERS_KEY)
         const prodi = localStorage.getItem(PRODI_KEY)
@@ -96,7 +173,7 @@ function ReportsPage() {
             })
             setGrades(enrichedResults)
         }
-    }, [])
+    }
 
     // Filter data
     const filteredGrades = grades.filter(grade => {
@@ -149,6 +226,23 @@ function ReportsPage() {
                         <p className="page-subtitle">Rekap nilai akumulatif dari ujian yang telah dinilai</p>
                     </div>
                     <div className="page-actions">
+                        {/* Data Source Indicator */}
+                        <div className={`data-source-badge ${dataSource}`}>
+                            {dataSource === 'supabase' ? (
+                                <>
+                                    <Database size={14} />
+                                    <span>Database</span>
+                                </>
+                            ) : (
+                                <>
+                                    <HardDrive size={14} />
+                                    <span>Local</span>
+                                </>
+                            )}
+                        </div>
+                        <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
+                            <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
+                        </button>
                         <button className="btn btn-outline" onClick={() => setShowFilters(!showFilters)}>
                             <Filter size={18} />
                             Filter
@@ -165,141 +259,158 @@ function ReportsPage() {
                     </div>
                 </div>
 
-                {/* Filters */}
-                {showFilters && (
-                    <div className="filters-panel card animate-fadeIn">
-                        <div className="card-body">
-                            <div className="filters-grid">
-                                <div className="filter-group">
-                                    <label className="form-label">Dosen</label>
-                                    <select
-                                        className="form-input"
-                                        value={filterDosen}
-                                        onChange={(e) => setFilterDosen(e.target.value)}
-                                    >
-                                        {dosenList.map(d => <option key={d} value={d}>{d}</option>)}
-                                    </select>
-                                </div>
-                                <div className="filter-group">
-                                    <label className="form-label">Mata Kuliah</label>
-                                    <select
-                                        className="form-input"
-                                        value={filterMatkul}
-                                        onChange={(e) => setFilterMatkul(e.target.value)}
-                                    >
-                                        {matkulList.map(m => <option key={m} value={m}>{m}</option>)}
-                                    </select>
-                                </div>
-                                <div className="filter-group">
-                                    <label className="form-label">Program Studi</label>
-                                    <select
-                                        className="form-input"
-                                        value={filterProdi}
-                                        onChange={(e) => setFilterProdi(e.target.value)}
-                                    >
-                                        {prodiList.map(p => <option key={p} value={p}>{p}</option>)}
-                                    </select>
-                                </div>
-                                <div className="filter-group">
-                                    <label className="form-label">Kelas</label>
-                                    <select
-                                        className="form-input"
-                                        value={filterKelas}
-                                        onChange={(e) => setFilterKelas(e.target.value)}
-                                    >
-                                        {kelasList.map(k => <option key={k} value={k}>{k}</option>)}
-                                    </select>
-                                </div>
-                            </div>
-                        </div>
+                {/* Error message */}
+                {error && (
+                    <div className="alert alert-warning animate-fadeIn">
+                        {error}
                     </div>
                 )}
 
-                {/* Summary Cards */}
-                <div className="summary-cards">
-                    <div className="summary-card">
-                        <span className="summary-value">{summary.totalRecords}</span>
-                        <span className="summary-label">Total Data</span>
+                {/* Loading state */}
+                {isLoading ? (
+                    <div className="loading-container">
+                        <div className="loading-spinner"></div>
+                        <p>Memuat data laporan...</p>
                     </div>
-                    <div className="summary-card">
-                        <span className="summary-value">{summary.avgNilai}</span>
-                        <span className="summary-label">Rata-rata Nilai</span>
-                    </div>
-                    <div className="summary-card success">
-                        <span className="summary-value">{summary.gradeA}</span>
-                        <span className="summary-label">Grade A</span>
-                    </div>
-                    <div className="summary-card primary">
-                        <span className="summary-value">{summary.gradeB}</span>
-                        <span className="summary-label">Grade B</span>
-                    </div>
-                </div>
+                ) : (
+                    <>
+                        {/* Filters */}
+                        {showFilters && (
+                            <div className="filters-panel card animate-fadeIn">
+                                <div className="card-body">
+                                    <div className="filters-grid">
+                                        <div className="filter-group">
+                                            <label className="form-label">Dosen</label>
+                                            <select
+                                                className="form-input"
+                                                value={filterDosen}
+                                                onChange={(e) => setFilterDosen(e.target.value)}
+                                            >
+                                                {dosenList.map(d => <option key={d} value={d}>{d}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="filter-group">
+                                            <label className="form-label">Mata Kuliah</label>
+                                            <select
+                                                className="form-input"
+                                                value={filterMatkul}
+                                                onChange={(e) => setFilterMatkul(e.target.value)}
+                                            >
+                                                {matkulList.map(m => <option key={m} value={m}>{m}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="filter-group">
+                                            <label className="form-label">Program Studi</label>
+                                            <select
+                                                className="form-input"
+                                                value={filterProdi}
+                                                onChange={(e) => setFilterProdi(e.target.value)}
+                                            >
+                                                {prodiList.map(p => <option key={p} value={p}>{p}</option>)}
+                                            </select>
+                                        </div>
+                                        <div className="filter-group">
+                                            <label className="form-label">Kelas</label>
+                                            <select
+                                                className="form-input"
+                                                value={filterKelas}
+                                                onChange={(e) => setFilterKelas(e.target.value)}
+                                            >
+                                                {kelasList.map(k => <option key={k} value={k}>{k}</option>)}
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
 
-                {/* Search */}
-                <div className="search-box">
-                    <Search size={20} className="search-icon" />
-                    <input
-                        type="text"
-                        className="form-input"
-                        placeholder="Cari nama atau NIM mahasiswa..."
-                        value={searchQuery}
-                        onChange={(e) => setSearchQuery(e.target.value)}
-                    />
-                </div>
-
-                {/* Table */}
-                <div className="card">
-                    <div className="card-body">
-                        <div className="table-container">
-                            <table className="table">
-                                <thead>
-                                    <tr>
-                                        <th>No</th>
-                                        <th>NIM</th>
-                                        <th>Nama Mahasiswa</th>
-                                        <th>Prodi</th>
-                                        <th>Kelas</th>
-                                        <th>Mata Kuliah</th>
-                                        <th>Dosen Pengampu</th>
-                                        <th>Nilai</th>
-                                        <th>Grade</th>
-                                        <th>Tanggal</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {filteredGrades.map((grade, idx) => {
-                                        const gradeInfo = getGradeLabel(grade.nilai)
-                                        return (
-                                            <tr key={grade.id}>
-                                                <td>{idx + 1}</td>
-                                                <td className="font-medium">{grade.nim}</td>
-                                                <td>{grade.nama}</td>
-                                                <td className="text-muted">{grade.prodi}</td>
-                                                <td><span className="badge badge-outline">{grade.kelas}</span></td>
-                                                <td>{grade.matkul}</td>
-                                                <td className="text-muted">{grade.dosen}</td>
-                                                <td className="font-semibold">{grade.nilai}</td>
-                                                <td>
-                                                    <span className={`badge badge-${gradeInfo.color}`}>
-                                                        {gradeInfo.label}
-                                                    </span>
-                                                </td>
-                                                <td className="text-muted">{grade.tanggal}</td>
-                                            </tr>
-                                        )
-                                    })}
-                                    {filteredGrades.length === 0 && (
-                                        <tr>
-                                            <td colSpan="10" className="text-center text-muted py-4">
-                                                Tidak ada data yang ditemukan
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                        {/* Summary Cards */}
+                        <div className="summary-cards">
+                            <div className="summary-card">
+                                <span className="summary-value">{summary.totalRecords}</span>
+                                <span className="summary-label">Total Data</span>
+                            </div>
+                            <div className="summary-card">
+                                <span className="summary-value">{summary.avgNilai}</span>
+                                <span className="summary-label">Rata-rata Nilai</span>
+                            </div>
+                            <div className="summary-card success">
+                                <span className="summary-value">{summary.gradeA}</span>
+                                <span className="summary-label">Grade A</span>
+                            </div>
+                            <div className="summary-card primary">
+                                <span className="summary-value">{summary.gradeB}</span>
+                                <span className="summary-label">Grade B</span>
+                            </div>
                         </div>
-                    </div>
-                </div>
+
+                        {/* Search */}
+                        <div className="search-box">
+                            <Search size={20} className="search-icon" />
+                            <input
+                                type="text"
+                                className="form-input"
+                                placeholder="Cari nama atau NIM mahasiswa..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Table */}
+                        <div className="card">
+                            <div className="card-body">
+                                <div className="table-container">
+                                    <table className="table">
+                                        <thead>
+                                            <tr>
+                                                <th>No</th>
+                                                <th>NIM</th>
+                                                <th>Nama Mahasiswa</th>
+                                                <th>Prodi</th>
+                                                <th>Kelas</th>
+                                                <th>Mata Kuliah</th>
+                                                <th>Dosen Pengampu</th>
+                                                <th>Nilai</th>
+                                                <th>Grade</th>
+                                                <th>Tanggal</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredGrades.map((grade, idx) => {
+                                                const gradeInfo = getGradeLabel(grade.nilai)
+                                                return (
+                                                    <tr key={grade.id}>
+                                                        <td>{idx + 1}</td>
+                                                        <td className="font-medium">{grade.nim}</td>
+                                                        <td>{grade.nama}</td>
+                                                        <td className="text-muted">{grade.prodi}</td>
+                                                        <td><span className="badge badge-outline">{grade.kelas}</span></td>
+                                                        <td>{grade.matkul}</td>
+                                                        <td className="text-muted">{grade.dosen}</td>
+                                                        <td className="font-semibold">{grade.nilai}</td>
+                                                        <td>
+                                                            <span className={`badge badge-${gradeInfo.color}`}>
+                                                                {gradeInfo.label}
+                                                            </span>
+                                                        </td>
+                                                        <td className="text-muted">{grade.tanggal}</td>
+                                                    </tr>
+                                                )
+                                            })}
+                                            {filteredGrades.length === 0 && (
+                                                <tr>
+                                                    <td colSpan="10" className="text-center text-muted py-4">
+                                                        Tidak ada data yang ditemukan
+                                                    </td>
+                                                </tr>
+                                            )}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </>
+                )}
             </div>
 
             {/* Print Template (Hidden) */}
@@ -396,10 +507,37 @@ function ReportsPage() {
                     display: flex;
                     gap: 0.75rem;
                     flex-wrap: wrap;
+                    align-items: center;
+                }
+                .data-source-badge {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.35rem;
+                    padding: 0.35rem 0.75rem;
+                    border-radius: 9999px;
+                    font-size: 0.75rem;
+                    font-weight: 500;
+                }
+                .data-source-badge.supabase {
+                    background: rgba(16, 185, 129, 0.15);
+                    color: #10b981;
+                    border: 1px solid rgba(16, 185, 129, 0.3);
+                }
+                .data-source-badge.local {
+                    background: rgba(245, 158, 11, 0.15);
+                    color: #f59e0b;
+                    border: 1px solid rgba(245, 158, 11, 0.3);
                 }
                 .rotate {
                     transform: rotate(180deg);
                     transition: transform 0.2s ease;
+                }
+                .spin {
+                    animation: spin 1s linear infinite;
+                }
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
                 }
                 .filters-panel {
                     margin-bottom: 1.5rem;
@@ -460,6 +598,32 @@ function ReportsPage() {
                     background: transparent;
                     border: 1px solid var(--color-border);
                     color: var(--color-text-muted);
+                }
+                .loading-container {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    padding: 4rem 2rem;
+                    gap: 1rem;
+                }
+                .loading-spinner {
+                    width: 40px;
+                    height: 40px;
+                    border: 3px solid var(--color-border);
+                    border-top-color: var(--color-primary);
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                }
+                .alert {
+                    padding: 1rem;
+                    border-radius: 0.5rem;
+                    margin-bottom: 1rem;
+                }
+                .alert-warning {
+                    background: rgba(245, 158, 11, 0.15);
+                    border: 1px solid rgba(245, 158, 11, 0.3);
+                    color: #f59e0b;
                 }
                 @media (max-width: 768px) {
                     .page-header {
