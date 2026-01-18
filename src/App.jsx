@@ -78,6 +78,7 @@ function App() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
   const [theme, setTheme] = useState('light')
+  const [sessionMessage, setSessionMessage] = useState(null)
 
   // Check for existing session on mount using authService
   useEffect(() => {
@@ -117,6 +118,32 @@ function App() {
     }
   }, [])
 
+  // Session validation interval - check every 30 seconds
+  useEffect(() => {
+    if (!user) return
+
+    const checkSession = async () => {
+      const result = await authService.validateSession()
+      if (!result.valid && result.reason === 'session_invalidated') {
+        // Session was invalidated (user logged in elsewhere)
+        setSessionMessage('Akun Anda telah login di perangkat lain. Anda akan logout otomatis.')
+
+        // Auto logout after showing message
+        setTimeout(async () => {
+          await authService.signOut()
+          setUser(null)
+          setSessionMessage(null)
+        }, 3000)
+      }
+    }
+
+    // Check immediately and then every 30 seconds
+    checkSession()
+    const interval = setInterval(checkSession, 30000)
+
+    return () => clearInterval(interval)
+  }, [user])
+
   const login = async (nimNip, password) => {
     const { data, error } = await authService.signInWithNimNip(nimNip, password)
     if (error) {
@@ -144,7 +171,8 @@ function App() {
     login,
     logout,
     theme,
-    toggleTheme
+    toggleTheme,
+    sessionMessage
   }
 
   return (
@@ -433,6 +461,50 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+
+          {/* Session Invalidation Toast */}
+          {sessionMessage && (
+            <div className="session-toast">
+              <div className="session-toast-content">
+                <span className="session-toast-icon">⚠️</span>
+                <span>{sessionMessage}</span>
+              </div>
+              <style>{`
+                .session-toast {
+                  position: fixed;
+                  top: 20px;
+                  left: 50%;
+                  transform: translateX(-50%);
+                  z-index: 10000;
+                  animation: slideDown 0.3s ease-out;
+                }
+                .session-toast-content {
+                  background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+                  color: white;
+                  padding: 16px 24px;
+                  border-radius: 12px;
+                  display: flex;
+                  align-items: center;
+                  gap: 12px;
+                  box-shadow: 0 10px 40px rgba(220, 38, 38, 0.4);
+                  font-weight: 500;
+                }
+                .session-toast-icon {
+                  font-size: 20px;
+                }
+                @keyframes slideDown {
+                  from {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(-20px);
+                  }
+                  to {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                  }
+                }
+              `}</style>
+            </div>
+          )}
         </AuthContext.Provider>
       </ConfirmProvider>
     </SettingsProvider>

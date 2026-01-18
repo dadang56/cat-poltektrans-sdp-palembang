@@ -8,6 +8,14 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 // LocalStorage keys for fallback/demo mode
 const DEMO_USER_KEY = 'cat_user'
 const USERS_KEY = 'cat_users_data'
+const SESSION_TOKEN_KEY = 'cat_session_token'
+
+/**
+ * Generate unique session token
+ */
+function generateSessionToken() {
+    return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}`
+}
 
 /**
  * Sign in with NIM/NIP and password
@@ -72,10 +80,20 @@ export async function signInWithNimNip(nimNip, password) {
             const storedPassword = existingUser.password || '123456'
 
             if (password === storedPassword) {
+                // Generate unique session token
+                const sessionToken = generateSessionToken()
+
+                // Update session token in database
+                await supabase
+                    .from('users')
+                    .update({ session_token: sessionToken })
+                    .eq('id', existingUser.id)
+
                 const formattedUser = formatUserProfile(existingUser, null)
 
                 // Store in localStorage as session
                 localStorage.setItem(DEMO_USER_KEY, JSON.stringify(formattedUser))
+                localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
 
                 return {
                     data: formattedUser,
@@ -135,8 +153,27 @@ export async function signUpUser(nimNip, password, userData) {
  * Sign out current user
  */
 export async function signOut() {
+    // Clear session token from database
+    const localUser = localStorage.getItem(DEMO_USER_KEY)
+    if (localUser && isSupabaseConfigured()) {
+        try {
+            const user = JSON.parse(localUser)
+            if (user?.id) {
+                await supabase
+                    .from('users')
+                    .update({ session_token: null })
+                    .eq('id', user.id)
+            }
+        } catch (e) {
+            console.error('[AuthService] Error clearing session token:', e)
+        }
+    }
+
+    // Clear localStorage
+    localStorage.removeItem(DEMO_USER_KEY)
+    localStorage.removeItem(SESSION_TOKEN_KEY)
+
     if (!isSupabaseConfigured()) {
-        localStorage.removeItem(DEMO_USER_KEY)
         return { error: null }
     }
 
@@ -163,6 +200,53 @@ export async function getSession() {
     }
 
     return await supabase.auth.getSession()
+}
+
+/**
+ * Validate current session token against database
+ * Returns false if session is invalid (logged in elsewhere)
+ */
+export async function validateSession() {
+    if (!isSupabaseConfigured()) {
+        return { valid: true }
+    }
+
+    const localUser = localStorage.getItem(DEMO_USER_KEY)
+    const localToken = localStorage.getItem(SESSION_TOKEN_KEY)
+
+    if (!localUser || !localToken) {
+        return { valid: false, reason: 'no_session' }
+    }
+
+    try {
+        const user = JSON.parse(localUser)
+        if (!user?.id) {
+            return { valid: false, reason: 'invalid_user' }
+        }
+
+        // Check session token in database
+        const { data, error } = await supabase
+            .from('users')
+            .select('session_token')
+            .eq('id', user.id)
+            .single()
+
+        if (error) {
+            console.error('[AuthService] Session validation error:', error)
+            return { valid: true } // Don't logout on network errors
+        }
+
+        // If database token doesn't match local token, session is invalid
+        if (data.session_token !== localToken) {
+            console.log('[AuthService] Session invalidated - logged in elsewhere')
+            return { valid: false, reason: 'session_invalidated' }
+        }
+
+        return { valid: true }
+    } catch (e) {
+        console.error('[AuthService] Session validation error:', e)
+        return { valid: true } // Don't logout on errors
+    }
 }
 
 /**
