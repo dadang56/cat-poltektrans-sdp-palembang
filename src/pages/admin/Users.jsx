@@ -606,9 +606,17 @@ function UsersPage() {
 
         try {
             if (useSupabase) {
+                // Use username as the primary identifier (nim_nip)
+                // If nim is provided, use that, otherwise fall back to username
+                const nimNip = userData.nim || userData.username || ''
+
+                if (!nimNip) {
+                    throw new Error('Username harus diisi')
+                }
+
                 // Map form data to Supabase format
                 const supabaseData = {
-                    nim_nip: userData.nim || userData.username,
+                    nim_nip: nimNip.toUpperCase(),
                     nama: userData.name,
                     email: userData.email || null,
                     role: userData.role,
@@ -616,6 +624,7 @@ function UsersPage() {
                     prodi_id: userData.prodiId || null,
                     kelas_id: userData.kelasId || null
                 }
+
 
                 if (editingUser) {
                     // Update existing user
