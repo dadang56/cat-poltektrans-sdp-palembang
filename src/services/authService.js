@@ -169,11 +169,22 @@ export async function getSession() {
  * Get current user profile
  */
 export async function getCurrentUser() {
-    if (!isSupabaseConfigured()) {
-        const demoUser = localStorage.getItem(DEMO_USER_KEY)
-        return demoUser ? JSON.parse(demoUser) : null
+    // First, always check localStorage for database-only auth session
+    const localUser = localStorage.getItem(DEMO_USER_KEY)
+    if (localUser) {
+        try {
+            return JSON.parse(localUser)
+        } catch (e) {
+            localStorage.removeItem(DEMO_USER_KEY)
+        }
     }
 
+    // If no local session and Supabase not configured, return null
+    if (!isSupabaseConfigured()) {
+        return null
+    }
+
+    // Check Supabase Auth session (for future OAuth users)
     const { data: { session } } = await supabase.auth.getSession()
     if (!session) return null
 
