@@ -636,9 +636,9 @@ function UsersPage() {
                         username: supabaseData.nim_nip
                     } : u))
                 } else {
-                    // Create new user in Supabase with custom password
-                    const password = userData.password || '123456'
-                    const created = await userService.create(supabaseData, password)
+                    // Create new user in Supabase (simple INSERT)
+                    // User can login with password: 123456
+                    const created = await userService.create(supabaseData)
                     const newUser = {
                         id: created.id,
                         name: created.nama,

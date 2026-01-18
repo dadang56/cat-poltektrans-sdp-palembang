@@ -56,38 +56,12 @@ export const userService = {
         return data
     },
 
-    // Create user with Supabase Auth (supports custom password)
-    async create(userData, password = '123456') {
-        // Step 1: Create Supabase Auth account
-        const email = `${userData.nim_nip.toLowerCase()}@cat.poltektrans.local`
-
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email,
-            password,
-            options: {
-                data: {
-                    nim_nip: userData.nim_nip,
-                    nama: userData.nama,
-                    role: userData.role
-                }
-            }
-        })
-
-        if (authError) {
-            console.error('[UserService] Auth signup error:', authError)
-            // If auth fails, still try to create user in public.users (without auth_id)
-            // This allows the user to login with default password 123456
-        }
-
-        // Step 2: Create user profile in public.users
-        const userDataWithAuth = {
-            ...userData,
-            auth_id: authData?.user?.id || null
-        }
-
+    // Create user (simple INSERT to public.users)
+    // Users can login with default password: 123456
+    async create(userData) {
         const { data, error } = await supabase
             .from('users')
-            .insert([userDataWithAuth])
+            .insert([userData])
             .select()
             .single()
 
