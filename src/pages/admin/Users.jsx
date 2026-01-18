@@ -350,7 +350,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                                 value={formData.prodiId}
                                                 onChange={e => setFormData({
                                                     ...formData,
-                                                    prodiId: Number(e.target.value),
+                                                    prodiId: e.target.value,
                                                     kelasId: '' // Reset kelas when prodi changes
                                                 })}
                                                 required
@@ -366,7 +366,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                         <select
                                             className="form-input"
                                             value={formData.kelasId}
-                                            onChange={e => setFormData({ ...formData, kelasId: Number(e.target.value) })}
+                                            onChange={e => setFormData({ ...formData, kelasId: e.target.value })}
                                             required
                                         >
                                             <option value="">Pilih Kelas</option>
@@ -439,7 +439,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                     <select
                                         className="form-input"
                                         value={formData.prodiId || ''}
-                                        onChange={e => setFormData({ ...formData, prodiId: Number(e.target.value) })}
+                                        onChange={e => setFormData({ ...formData, prodiId: e.target.value })}
                                         required
                                     >
                                         <option value="">Pilih Prodi</option>
