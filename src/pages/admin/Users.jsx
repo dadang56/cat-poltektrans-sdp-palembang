@@ -567,11 +567,11 @@ function UsersPage() {
             (user.nim || '').includes(search)
         const matchesRole = roleFilter === 'all' || user.role === roleFilter
 
-        // Prodi filter
-        const matchesProdi = prodiFilter === 'all' || user.prodiId === parseInt(prodiFilter)
+        // Prodi filter - compare as strings (UUID)
+        const matchesProdi = prodiFilter === 'all' || user.prodiId === prodiFilter
 
-        // Kelas filter (only for mahasiswa)
-        const matchesKelas = kelasFilter === 'all' || user.kelasId === parseInt(kelasFilter)
+        // Kelas filter (only for mahasiswa) - compare as strings (UUID)
+        const matchesKelas = kelasFilter === 'all' || user.kelasId === kelasFilter
 
         // Admin Prodi cannot see/edit superadmin or other admin_prodi users
         if (currentUser?.role === 'admin_prodi') {
