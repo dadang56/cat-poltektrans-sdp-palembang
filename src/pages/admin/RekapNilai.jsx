@@ -90,7 +90,7 @@ function RekapNilaiPage() {
     // Filter based on admin prodi or show all for superadmin
     const filteredData = nilaiData.filter(item => {
         const matchesProdi = user?.role === 'superadmin'
-            ? (prodiFilter === 'all' || item.prodiId === parseInt(prodiFilter))
+            ? (prodiFilter === 'all' || item.prodiId === prodiFilter)
             : item.prodiId === user?.prodiId
         const matchesExamType = examTypeFilter === 'all' || item.examType === examTypeFilter
         return matchesProdi && matchesExamType

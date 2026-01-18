@@ -255,7 +255,7 @@ function BankSoalPage() {
         const matchesCategory = categoryFilter === 'all' || q.category === categoryFilter
         const matchesType = typeFilter === 'all' || q.type === typeFilter
         const matchesExamType = examTypeFilter === 'all' || q.examType === examTypeFilter
-        const matchesProdi = prodiFilter === 'all' || q.prodiId === parseInt(prodiFilter)
+        const matchesProdi = prodiFilter === 'all' || q.prodiId === prodiFilter
         return matchesSearch && matchesCategory && matchesType && matchesExamType && matchesProdi
     })
 

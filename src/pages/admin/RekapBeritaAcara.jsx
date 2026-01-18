@@ -99,7 +99,7 @@ function RekapBeritaAcaraPage() {
     // Filter based on admin prodi or show all for superadmin
     const filteredData = beritaAcaraData.filter(item => {
         const matchesProdi = user?.role === 'superadmin'
-            ? (prodiFilter === 'all' || item.prodiId === parseInt(prodiFilter))
+            ? (prodiFilter === 'all' || item.prodiId === prodiFilter)
             : item.prodiId === user?.prodiId
         const matchesSearch = item.examName.toLowerCase().includes(search.toLowerCase()) ||
             item.pengawas.toLowerCase().includes(search.toLowerCase())

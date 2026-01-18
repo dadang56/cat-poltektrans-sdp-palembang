@@ -138,7 +138,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
     }, [user, isOpen, currentUser])
 
     // Get filtered kelas based on selected prodi (for mahasiswa)
-    const filteredKelas = kelasList.filter(k => k.prodiId === Number(formData.prodiId))
+    const filteredKelas = kelasList.filter(k => k.prodiId === formData.prodiId)
 
     // Get filtered kelas and matkul based on selected prodiIds (for dosen)
     const filteredKelasForDosen = kelasList.filter(k => formData.prodiIds?.includes(k.prodiId))
@@ -1002,7 +1002,7 @@ function UsersPage() {
                                 >
                                     <option value="all">Semua Kelas</option>
                                     {kelasList
-                                        .filter(k => prodiFilter === 'all' || k.prodiId === parseInt(prodiFilter))
+                                        .filter(k => prodiFilter === 'all' || k.prodiId === prodiFilter)
                                         .map(k => (
                                             <option key={k.id} value={k.id}>{k.nama}</option>
                                         ))}

@@ -267,7 +267,7 @@ function JadwalUjianPage() {
     const prodiFilteredJadwal = jadwalList.filter(j => {
         const prodiId = getJadwalProdiId(j)
         return isSuperAdmin
-            ? (prodiFilter === 'all' || prodiId === parseInt(prodiFilter))
+            ? (prodiFilter === 'all' || prodiId === prodiFilter)
             : prodiId === user?.prodiId
     })
 
@@ -292,14 +292,14 @@ function JadwalUjianPage() {
         setIsSaving(true)
         try {
             const jadwalData = {
-                matkul_id: parseInt(data.matkul_id) || parseInt(data.matkulId),
-                kelas_id: parseInt(data.kelas_id) || parseInt(data.kelasId),
+                matkul_id: data.matkul_id || data.matkulId,
+                kelas_id: data.kelas_id || data.kelasId,
                 tipe_ujian: data.tipe_ujian || data.tipeUjian || 'UTS',
                 tanggal: data.tanggal,
                 waktu_mulai: data.waktu_mulai || data.waktuMulai,
                 waktu_selesai: data.waktu_selesai || data.waktuSelesai,
                 ruangan: data.ruangan || data.ruang || '',
-                prodi_id: user?.prodiId || 1
+                prodi_id: user?.prodiId || null
             }
 
             if (useSupabase) {
@@ -357,28 +357,24 @@ function JadwalUjianPage() {
     }
 
     const getMatkulName = (id) => {
-        const mId = parseInt(id)
-        const m = matkulList.find(mk => mk.id === mId)
+        const m = matkulList.find(mk => mk.id === id)
         return m ? `${m.kode} - ${m.nama}` : '-'
     }
 
     const getKelasName = (id) => {
-        const kId = parseInt(id)
-        const k = kelasList.find(kl => kl.id === kId)
+        const k = kelasList.find(kl => kl.id === id)
         return k ? `Kelas ${k.nama}` : '-'
     }
 
     const getProdiName = (prodiId, kelasId) => {
         // First try direct prodiId
-        const pId = parseInt(prodiId)
-        if (pId) {
-            const p = prodiList.find(pr => pr.id === pId)
+        if (prodiId) {
+            const p = prodiList.find(pr => pr.id === prodiId)
             if (p) return p.kode
         }
         // Fallback: get prodi from kelas
-        const kId = parseInt(kelasId)
-        if (kId) {
-            const k = kelasList.find(kl => kl.id === kId)
+        if (kelasId) {
+            const k = kelasList.find(kl => kl.id === kelasId)
             if (k?.prodi_id || k?.prodiId) {
                 const p = prodiList.find(pr => pr.id === (k.prodi_id || k.prodiId))
                 if (p) return p.kode
