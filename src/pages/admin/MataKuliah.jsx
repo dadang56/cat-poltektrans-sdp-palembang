@@ -329,17 +329,23 @@ function MataKuliahPage() {
             { key: 'semester', label: 'Semester' },
             { key: 'sks_teori', label: 'SKS Teori' },
             { key: 'sks_praktek', label: 'SKS Praktek' },
+            { key: 'total_sks', label: 'Total SKS' },
             { key: 'prodi_kode', label: 'Kode Prodi' }
         ]
 
-        const exportData = filteredMatkul.map(m => ({
-            kode: m.kode,
-            nama: m.nama,
-            semester: m.semester || 1,
-            sks_teori: m.sks_teori || m.sks || 0,
-            sks_praktek: m.sks_praktek || 0,
-            prodi_kode: getProdiInfo(m).kode
-        }))
+        const exportData = filteredMatkul.map(m => {
+            const sksTeori = m.sks_teori || m.sks || 0
+            const sksPraktek = m.sks_praktek || 0
+            return {
+                kode: m.kode,
+                nama: m.nama,
+                semester: m.semester || 1,
+                sks_teori: sksTeori,
+                sks_praktek: sksPraktek,
+                total_sks: sksTeori + sksPraktek,
+                prodi_kode: getProdiInfo(m).kode
+            }
+        })
 
         exportToXLSX(exportData, headers, 'mata_kuliah_export', 'Mata Kuliah')
     }
