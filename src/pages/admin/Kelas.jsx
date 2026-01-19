@@ -41,14 +41,14 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList, isLoading }) {
     const [formData, setFormData] = useState(kelas || {
         nama: '',
         prodi_id: prodiList[0]?.id || '',
-        angkatan: new Date().getFullYear()
+        tahun_angkatan: 36 // Default to current angkatan
     })
 
     useEffect(() => {
         setFormData(kelas || {
             nama: '',
             prodi_id: prodiList[0]?.id || '',
-            angkatan: new Date().getFullYear()
+            tahun_angkatan: 36
         })
     }, [kelas, prodiList])
 
@@ -101,8 +101,8 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList, isLoading }) {
                                 <label className="form-label">Angkatan</label>
                                 <select
                                     className="form-input"
-                                    value={formData.angkatan}
-                                    onChange={e => setFormData({ ...formData, angkatan: Number(e.target.value) })}
+                                    value={formData.tahun_angkatan}
+                                    onChange={e => setFormData({ ...formData, tahun_angkatan: Number(e.target.value) })}
                                     required
                                 >
                                     {ANGKATAN_OPTIONS.map(opt => (
@@ -367,7 +367,7 @@ function KelasPage() {
                                                         <span className="badge badge-primary">{prodi.kode}</span>
                                                         <span className="prodi-full-name">{prodi.nama}</span>
                                                     </td>
-                                                    <td className="font-medium">{kelas.angkatan}</td>
+                                                    <td className="font-medium">{kelas.tahun_angkatan}</td>
                                                     <td>
                                                         <div className="flex gap-2">
                                                             <button
