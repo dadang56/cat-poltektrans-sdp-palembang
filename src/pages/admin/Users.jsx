@@ -862,8 +862,46 @@ function UsersPage() {
             })
 
             if (newUsers.length > 0) {
-                setUsers([...users, ...newUsers])
-                alert(`Berhasil import ${newUsers.length} user!`)
+                // Save to Supabase if configured
+                if (useSupabase) {
+                    let savedCount = 0
+                    let errors = []
+
+                    for (const user of newUsers) {
+                        try {
+                            // Convert to Supabase format
+                            const supabaseUser = {
+                                nama: user.name,
+                                nim_nip: user.nim || user.username,
+                                email: user.email || null,
+                                password: user.password || '123456',
+                                role: user.role,
+                                status: user.status,
+                                prodi_id: user.prodiId || null,
+                                kelas_id: user.kelasId || null
+                            }
+
+                            await userService.create(supabaseUser)
+                            savedCount++
+                        } catch (err) {
+                            console.error('Error saving user:', user.name, err)
+                            errors.push(`${user.name}: ${err.message}`)
+                        }
+                    }
+
+                    // Reload data from database
+                    await loadData()
+
+                    if (errors.length > 0) {
+                        alert(`Berhasil import ${savedCount} dari ${newUsers.length} user.\n\nGagal:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`)
+                    } else {
+                        alert(`Berhasil import ${savedCount} user ke database!`)
+                    }
+                } else {
+                    // Local storage fallback
+                    setUsers([...users, ...newUsers])
+                    alert(`Berhasil import ${newUsers.length} user! (Local storage)`)
+                }
             } else {
                 alert('Tidak ada data valid ditemukan')
             }
