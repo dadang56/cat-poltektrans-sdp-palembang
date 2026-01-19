@@ -186,6 +186,7 @@ function MataKuliahPage() {
     const [prodiList, setProdiList] = useState([])
     const [search, setSearch] = useState('')
     const [prodiFilter, setProdiFilter] = useState('all')
+    const [semesterFilter, setSemesterFilter] = useState('all')
     const [modalOpen, setModalOpen] = useState(false)
     const [editingMatkul, setEditingMatkul] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -248,7 +249,8 @@ function MataKuliahPage() {
         const matchesSearch = m.nama.toLowerCase().includes(search.toLowerCase()) ||
             m.kode.toLowerCase().includes(search.toLowerCase())
         const matchesProdi = effectiveProdiFilter === 'all' || m.prodi_id === effectiveProdiFilter
-        return matchesSearch && matchesProdi
+        const matchesSemester = semesterFilter === 'all' || (m.semester || 1) === Number(semesterFilter)
+        return matchesSearch && matchesProdi && matchesSemester
     })
 
     const handleAddMatkul = () => {
@@ -506,6 +508,18 @@ function MataKuliahPage() {
                                     value={search}
                                     onChange={e => setSearch(e.target.value)}
                                 />
+                            </div>
+                            <div className="filter-group">
+                                <select
+                                    className="form-input"
+                                    value={semesterFilter}
+                                    onChange={e => setSemesterFilter(e.target.value)}
+                                >
+                                    <option value="all">Semua Semester</option>
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                                        <option key={s} value={s}>Semester {s}</option>
+                                    ))}
+                                </select>
                             </div>
                             {!isAdminProdi && (
                                 <div className="filter-group">
