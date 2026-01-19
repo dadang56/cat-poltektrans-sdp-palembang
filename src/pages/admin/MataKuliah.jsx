@@ -32,6 +32,7 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
         nama: '',
         sks_teori: 2,
         sks_praktek: 0,
+        semester: 1,
         prodi_id: prodiList[0]?.id || ''
     })
 
@@ -41,6 +42,7 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
             nama: '',
             sks_teori: 2,
             sks_praktek: 0,
+            semester: 1,
             prodi_id: prodiList[0]?.id || ''
         })
     }, [matkul, prodiList])
@@ -53,7 +55,8 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
             ...formData,
             sks_teori: sksTeori,
             sks_praktek: sksPraktek,
-            sks: sksTeori + sksPraktek // Total SKS
+            sks: sksTeori + sksPraktek, // Total SKS
+            semester: Number(formData.semester) || 1
         })
     }
 
@@ -113,6 +116,19 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
                             </div>
                         </div>
                         <div className="form-row">
+                            <div className="form-group">
+                                <label className="form-label">Semester</label>
+                                <select
+                                    className="form-input"
+                                    value={formData.semester}
+                                    onChange={e => setFormData({ ...formData, semester: e.target.value })}
+                                    required
+                                >
+                                    {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
+                                        <option key={s} value={s}>Semester {s}</option>
+                                    ))}
+                                </select>
+                            </div>
                             <div className="form-group">
                                 <label className="form-label">SKS Teori</label>
                                 <input
@@ -310,6 +326,7 @@ function MataKuliahPage() {
         const headers = [
             { key: 'kode', label: 'Kode' },
             { key: 'nama', label: 'Nama Mata Kuliah' },
+            { key: 'semester', label: 'Semester' },
             { key: 'sks_teori', label: 'SKS Teori' },
             { key: 'sks_praktek', label: 'SKS Praktek' },
             { key: 'prodi_kode', label: 'Kode Prodi' }
@@ -318,6 +335,7 @@ function MataKuliahPage() {
         const exportData = filteredMatkul.map(m => ({
             kode: m.kode,
             nama: m.nama,
+            semester: m.semester || 1,
             sks_teori: m.sks_teori || m.sks || 0,
             sks_praktek: m.sks_praktek || 0,
             prodi_kode: getProdiInfo(m).kode
@@ -327,10 +345,10 @@ function MataKuliahPage() {
     }
 
     const handleDownloadTemplate = () => {
-        const headers = ['Kode', 'Nama Mata Kuliah', 'SKS Teori', 'SKS Praktek', 'Kode Prodi']
+        const headers = ['Kode', 'Nama Mata Kuliah', 'Semester', 'SKS Teori', 'SKS Praktek', 'Kode Prodi']
         const samples = [
-            ['TI101', 'Algoritma dan Pemrograman', 2, 1, 'PK'],
-            ['TI102', 'Basis Data', 3, 0, 'MD']
+            ['TI101', 'Algoritma dan Pemrograman', 1, 2, 1, 'PK'],
+            ['TI102', 'Basis Data', 2, 3, 0, 'MD']
         ]
         downloadTemplate(headers, samples, 'template_mata_kuliah')
     }
@@ -382,6 +400,7 @@ function MataKuliahPage() {
                     const matkulData = {
                         kode: String(row['Kode'] || row['kode'] || '').toUpperCase().trim(),
                         nama: String(row['Nama Mata Kuliah'] || row['nama'] || '').trim(),
+                        semester: Number(row['Semester'] || row['semester'] || 1),
                         sks_teori: Number(row['SKS Teori'] || row['sks_teori'] || 2),
                         sks_praktek: Number(row['SKS Praktek'] || row['sks_praktek'] || 0),
                         prodi_id: prodi.id
@@ -515,10 +534,11 @@ function MataKuliahPage() {
                                         <tr>
                                             <th style={{ width: '100px' }}>Kode</th>
                                             <th>Nama Mata Kuliah</th>
+                                            <th style={{ width: '60px' }} className="text-center">Smt</th>
                                             <th style={{ width: '60px' }} className="text-center">Teori</th>
                                             <th style={{ width: '60px' }} className="text-center">Praktek</th>
                                             <th style={{ width: '60px' }} className="text-center">Total</th>
-                                            <th style={{ width: '120px' }}>Prodi</th>
+                                            <th style={{ width: '100px' }}>Prodi</th>
                                             <th style={{ width: '100px' }}>Aksi</th>
                                         </tr>
                                     </thead>
@@ -538,6 +558,9 @@ function MataKuliahPage() {
                                                             <BookOpen size={18} className="matkul-icon" />
                                                             <span className="font-medium">{matkul.nama}</span>
                                                         </div>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <span className="badge badge-info">{matkul.semester || 1}</span>
                                                     </td>
                                                     <td className="text-center">
                                                         <span className="sks-badge sks-teori">{sksTeori}</span>

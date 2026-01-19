@@ -5,9 +5,10 @@
 -- ============================================
 
 -- ============================================
--- 1. UPDATE MATA_KULIAH TABLE - Add SKS Teori & Praktek
+-- 1. UPDATE MATA_KULIAH TABLE - Add Semester, SKS Teori & Praktek
 -- ============================================
 ALTER TABLE mata_kuliah 
+  ADD COLUMN IF NOT EXISTS semester INTEGER DEFAULT 1,
   ADD COLUMN IF NOT EXISTS sks_teori INTEGER DEFAULT 2,
   ADD COLUMN IF NOT EXISTS sks_praktek INTEGER DEFAULT 0;
 
