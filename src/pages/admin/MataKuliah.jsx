@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { matkulService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
+import { exportToXLSX, downloadTemplate, importFromFile, isValidSpreadsheetFile } from '../../utils/excelUtils'
 import {
     BookOpen,
     Search,
@@ -14,7 +15,10 @@ import {
     Filter,
     Info,
     RefreshCw,
-    AlertCircle
+    AlertCircle,
+    Download,
+    Upload,
+    FileSpreadsheet
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -299,6 +303,117 @@ function MataKuliahPage() {
 
     const totalSKS = filteredMatkul.reduce((sum, m) => sum + (m.sks || 0), 0)
 
+    // Import/Export refs and handlers
+    const fileInputRef = useRef(null)
+
+    const handleExport = () => {
+        const headers = [
+            { key: 'kode', label: 'Kode' },
+            { key: 'nama', label: 'Nama Mata Kuliah' },
+            { key: 'sks_teori', label: 'SKS Teori' },
+            { key: 'sks_praktek', label: 'SKS Praktek' },
+            { key: 'prodi_kode', label: 'Kode Prodi' }
+        ]
+
+        const exportData = filteredMatkul.map(m => ({
+            kode: m.kode,
+            nama: m.nama,
+            sks_teori: m.sks_teori || m.sks || 0,
+            sks_praktek: m.sks_praktek || 0,
+            prodi_kode: getProdiInfo(m).kode
+        }))
+
+        exportToXLSX(exportData, headers, 'mata_kuliah_export', 'Mata Kuliah')
+    }
+
+    const handleDownloadTemplate = () => {
+        const headers = ['Kode', 'Nama Mata Kuliah', 'SKS Teori', 'SKS Praktek', 'Kode Prodi']
+        const samples = [
+            ['TI101', 'Algoritma dan Pemrograman', 2, 1, 'PK'],
+            ['TI102', 'Basis Data', 3, 0, 'MD']
+        ]
+        downloadTemplate(headers, samples, 'template_mata_kuliah')
+    }
+
+    const handleImportClick = () => {
+        fileInputRef.current?.click()
+    }
+
+    const handleImportFile = (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        if (!isValidSpreadsheetFile(file.name)) {
+            alert('Format file tidak didukung. Gunakan file .xlsx, .xls, atau .csv')
+            e.target.value = ''
+            return
+        }
+
+        importFromFile(file, async ({ headers, rows, error }) => {
+            if (error) {
+                alert(error)
+                e.target.value = ''
+                return
+            }
+
+            if (rows.length === 0) {
+                alert('File kosong atau format salah')
+                e.target.value = ''
+                return
+            }
+
+            let savedCount = 0
+            let errors = []
+
+            for (const row of rows) {
+                try {
+                    // Find prodi by kode
+                    const prodiKode = String(row['Kode Prodi'] || row['kode_prodi'] || '').toUpperCase().trim()
+                    const prodi = prodiList.find(p =>
+                        p.kode?.toUpperCase() === prodiKode ||
+                        p.nama?.toUpperCase().includes(prodiKode)
+                    )
+
+                    if (!prodi) {
+                        errors.push(`${row['Kode'] || row['kode']}: Prodi '${prodiKode}' tidak ditemukan`)
+                        continue
+                    }
+
+                    const matkulData = {
+                        kode: String(row['Kode'] || row['kode'] || '').toUpperCase().trim(),
+                        nama: String(row['Nama Mata Kuliah'] || row['nama'] || '').trim(),
+                        sks_teori: Number(row['SKS Teori'] || row['sks_teori'] || 2),
+                        sks_praktek: Number(row['SKS Praktek'] || row['sks_praktek'] || 0),
+                        prodi_id: prodi.id
+                    }
+                    matkulData.sks = matkulData.sks_teori + matkulData.sks_praktek
+
+                    if (!matkulData.kode || !matkulData.nama) {
+                        errors.push(`Row: Kode atau Nama kosong`)
+                        continue
+                    }
+
+                    if (useSupabase) {
+                        await matkulService.create(matkulData)
+                    }
+                    savedCount++
+                } catch (err) {
+                    errors.push(`${row['Kode'] || 'Unknown'}: ${err.message}`)
+                }
+            }
+
+            await loadData()
+
+            if (errors.length > 0) {
+                alert(`Berhasil import ${savedCount} dari ${rows.length} mata kuliah.\n\nGagal:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`)
+            } else {
+                alert(`Berhasil import ${savedCount} mata kuliah!`)
+            }
+
+            e.target.value = ''
+        })
+    }
+
     return (
         <DashboardLayout>
             <div className="dashboard-page animate-fadeIn">
@@ -318,10 +433,26 @@ function MataKuliahPage() {
                         <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
                             <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
                         </button>
+                        <button className="btn btn-outline" onClick={handleDownloadTemplate} title="Download Template">
+                            <FileSpreadsheet size={18} />
+                        </button>
+                        <button className="btn btn-outline" onClick={handleImportClick} title="Import Excel">
+                            <Upload size={18} />
+                        </button>
+                        <button className="btn btn-outline" onClick={handleExport} title="Export Excel">
+                            <Download size={18} />
+                        </button>
                         <button className="btn btn-primary" onClick={handleAddMatkul}>
                             <Plus size={18} />
-                            Tambah Mata Kuliah
+                            Tambah
                         </button>
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept=".xlsx,.xls,.csv"
+                            onChange={handleImportFile}
+                            style={{ display: 'none' }}
+                        />
                     </div>
                 </div>
 
