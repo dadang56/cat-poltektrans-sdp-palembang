@@ -826,15 +826,33 @@ function UsersPage() {
                 }
 
                 if (role === 'mahasiswa') {
-                    user.prodiId = parseInt(userData.prodi_id) || prodiList[0]?.id || 1
-                    user.kelasId = parseInt(userData.kelas_id) || kelasList[0]?.id || 1
+                    // Lookup prodi by kode or nama (case-insensitive)
+                    const prodiInput = String(userData.prodi_id || userData.prodi || '').trim().toUpperCase()
+                    const foundProdi = prodiList.find(p =>
+                        p.kode?.toUpperCase() === prodiInput ||
+                        p.nama?.toUpperCase().includes(prodiInput) ||
+                        p.id === prodiInput
+                    )
+                    user.prodiId = foundProdi?.id || prodiList[0]?.id
+
+                    // Lookup kelas by nama (case-insensitive)
+                    const kelasInput = String(userData.kelas_id || userData.kelas || '').trim().toUpperCase()
+                    const foundKelas = kelasList.find(k =>
+                        k.nama?.toUpperCase() === kelasInput ||
+                        k.id === kelasInput
+                    )
+                    user.kelasId = foundKelas?.id || kelasList.find(k => k.prodi_id === user.prodiId)?.id || kelasList[0]?.id
                 } else if (role === 'dosen') {
                     const prodiIdsStr = String(userData.prodi_ids || '')
                     const kelasIdsStr = String(userData.kelas_ids || '')
                     const matkulIdsStr = String(userData.matkul_ids || '')
-                    user.prodiIds = prodiIdsStr.split('|').map(id => parseInt(id.trim())).filter(Boolean)
-                    user.kelasIds = kelasIdsStr.split('|').map(id => parseInt(id.trim())).filter(Boolean)
-                    user.matkulIds = matkulIdsStr.split('|').map(id => parseInt(id.trim())).filter(Boolean)
+                    // Lookup prodi IDs by kode
+                    user.prodiIds = prodiIdsStr.split('|').map(code => {
+                        const prodi = prodiList.find(p => p.kode?.toUpperCase() === code.trim().toUpperCase())
+                        return prodi?.id
+                    }).filter(Boolean)
+                    user.kelasIds = kelasIdsStr.split('|').map(id => id.trim()).filter(Boolean)
+                    user.matkulIds = matkulIdsStr.split('|').map(id => id.trim()).filter(Boolean)
                 }
 
                 // Validate required fields
