@@ -789,7 +789,7 @@ function UsersPage() {
             return
         }
 
-        importFromFile(file, ({ headers, rows, error }) => {
+        importFromFile(file, async ({ headers, rows, error }) => {
             if (error) {
                 alert(error)
                 e.target.value = ''
