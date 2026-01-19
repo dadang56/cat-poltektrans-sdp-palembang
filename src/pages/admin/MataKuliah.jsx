@@ -27,24 +27,19 @@ const STORAGE_KEY = 'cat_matkul_data'
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 
 function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) {
-    const [formData, setFormData] = useState(matkul || {
-        kode: '',
-        nama: '',
-        sks_teori: 2,
-        sks_praktek: 0,
-        semester: 1,
-        prodi_id: prodiList[0]?.id || ''
+    const getInitialData = (data) => ({
+        kode: data?.kode || '',
+        nama: data?.nama || '',
+        sks_teori: data?.sks_teori ?? (data?.sks || 2),
+        sks_praktek: data?.sks_praktek ?? 0,
+        semester: data?.semester ?? 1,
+        prodi_id: data?.prodi_id || prodiList[0]?.id || ''
     })
 
+    const [formData, setFormData] = useState(getInitialData(matkul))
+
     useEffect(() => {
-        setFormData(matkul || {
-            kode: '',
-            nama: '',
-            sks_teori: 2,
-            sks_praktek: 0,
-            semester: 1,
-            prodi_id: prodiList[0]?.id || ''
-        })
+        setFormData(getInitialData(matkul))
     }, [matkul, prodiList])
 
     const handleSubmit = (e) => {
