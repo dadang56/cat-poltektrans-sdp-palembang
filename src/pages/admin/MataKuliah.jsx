@@ -26,7 +26,8 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
     const [formData, setFormData] = useState(matkul || {
         kode: '',
         nama: '',
-        sks: 3,
+        sks_teori: 2,
+        sks_praktek: 0,
         prodi_id: prodiList[0]?.id || ''
     })
 
@@ -34,18 +35,26 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
         setFormData(matkul || {
             kode: '',
             nama: '',
-            sks: 3,
+            sks_teori: 2,
+            sks_praktek: 0,
             prodi_id: prodiList[0]?.id || ''
         })
     }, [matkul, prodiList])
 
     const handleSubmit = (e) => {
         e.preventDefault()
+        const sksTeori = Number(formData.sks_teori) || 0
+        const sksPraktek = Number(formData.sks_praktek) || 0
         onSave({
             ...formData,
-            sks: Number(formData.sks)
+            sks_teori: sksTeori,
+            sks_praktek: sksPraktek,
+            sks: sksTeori + sksPraktek // Total SKS
         })
     }
+
+    const hasPraktek = Number(formData.sks_praktek) > 0
+    const totalSKS = (Number(formData.sks_teori) || 0) + (Number(formData.sks_praktek) || 0)
 
     if (!isOpen) return null
 
@@ -88,28 +97,56 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
                                 />
                             </div>
                             <div className="form-group">
-                                <label className="form-label">SKS</label>
+                                <label className="form-label">Nama Mata Kuliah</label>
                                 <input
-                                    type="number"
+                                    type="text"
                                     className="form-input"
-                                    value={formData.sks}
-                                    onChange={e => setFormData({ ...formData, sks: e.target.value })}
-                                    min={1}
-                                    max={6}
+                                    value={formData.nama}
+                                    onChange={e => setFormData({ ...formData, nama: e.target.value })}
+                                    placeholder="Contoh: Algoritma"
                                     required
                                 />
                             </div>
                         </div>
-                        <div className="form-group">
-                            <label className="form-label">Nama Mata Kuliah</label>
-                            <input
-                                type="text"
-                                className="form-input"
-                                value={formData.nama}
-                                onChange={e => setFormData({ ...formData, nama: e.target.value })}
-                                placeholder="Contoh: Algoritma dan Pemrograman"
-                                required
-                            />
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label className="form-label">SKS Teori</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={formData.sks_teori}
+                                    onChange={e => setFormData({ ...formData, sks_teori: e.target.value })}
+                                    min={0}
+                                    max={6}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">SKS Praktek</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={formData.sks_praktek}
+                                    onChange={e => setFormData({ ...formData, sks_praktek: e.target.value })}
+                                    min={0}
+                                    max={6}
+                                />
+                            </div>
+                        </div>
+
+                        {/* SKS Total and Formula Preview */}
+                        <div className="sks-summary">
+                            <div className="sks-total">
+                                <strong>Total SKS:</strong> {totalSKS}
+                            </div>
+                            <div className="formula-preview">
+                                <strong>Rumus Nilai:</strong><br />
+                                {hasPraktek ? (
+                                    <span className="formula-text">NAK = (NT×10%) + (NP×20%) + (UTS×20%) + (UAS×50%)</span>
+                                ) : (
+                                    <span className="formula-text">NAK = (NT×10%) + (UTS×30%) + (UAS×60%)</span>
+                                )}
+                            </div>
                         </div>
                     </div>
                     <div className="modal-footer">
@@ -124,6 +161,7 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
         </div>
     )
 }
+
 
 function MataKuliahPage() {
     const { user } = useAuth()
@@ -346,7 +384,9 @@ function MataKuliahPage() {
                                         <tr>
                                             <th style={{ width: '100px' }}>Kode</th>
                                             <th>Nama Mata Kuliah</th>
-                                            <th style={{ width: '80px' }} className="text-center">SKS</th>
+                                            <th style={{ width: '60px' }} className="text-center">Teori</th>
+                                            <th style={{ width: '60px' }} className="text-center">Praktek</th>
+                                            <th style={{ width: '60px' }} className="text-center">Total</th>
                                             <th style={{ width: '120px' }}>Prodi</th>
                                             <th style={{ width: '100px' }}>Aksi</th>
                                         </tr>
@@ -354,6 +394,9 @@ function MataKuliahPage() {
                                     <tbody>
                                         {filteredMatkul.map(matkul => {
                                             const prodi = getProdiInfo(matkul)
+                                            const sksTeori = matkul.sks_teori || matkul.sks || 0
+                                            const sksPraktek = matkul.sks_praktek || 0
+                                            const totalSKS = sksTeori + sksPraktek
                                             return (
                                                 <tr key={matkul.id}>
                                                     <td>
@@ -366,7 +409,13 @@ function MataKuliahPage() {
                                                         </div>
                                                     </td>
                                                     <td className="text-center">
-                                                        <span className="sks-badge">{matkul.sks}</span>
+                                                        <span className="sks-badge sks-teori">{sksTeori}</span>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <span className={`sks-badge ${sksPraktek > 0 ? 'sks-praktek' : 'sks-zero'}`}>{sksPraktek}</span>
+                                                    </td>
+                                                    <td className="text-center">
+                                                        <span className="sks-badge">{totalSKS}</span>
                                                     </td>
                                                     <td>
                                                         <span className="badge badge-primary">{prodi.kode}</span>
@@ -447,6 +496,43 @@ function MataKuliahPage() {
           font-weight: var(--font-semibold);
           background: var(--info-100);
           color: var(--info-700);
+        }
+        
+        .sks-teori {
+          background: var(--primary-100);
+          color: var(--primary-700);
+        }
+        
+        .sks-praktek {
+          background: var(--success-100);
+          color: var(--success-700);
+        }
+        
+        .sks-zero {
+          background: var(--neutral-100);
+          color: var(--neutral-400);
+        }
+        
+        .sks-summary {
+          background: var(--neutral-50);
+          border: 1px solid var(--neutral-200);
+          border-radius: var(--radius-md);
+          padding: var(--space-3);
+          margin-top: var(--space-3);
+        }
+        
+        .sks-total {
+          margin-bottom: var(--space-2);
+        }
+        
+        .formula-preview {
+          font-size: var(--font-size-sm);
+          color: var(--text-secondary);
+        }
+        
+        .formula-text {
+          font-family: monospace;
+          color: var(--primary-600);
         }
         
         .text-error {
