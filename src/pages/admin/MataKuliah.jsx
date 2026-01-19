@@ -560,8 +560,8 @@ function MataKuliahPage() {
                                     <tbody>
                                         {filteredMatkul.map(matkul => {
                                             const prodi = getProdiInfo(matkul)
-                                            const sksTeori = matkul.sks_teori || matkul.sks || 0
-                                            const sksPraktek = matkul.sks_praktek || 0
+                                            const sksTeori = matkul.sks_teori ?? matkul.sks ?? 0
+                                            const sksPraktek = matkul.sks_praktek ?? 0
                                             const totalSKS = sksTeori + sksPraktek
                                             return (
                                                 <tr key={matkul.id}>
