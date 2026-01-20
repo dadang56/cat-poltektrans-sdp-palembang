@@ -648,12 +648,18 @@ function UsersPage() {
                 // Map form data to Supabase format
                 const supabaseData = {
                     nim_nip: nimNip.toUpperCase(),
+                    username: userData.username || nimNip,
                     nama: userData.name,
                     email: userData.email || null,
                     role: userData.role,
                     status: userData.status || 'active',
                     prodi_id: userData.prodiId || null,
-                    kelas_id: userData.kelasId || null
+                    kelas_id: userData.kelasId || null,
+                    // Dosen specific fields
+                    nip: userData.role === 'dosen' ? (userData.nip || null) : null,
+                    prodi_ids: userData.role === 'dosen' ? JSON.stringify(userData.prodiIds || []) : null,
+                    kelas_ids: userData.role === 'dosen' ? JSON.stringify(userData.kelasIds || []) : null,
+                    matkul_ids: userData.role === 'dosen' ? JSON.stringify(userData.matkulIds || []) : null
                 }
 
 
