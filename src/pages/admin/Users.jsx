@@ -642,18 +642,35 @@ function UsersPage() {
 
         try {
             if (useSupabase) {
-                // Use username as the primary identifier (nim_nip)
-                // If nim is provided, use that, otherwise fall back to username
-                const nimNip = userData.nim || userData.username || ''
+                // Determine nim_nip based on role
+                let nimNip = ''
+                const rolesWithoutNim = ['superadmin', 'admin_prodi', 'pengawas']
+
+                if (rolesWithoutNim.includes(userData.role)) {
+                    // For admin roles without NIM/NIP, use username with timestamp suffix for uniqueness
+                    nimNip = userData.username || ''
+                    if (!nimNip) {
+                        throw new Error('Username harus diisi')
+                    }
+                } else if (userData.role === 'dosen') {
+                    // For dosen, use NIP if available, otherwise username
+                    nimNip = userData.nim || userData.nip || userData.username || ''
+                } else {
+                    // For mahasiswa, NIM is required
+                    nimNip = userData.nim || ''
+                    if (!nimNip) {
+                        throw new Error('NIM harus diisi untuk mahasiswa')
+                    }
+                }
 
                 if (!nimNip) {
-                    throw new Error('Username harus diisi')
+                    throw new Error('Username atau NIM/NIP harus diisi')
                 }
 
                 // Map form data to Supabase format
                 const supabaseData = {
                     nim_nip: nimNip.toUpperCase(),
-                    username: userData.username || nimNip,
+                    username: (userData.username || nimNip).toLowerCase(),
                     nama: userData.name,
                     email: userData.email || null,
                     role: userData.role,
