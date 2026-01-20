@@ -601,7 +601,11 @@ function UsersPage() {
         const matchesSearch = (user.name || '').toLowerCase().includes(search.toLowerCase()) ||
             (user.email || '').toLowerCase().includes(search.toLowerCase()) ||
             (user.nim || '').includes(search)
-        const matchesRole = roleFilter === 'all' || user.role === roleFilter
+        // Handle role filter - 'admin' matches both admin_prodi and superadmin
+        let matchesRole = roleFilter === 'all' || user.role === roleFilter
+        if (roleFilter === 'admin') {
+            matchesRole = user.role === 'admin_prodi' || user.role === 'superadmin'
+        }
 
         // Prodi filter - compare as strings (UUID)
         const matchesProdi = prodiFilter === 'all' || user.prodiId === prodiFilter
@@ -1125,7 +1129,9 @@ function UsersPage() {
                                     <option value="mahasiswa">Mahasiswa</option>
                                     <option value="dosen">Dosen</option>
                                     <option value="pengawas">Pengawas</option>
-                                    <option value="admin">Admin</option>
+                                    <option value="admin">Semua Admin</option>
+                                    <option value="admin_prodi">Admin Prodi</option>
+                                    <option value="superadmin">Super Admin</option>
                                 </select>
                             </div>
                             <div className="filter-group">
