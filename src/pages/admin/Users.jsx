@@ -516,7 +516,12 @@ function UsersPage() {
                     prodiId: u.prodi_id,
                     kelasId: u.kelas_id,
                     prodi: u.prodi,
-                    kelas: u.kelas
+                    kelas: u.kelas,
+                    // Dosen fields - parse JSON arrays if stored as strings
+                    prodiIds: u.prodi_ids ? (typeof u.prodi_ids === 'string' ? JSON.parse(u.prodi_ids) : u.prodi_ids) : [],
+                    kelasIds: u.kelas_ids ? (typeof u.kelas_ids === 'string' ? JSON.parse(u.kelas_ids) : u.kelas_ids) : [],
+                    matkulIds: u.matkul_ids ? (typeof u.matkul_ids === 'string' ? JSON.parse(u.matkul_ids) : u.matkul_ids) : [],
+                    photo: u.photo
                 }))
                 setUsers(mappedUsers)
                 setProdiList(prodiData)
