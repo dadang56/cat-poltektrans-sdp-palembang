@@ -712,7 +712,14 @@ function UsersPage() {
             setModalOpen(false)
         } catch (err) {
             console.error('Error saving user:', err)
-            setError(`Gagal menyimpan user: ${err.message}`)
+            // Show user-friendly error messages
+            let errorMessage = err.message
+            if (err.message?.includes('duplicate') || err.message?.includes('unique') || err.code === '23505') {
+                errorMessage = 'Username atau NIM/NIP sudah digunakan. Gunakan username yang berbeda.'
+            } else if (err.message?.includes('violates')) {
+                errorMessage = 'Data tidak valid. Pastikan semua field terisi dengan benar.'
+            }
+            setError(`Gagal menyimpan user: ${errorMessage}`)
         } finally {
             setIsSaving(false)
         }
@@ -1051,6 +1058,30 @@ function UsersPage() {
                         <span className="mini-stat-label">Aktif</span>
                     </div>
                 </div>
+
+                {/* Error Banner */}
+                {error && (
+                    <div className="error-banner" style={{
+                        padding: '12px 16px',
+                        marginBottom: '16px',
+                        background: 'var(--error-50)',
+                        border: '1px solid var(--error-200)',
+                        borderRadius: '8px',
+                        color: 'var(--error-700)',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px'
+                    }}>
+                        <AlertCircle size={20} />
+                        <span style={{ flex: 1 }}>{error}</span>
+                        <button
+                            onClick={() => setError(null)}
+                            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--error-500)' }}
+                        >
+                            <X size={18} />
+                        </button>
+                    </div>
+                )}
 
                 {/* Filters */}
                 <div className="card">
