@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
   ClipboardList,
   Clock,
@@ -22,47 +23,79 @@ function MahasiswaDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  // Load from localStorage
+  // Load from Supabase or localStorage
   const [jadwalList, setJadwalList] = useState([])
   const [matkulList, setMatkulList] = useState([])
 
   useEffect(() => {
-    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-    if (jadwal) setJadwalList(JSON.parse(jadwal))
-    if (matkul) setMatkulList(JSON.parse(matkul))
+    const loadData = async () => {
+      try {
+        if (isSupabaseConfigured()) {
+          const [jadwal, matkul] = await Promise.all([
+            jadwalService.getAll(),
+            matkulService.getAll()
+          ])
+          setJadwalList(jadwal)
+          setMatkulList(matkul)
+        } else {
+          const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+          const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+          if (jadwal) setJadwalList(JSON.parse(jadwal))
+          if (matkul) setMatkulList(JSON.parse(matkul))
+        }
+      } catch (err) {
+        console.error('[MahasiswaDashboard] Error loading data:', err)
+        // Fallback to localStorage
+        const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+        const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+        if (jadwal) setJadwalList(JSON.parse(jadwal))
+        if (matkul) setMatkulList(JSON.parse(matkul))
+      }
+    }
+    loadData()
   }, [])
 
+  // Helper for field compatibility (Supabase snake_case vs localStorage camelCase)
+  const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
+
   // Filter jadwal untuk kelas mahasiswa
-  const mahasiswaKelasId = user?.kelasId
+  const mahasiswaKelasId = user?.kelasId || user?.kelas_id
   const now = new Date()
   const oneDayMs = 24 * 60 * 60 * 1000
 
   // Get upcoming exams (not expired more than 1 day)
   const upcomingExams = jadwalList
     .filter(j => {
-      if (j.kelasId !== mahasiswaKelasId) return false
+      const jKelasId = getField(j, 'kelas_id', 'kelasId')
+      if (jKelasId !== mahasiswaKelasId) return false
       // Hide exams expired more than 1 day ago
-      const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+      const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
+      const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
       return (now - examEnd) < oneDayMs
     })
     .map(j => {
-      const matkul = matkulList.find(m => m.id === j.matkulId)
-      const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-      const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
+      const matkulId = getField(j, 'matkul_id', 'matkulId')
+      const matkul = matkulList.find(m => m.id === matkulId)
+      const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
+      const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
+      const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+      const examStart = new Date(`${j.tanggal}T${waktuMulai}`)
       let status = 'upcoming'
       if (now >= examStart && now <= examEnd) status = 'active'
       else if (now > examEnd) status = 'expired'
 
       return {
         ...j,
+        waktuMulai,
+        waktuSelesai,
+        tipeUjian: getField(j, 'tipe_ujian', 'tipeUjian'),
         matkulName: matkul?.nama || 'Mata Kuliah',
         status
       }
     })
     .sort((a, b) => {
       if (a.tanggal !== b.tanggal) return a.tanggal.localeCompare(b.tanggal)
-      return a.waktuMulai.localeCompare(b.waktuMulai)
+      return (a.waktuMulai || '').localeCompare(b.waktuMulai || '')
     })
     .slice(0, 2) // Show only 2 upcoming exams
 

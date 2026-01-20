@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { jadwalService, matkulService, kelasService, userService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardList,
     Calendar,
@@ -23,6 +24,9 @@ const MATKUL_STORAGE_KEY = 'cat_matkul_data'
 const KELAS_STORAGE_KEY = 'cat_kelas_data'
 const USERS_STORAGE_KEY = 'cat_users'
 const SOAL_STORAGE_KEY = 'cat_soal_data'
+
+// Helper for field compatibility (Supabase snake_case vs localStorage camelCase)
+const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
 // Modal konfirmasi ujian
 function ConfirmExamModal({ isOpen, onClose, exam, onStart }) {
@@ -188,7 +192,7 @@ function UjianPage() {
     const { user } = useAuth()
     const navigate = useNavigate()
 
-    // Load data from localStorage
+    // Load data from Supabase or localStorage
     const [jadwalList, setJadwalList] = useState([])
     const [matkulList, setMatkulList] = useState([])
     const [kelasList, setKelasList] = useState([])
@@ -197,21 +201,53 @@ function UjianPage() {
     const [confirmModal, setConfirmModal] = useState({ open: false, exam: null })
 
     useEffect(() => {
-        const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-        const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-        const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-        const users = localStorage.getItem(USERS_STORAGE_KEY)
-        const soal = localStorage.getItem(SOAL_STORAGE_KEY)
-
-        if (jadwal) setJadwalList(JSON.parse(jadwal))
-        if (matkul) setMatkulList(JSON.parse(matkul))
-        if (kelas) setKelasList(JSON.parse(kelas))
-        if (users) setUsersList(JSON.parse(users))
-        if (soal) setSoalList(JSON.parse(soal))
+        const loadData = async () => {
+            try {
+                if (isSupabaseConfigured()) {
+                    const [jadwal, matkul, kelas, users, soal] = await Promise.all([
+                        jadwalService.getAll(),
+                        matkulService.getAll(),
+                        kelasService.getAll(),
+                        userService.getAll({ role: 'dosen' }),
+                        soalService.getAll()
+                    ])
+                    setJadwalList(jadwal)
+                    setMatkulList(matkul)
+                    setKelasList(kelas)
+                    setUsersList(users)
+                    setSoalList(soal)
+                } else {
+                    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+                    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                    const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
+                    const users = localStorage.getItem(USERS_STORAGE_KEY)
+                    const soal = localStorage.getItem(SOAL_STORAGE_KEY)
+                    if (jadwal) setJadwalList(JSON.parse(jadwal))
+                    if (matkul) setMatkulList(JSON.parse(matkul))
+                    if (kelas) setKelasList(JSON.parse(kelas))
+                    if (users) setUsersList(JSON.parse(users))
+                    if (soal) setSoalList(JSON.parse(soal))
+                }
+            } catch (err) {
+                console.error('[UjianMendatang] Error loading data:', err)
+                // Fallback to localStorage
+                const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
+                const users = localStorage.getItem(USERS_STORAGE_KEY)
+                const soal = localStorage.getItem(SOAL_STORAGE_KEY)
+                if (jadwal) setJadwalList(JSON.parse(jadwal))
+                if (matkul) setMatkulList(JSON.parse(matkul))
+                if (kelas) setKelasList(JSON.parse(kelas))
+                if (users) setUsersList(JSON.parse(users))
+                if (soal) setSoalList(JSON.parse(soal))
+            }
+        }
+        loadData()
     }, [])
 
     // Get mahasiswa's kelas
-    const mahasiswaKelasId = user?.kelasId
+    const mahasiswaKelasId = user?.kelasId || user?.kelas_id
     const now = new Date()
     const oneDayMs = 24 * 60 * 60 * 1000
 
@@ -223,27 +259,36 @@ function UjianPage() {
     const exams = jadwalList
         .filter(j => {
             // Must match kelas
-            if (j.kelasId !== mahasiswaKelasId) return false
+            const jKelasId = getField(j, 'kelas_id', 'kelasId')
+            if (jKelasId !== mahasiswaKelasId) return false
             // Hide exams expired more than 1 day ago
-            const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+            const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
+            const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
             if ((now - examEnd) > oneDayMs) return false
             return true
         })
         .map(j => {
-            const matkul = matkulList.find(m => m.id === j.matkulId)
-            const dosen = usersList.find(u => u.id === j.dosenId)
-            const kelas = kelasList.find(k => k.id === j.kelasId)
+            const matkulId = getField(j, 'matkul_id', 'matkulId')
+            const matkul = matkulList.find(m => m.id === matkulId)
+            const dosenId = getField(j, 'dosen_id', 'dosenId')
+            const dosen = usersList.find(u => u.id === dosenId)
+            const kelasId = getField(j, 'kelas_id', 'kelasId')
+            const kelas = kelasList.find(k => k.id === kelasId)
 
             // Calculate duration from waktuMulai and waktuSelesai
-            const startTime = new Date(`${j.tanggal}T${j.waktuMulai}`)
-            const endTime = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+            const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
+            const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
+            const tipeUjian = getField(j, 'tipe_ujian', 'tipeUjian')
+            const startTime = new Date(`${j.tanggal}T${waktuMulai}`)
+            const endTime = new Date(`${j.tanggal}T${waktuSelesai}`)
             const durasiMenit = Math.round((endTime - startTime) / 60000)
 
             // Count soal for this exam
-            const examSoal = soalList.filter(s =>
-                s.matkulId === j.matkulId &&
-                s.examType === j.tipeUjian
-            )
+            const examSoal = soalList.filter(s => {
+                const sMatkulId = getField(s, 'matkul_id', 'matkulId')
+                const sExamType = getField(s, 'exam_type', 'examType')
+                return sMatkulId === matkulId && sExamType === tipeUjian
+            })
 
             // Check if mahasiswa already completed this exam
             const alreadySubmitted = examResults.some(r =>
@@ -252,13 +297,14 @@ function UjianPage() {
 
             return {
                 ...j,
+                tipeUjian,
                 matkulName: matkul?.nama || 'Mata Kuliah',
                 dosenName: dosen?.nama || 'Dosen',
                 kelasName: kelas?.nama || '-',
                 // Calculate exam time
                 date: j.tanggal,
-                time: j.waktuMulai,
-                endTime: j.waktuSelesai,
+                time: waktuMulai,
+                endTime: waktuSelesai,
                 completed: alreadySubmitted, // Check from exam results
                 // Durasi dan jumlah soal
                 durasi: durasiMenit,
@@ -267,7 +313,7 @@ function UjianPage() {
         })
         .sort((a, b) => {
             if (a.date !== b.date) return a.date.localeCompare(b.date)
-            return a.time.localeCompare(b.time)
+            return (a.time || '').localeCompare(b.time || '')
         })
 
     const getDaysUntil = (dateStr) => {

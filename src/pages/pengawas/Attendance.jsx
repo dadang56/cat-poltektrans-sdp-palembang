@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
+import { jadwalService, matkulService, prodiService, userService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardCheck,
     Users,
@@ -20,6 +21,9 @@ const MATKUL_STORAGE_KEY = 'cat_matkul_data'
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 const USERS_STORAGE_KEY = 'cat_users_data'
 const EXAM_RESULTS_KEY = 'cat_exam_results'
+
+// Helper for field compatibility (Supabase snake_case vs localStorage camelCase)
+const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
 const ABSENCE_REASONS = [
     { value: '', label: 'Pilih Keterangan' },
@@ -41,58 +45,86 @@ function AttendancePage() {
     const [examResults, setExamResults] = useState([])
     const printRef = useRef(null)
 
-    // Load data from localStorage
+    // Load data from Supabase or localStorage
     useEffect(() => {
-        const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-        const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-        const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-        const users = localStorage.getItem(USERS_STORAGE_KEY)
-        const results = localStorage.getItem(EXAM_RESULTS_KEY)
+        const loadData = async () => {
+            try {
+                let jadwalData = []
+                let matkulData = []
 
-        if (matkul) setMatkulList(JSON.parse(matkul))
-        if (prodi) setProdiList(JSON.parse(prodi))
-        if (users) setUsersList(JSON.parse(users))
-        if (results) setExamResults(JSON.parse(results))
-
-        if (jadwal) {
-            const jadwalList = JSON.parse(jadwal)
-            const now = new Date()
-
-            // Get active exams (currently running or today)
-            const active = jadwalList.filter(j => {
-                const examDate = j.tanggal
-                const today = now.toISOString().split('T')[0]
-                return examDate === today
-            }).map(j => {
-                const mk = matkul ? JSON.parse(matkul).find(m => m.id === j.matkulId) : null
-                return {
-                    ...j,
-                    examName: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                    matkulName: mk?.nama || 'Mata Kuliah'
+                if (isSupabaseConfigured()) {
+                    const [jadwal, matkul, prodi, users] = await Promise.all([
+                        jadwalService.getAll(),
+                        matkulService.getAll(),
+                        prodiService.getAll(),
+                        userService.getAll()
+                    ])
+                    jadwalData = jadwal
+                    matkulData = matkul
+                    setMatkulList(matkul)
+                    setProdiList(prodi)
+                    setUsersList(users)
+                } else {
+                    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+                    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                    const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
+                    const users = localStorage.getItem(USERS_STORAGE_KEY)
+                    jadwalData = jadwal ? JSON.parse(jadwal) : []
+                    matkulData = matkul ? JSON.parse(matkul) : []
+                    setMatkulList(matkulData)
+                    if (prodi) setProdiList(JSON.parse(prodi))
+                    if (users) setUsersList(JSON.parse(users))
                 }
-            })
 
-            setActiveExams(active)
+                // Exam results always from localStorage for now
+                const results = localStorage.getItem(EXAM_RESULTS_KEY)
+                if (results) setExamResults(JSON.parse(results))
+
+                // Get active exams (today)
+                const now = new Date()
+                const today = now.toISOString().split('T')[0]
+                const active = jadwalData.filter(j => j.tanggal === today).map(j => {
+                    const matkulId = getField(j, 'matkul_id', 'matkulId')
+                    const mk = matkulData.find(m => m.id === matkulId)
+                    const tipeUjian = getField(j, 'tipe_ujian', 'tipeUjian')
+                    const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
+                    const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
+                    const kelasId = getField(j, 'kelas_id', 'kelasId')
+                    return {
+                        ...j,
+                        kelasId,
+                        tipeUjian,
+                        waktuMulai,
+                        waktuSelesai,
+                        examName: `${tipeUjian} ${mk?.nama || 'Ujian'}`,
+                        matkulName: mk?.nama || 'Mata Kuliah'
+                    }
+                })
+                setActiveExams(active)
+            } catch (err) {
+                console.error('[Attendance] Error loading data:', err)
+            }
         }
+        loadData()
     }, [])
 
     // Get mahasiswa for selected exam's kelas
     const mahasiswaForExam = selectedExam
-        ? usersList.filter(u => u.role === 'mahasiswa' && u.kelasId === selectedExam.kelasId)
+        ? usersList.filter(u => u.role === 'mahasiswa' && (getField(u, 'kelas_id', 'kelasId') === selectedExam.kelasId))
         : []
 
     // Filter by search
     const filteredStudents = mahasiswaForExam.filter(s =>
         s.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        s.nim?.includes(searchQuery)
+        (s.nim || s.nim_nip || '')?.includes(searchQuery)
     )
 
     // Initialize attendance when exam selected - pre-fill from exam results
     const handleExamSelect = (examId) => {
-        const exam = activeExams.find(e => e.id === Number(examId))
+        const exam = activeExams.find(e => e.id === Number(examId) || String(e.id) === examId)
         setSelectedExam(exam || null)
         if (exam) {
-            const students = usersList.filter(u => u.role === 'mahasiswa' && u.kelasId === exam.kelasId)
+            const students = usersList.filter(u => u.role === 'mahasiswa' && (getField(u, 'kelas_id', 'kelasId') === exam.kelasId))
             // Get students who submitted this exam
             const submittedIds = examResults
                 .filter(r => String(r.examId) === String(exam.id))
