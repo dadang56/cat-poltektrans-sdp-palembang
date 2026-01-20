@@ -676,6 +676,33 @@ function StudentCardPage() {
                         flex: 1;
                     }
                 }
+                
+                /* Dark Mode - Student Cards */
+                [data-theme="dark"] .student-card-item {
+                    background: var(--gray-800);
+                    border-color: var(--gray-700);
+                }
+                [data-theme="dark"] .student-card-item:hover {
+                    background: var(--gray-700);
+                    border-color: var(--primary-500);
+                }
+                [data-theme="dark"] .student-card-item.selected {
+                    background: var(--gray-700);
+                    border-color: var(--primary-500);
+                }
+                [data-theme="dark"] .student-name {
+                    color: var(--gray-100);
+                }
+                [data-theme="dark"] .student-nim {
+                    color: var(--primary-400);
+                }
+                [data-theme="dark"] .student-prodi {
+                    color: var(--gray-400);
+                }
+                [data-theme="dark"] .photo-placeholder {
+                    background: var(--gray-700);
+                    color: var(--gray-400);
+                }
             `}</style>
         </DashboardLayout>
     )
