@@ -138,11 +138,11 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
     }, [user, isOpen, currentUser])
 
     // Get filtered kelas based on selected prodi (for mahasiswa)
-    const filteredKelas = kelasList.filter(k => k.prodiId === formData.prodiId)
+    const filteredKelas = kelasList.filter(k => (k.prodiId || k.prodi_id) === formData.prodiId)
 
     // Get filtered kelas and matkul based on selected prodiIds (for dosen)
-    const filteredKelasForDosen = kelasList.filter(k => formData.prodiIds?.includes(k.prodiId))
-    const filteredMatkulForDosen = matkulList.filter(m => formData.prodiIds?.includes(m.prodiId))
+    const filteredKelasForDosen = kelasList.filter(k => formData.prodiIds?.includes(k.prodiId || k.prodi_id))
+    const filteredMatkulForDosen = matkulList.filter(m => formData.prodiIds?.includes(m.prodiId || m.prodi_id))
 
     const handlePhotoChange = (e) => {
         const file = e.target.files[0]
@@ -412,8 +412,8 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                         onChange={(ids) => setFormData({ ...formData, kelasIds: ids })}
                                         placeholder="Pilih Kelas..."
                                         getLabel={(k) => {
-                                            const prodi = prodiList.find(p => p.id === k.prodiId)
-                                            return `${prodi?.kode || ''} - ${k.nama} (${k.angkatan})`
+                                            const prodi = prodiList.find(p => p.id === (k.prodiId || k.prodi_id))
+                                            return `${prodi?.kode || ''} - ${k.nama} (${k.tahun_angkatan || k.angkatan || ''})`
                                         }}
                                     />
                                 </div>
