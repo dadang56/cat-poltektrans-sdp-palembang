@@ -135,7 +135,12 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
     // Reset form when user changes
     useEffect(() => {
         if (user) {
-            setFormData(user)
+            // When editing, make sure NIM is only set for mahasiswa
+            setFormData({
+                ...user,
+                nim: user.role === 'mahasiswa' ? (user.nim || '') : '',
+                nip: user.role === 'dosen' ? (user.nip || '') : ''
+            })
             setPhotoPreview(user.photo)
         } else {
             // For Admin Prodi, auto-assign their prodi to new mahasiswa
