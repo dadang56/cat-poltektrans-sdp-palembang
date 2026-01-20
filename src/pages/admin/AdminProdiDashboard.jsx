@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { userService, jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Users,
     FileText,
@@ -65,91 +66,146 @@ function AdminProdiDashboard() {
         saveSettings({ ...settings, tahunAkademik: value })
     }
 
+    // Helper functions for field names (Supabase vs localStorage)
+    const getUserProdi = (u) => u.prodi_id || u.prodiId
+    const getJadwalMatkul = (j) => j.matkul_id || j.matkulId
+    const getJadwalProdi = (j) => j.prodi_id || j.prodiId
+    const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian
+    const getJadwalWaktuMulai = (j) => j.waktu_mulai || j.waktuMulai
+    const getJadwalWaktuSelesai = (j) => j.waktu_selesai || j.waktuSelesai
+    const getJadwalRuang = (j) => j.ruangan || j.ruang || 'Lab'
+    const getJadwalTahunAkademik = (j) => j.tahun_akademik || j.tahunAkademik
+
     // Load dynamic data
     useEffect(() => {
-        const users = localStorage.getItem(USERS_STORAGE_KEY)
-        const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-        const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+        const loadData = async () => {
+            try {
+                let usersList = []
+                let jadwalList = []
+                let matkulList = []
 
-        const usersList = users ? JSON.parse(users) : []
-        let jadwalList = jadwal ? JSON.parse(jadwal) : []
-        const matkulList = matkul ? JSON.parse(matkul) : []
-
-        // Filter by prodi for admin_prodi
-        if (user?.prodiId) {
-            jadwalList = jadwalList.filter(j =>
-                !j.prodiId || String(j.prodiId) === String(user.prodiId)
-            )
-        }
-
-        // Filter by tahun akademik
-        if (selectedTahunAkademik) {
-            jadwalList = jadwalList.filter(j =>
-                !j.tahunAkademik || j.tahunAkademik === selectedTahunAkademik
-            )
-        }
-
-        const now = new Date()
-        const today = now.toISOString().split('T')[0]
-
-        // Calculate stats
-        const prodiUsers = user?.prodiId
-            ? usersList.filter(u => String(u.prodiId) === String(user.prodiId))
-            : usersList
-        const activeExams = jadwalList.filter(j => {
-            const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-            const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-            return now >= examStart && now <= examEnd
-        }).length
-        const completedToday = jadwalList.filter(j => {
-            const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-            return j.tanggal === today && now > examEnd
-        }).length
-
-        setStats([
-            { label: 'Total User', value: String(prodiUsers.length), icon: Users, color: 'primary', trend: '-' },
-            { label: 'Ujian Aktif', value: String(activeExams), icon: FileText, color: 'accent', trend: '-' },
-            { label: 'Selesai Hari Ini', value: String(completedToday), icon: CheckCircle, color: 'success', trend: '-' },
-            { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
-        ])
-
-        // Upcoming jadwal
-        const upcoming = jadwalList
-            .filter(j => new Date(`${j.tanggal}T${j.waktuMulai}`) > now)
-            .sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal))
-            .slice(0, 5)
-            .map(j => {
-                const mk = matkulList.find(m => String(m.id) === String(j.matkulId))
-                return {
-                    id: j.id,
-                    name: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                    date: j.tanggal,
-                    time: `${j.waktuMulai} - ${j.waktuSelesai}`,
-                    room: j.ruang || 'Lab',
-                    participants: '-'
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const [usersData, jadwalData, matkulData] = await Promise.all([
+                        userService.getAll(),
+                        jadwalService.getAll(),
+                        matkulService.getAll()
+                    ])
+                    usersList = usersData
+                    jadwalList = jadwalData
+                    matkulList = matkulData
+                } else {
+                    // Fallback to localStorage
+                    const users = localStorage.getItem(USERS_STORAGE_KEY)
+                    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+                    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                    usersList = users ? JSON.parse(users) : []
+                    jadwalList = jadwal ? JSON.parse(jadwal) : []
+                    matkulList = matkul ? JSON.parse(matkul) : []
                 }
-            })
-        setJadwalUjian(upcoming)
 
-        // Ujian berlangsung
-        const berlangsung = jadwalList.filter(j => {
-            const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-            const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-            return now >= examStart && now <= examEnd
-        }).map(j => {
-            const mk = matkulList.find(m => String(m.id) === String(j.matkulId))
-            return {
-                id: j.id,
-                name: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                startTime: j.waktuMulai,
-                endTime: j.waktuSelesai,
-                room: j.ruang || 'Lab',
-                participants: 0,
-                online: 0,
-                pengawas: '-'
+                // Filter by prodi for admin_prodi
+                if (user?.prodiId) {
+                    jadwalList = jadwalList.filter(j =>
+                        !getJadwalProdi(j) || String(getJadwalProdi(j)) === String(user.prodiId)
+                    )
+                }
+
+                // Filter by tahun akademik
+                if (selectedTahunAkademik) {
+                    jadwalList = jadwalList.filter(j =>
+                        !getJadwalTahunAkademik(j) || getJadwalTahunAkademik(j) === selectedTahunAkademik
+                    )
+                }
+
+                const now = new Date()
+                const today = now.toISOString().split('T')[0]
+
+                // Calculate stats - Admin Prodi sees all users except superadmin and admin_prodi
+                // This matches the behavior of Users.jsx page
+                const prodiUsers = usersList.filter(u => {
+                    const userRole = u.role
+                    // Admin Prodi cannot see superadmin or other admin_prodi users
+                    if (userRole === 'superadmin' || userRole === 'admin_prodi') {
+                        return false
+                    }
+                    return true
+                })
+                const activeExams = jadwalList.filter(j => {
+                    const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
+                    const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
+                    return now >= examStart && now <= examEnd
+                }).length
+                const completedToday = jadwalList.filter(j => {
+                    const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
+                    return j.tanggal === today && now > examEnd
+                }).length
+
+                setStats([
+                    { label: 'Total User', value: String(prodiUsers.length), icon: Users, color: 'primary', trend: '-' },
+                    { label: 'Ujian Aktif', value: String(activeExams), icon: FileText, color: 'accent', trend: '-' },
+                    { label: 'Selesai Hari Ini', value: String(completedToday), icon: CheckCircle, color: 'success', trend: '-' },
+                    { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
+                ])
+
+                // Upcoming jadwal
+                const upcoming = jadwalList
+                    .filter(j => new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`) > now)
+                    .sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal))
+                    .slice(0, 5)
+                    .map(j => {
+                        const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
+                        return {
+                            id: j.id,
+                            name: `${getJadwalTipe(j)} ${mk?.nama || 'Ujian'}`,
+                            date: j.tanggal,
+                            time: `${getJadwalWaktuMulai(j)} - ${getJadwalWaktuSelesai(j)}`,
+                            room: getJadwalRuang(j),
+                            participants: '-'
+                        }
+                    })
+                setJadwalUjian(upcoming)
+
+                // Ujian berlangsung
+                const berlangsung = jadwalList.filter(j => {
+                    const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
+                    const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
+                    return now >= examStart && now <= examEnd
+                }).map(j => {
+                    const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
+                    return {
+                        id: j.id,
+                        name: `${getJadwalTipe(j)} ${mk?.nama || 'Ujian'}`,
+                        startTime: getJadwalWaktuMulai(j),
+                        endTime: getJadwalWaktuSelesai(j),
+                        room: getJadwalRuang(j),
+                        participants: 0,
+                        online: 0,
+                        pengawas: '-'
+                    }
+                })
+                setUjianBerlangsung(berlangsung)
+            } catch (err) {
+                console.error('Error loading dashboard data:', err)
+                // Fallback to localStorage on error
+                const users = localStorage.getItem(USERS_STORAGE_KEY)
+                const usersList = users ? JSON.parse(users) : []
+                // Same filter as above - exclude superadmin and admin_prodi
+                const prodiUsers = usersList.filter(u =>
+                    u.role !== 'superadmin' && u.role !== 'admin_prodi'
+                )
+                setStats([
+                    { label: 'Total User', value: String(prodiUsers.length), icon: Users, color: 'primary', trend: '-' },
+                    { label: 'Ujian Aktif', value: '0', icon: FileText, color: 'accent', trend: '-' },
+                    { label: 'Selesai Hari Ini', value: '0', icon: CheckCircle, color: 'success', trend: '-' },
+                    { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
+                ])
             }
-        })
-        setUjianBerlangsung(berlangsung)
+        }
+
+        if (selectedTahunAkademik) {
+            loadData()
+        }
     }, [user, selectedTahunAkademik])
 
     const getDaysUntil = (dateStr) => {
