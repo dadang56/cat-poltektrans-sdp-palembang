@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { jadwalService, matkulService, userService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -22,6 +23,9 @@ const MATKUL_KEY = 'cat_matkul_data'
 const JADWAL_KEY = 'cat_jadwal_data'
 const USERS_KEY = 'cat_users_data'
 
+// Helper for field compatibility
+const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
+
 function HasilUjianPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
@@ -36,50 +40,74 @@ function HasilUjianPage() {
     const semester = settings?.semester || 'Ganjil'
     const kaprodiInfo = JSON.parse(localStorage.getItem(`kaprodiInfo_${user?.prodiId || 'default'}`) || '{"nama":"","nip":""}')
 
-    // Load exam results from localStorage
+    // Load exam results
     useEffect(() => {
-        const examResults = localStorage.getItem(EXAM_RESULTS_KEY)
-        const matkulData = localStorage.getItem(MATKUL_KEY)
-        const jadwalData = localStorage.getItem(JADWAL_KEY)
-        const usersData = localStorage.getItem(USERS_KEY)
+        const loadData = async () => {
+            try {
+                let matkul = []
+                let jadwal = []
+                let users = []
 
-        const matkul = matkulData ? JSON.parse(matkulData) : []
-        const jadwal = jadwalData ? JSON.parse(jadwalData) : []
-        const users = usersData ? JSON.parse(usersData) : []
+                if (isSupabaseConfigured()) {
+                    const [matkulData, jadwalData, usersData] = await Promise.all([
+                        matkulService.getAll(),
+                        jadwalService.getAll(),
+                        userService.getAll({ role: 'dosen' })
+                    ])
+                    matkul = matkulData
+                    jadwal = jadwalData
+                    users = usersData
+                } else {
+                    const matkulData = localStorage.getItem(MATKUL_KEY)
+                    const jadwalData = localStorage.getItem(JADWAL_KEY)
+                    const usersData = localStorage.getItem(USERS_KEY)
+                    matkul = matkulData ? JSON.parse(matkulData) : []
+                    jadwal = jadwalData ? JSON.parse(jadwalData) : []
+                    users = usersData ? JSON.parse(usersData) : []
+                }
 
-        if (examResults && user?.id) {
-            const results = JSON.parse(examResults)
-            // Filter only this mahasiswa's results using String comparison
-            const myResults = results
-                .filter(r => String(r.mahasiswaId) === String(user.id))
-                .map(r => {
-                    // Link through jadwal to get matkulId and tipeUjian
-                    const examJadwal = jadwal.find(j => String(j.id) === String(r.examId))
-                    const matkulId = examJadwal?.matkulId
-                    const matkulItem = matkul.find(m => m.id === matkulId)
-                    const dosen = users.find(u => u.id === examJadwal?.dosenId)
+                // Exam results still from localStorage
+                const examResults = localStorage.getItem(EXAM_RESULTS_KEY)
 
-                    // Calculate percentage score
-                    const percentScore = r.maxScore > 0 ? Math.round((r.totalScore / r.maxScore) * 100) : null
-                    const tipeUjian = examJadwal?.tipeUjian || 'UAS'
+                if (examResults && user?.id) {
+                    const results = JSON.parse(examResults)
+                    // Filter only this mahasiswa's results using String comparison
+                    const myResults = results
+                        .filter(r => String(r.mahasiswaId) === String(user.id))
+                        .map(r => {
+                            // Link through jadwal to get matkulId and tipeUjian
+                            const examJadwal = jadwal.find(j => String(j.id) === String(r.examId))
+                            const matkulId = getField(examJadwal, 'matkul_id', 'matkulId')
+                            const matkulItem = matkul.find(m => m.id === matkulId)
+                            const dosenId = getField(examJadwal, 'dosen_id', 'dosenId')
+                            const dosen = users.find(u => u.id === dosenId)
 
-                    return {
-                        id: r.id,
-                        name: r.examName || `${tipeUjian} ${matkulItem?.nama || 'Ujian'}`,
-                        matkul: matkulItem?.nama || r.matkulName || '-',
-                        dosen: dosen?.nama || dosen?.name || 'Dosen',
-                        date: examJadwal?.tanggal || r.submittedAt?.split('T')[0] || '-',
-                        type: tipeUjian,
-                        totalQuestions: r.answers?.length || 0,
-                        correctAnswers: r.answers?.filter(a => a.isCorrect).length || null,
-                        score: percentScore,
-                        status: r.isFullyCorrected ? 'graded' : 'pending',
-                        rawScore: r.totalScore,
-                        maxScore: r.maxScore
-                    }
-                })
-            setHasilUjian(myResults)
+                            // Calculate percentage score
+                            const percentScore = r.maxScore > 0 ? Math.round((r.totalScore / r.maxScore) * 100) : null
+                            const tipeUjian = getField(examJadwal, 'tipe_ujian', 'tipeUjian') || 'UAS'
+
+                            return {
+                                id: r.id,
+                                name: r.examName || `${tipeUjian} ${matkulItem?.nama || 'Ujian'}`,
+                                matkul: matkulItem?.nama || r.matkulName || '-',
+                                dosen: dosen?.nama || dosen?.name || 'Dosen',
+                                date: examJadwal?.tanggal || r.submittedAt?.split('T')[0] || '-',
+                                type: tipeUjian,
+                                totalQuestions: r.answers?.length || 0,
+                                correctAnswers: r.answers?.filter(a => a.isCorrect).length || null,
+                                score: percentScore,
+                                status: r.isFullyCorrected ? 'graded' : 'pending',
+                                rawScore: r.totalScore,
+                                maxScore: r.maxScore
+                            }
+                        })
+                    setHasilUjian(myResults)
+                }
+            } catch (err) {
+                console.error('[HasilUjian] Error loading data:', err)
+            }
         }
+        loadData()
     }, [user])
 
     const filteredResults = hasilUjian.filter(item => {
