@@ -814,3 +814,128 @@
         background: var(--bg-tertiary);
     }
 }
+
+/* ============================================
+   Dark Mode - Dashboard Specific Fixes
+   ============================================ */
+
+/* Stat Cards */
+[data-theme="dark"] .stat-card {
+    background: var(--gray-900);
+    border-color: var(--gray-700);
+}
+
+[data-theme="dark"] .stat-value {
+    color: var(--gray-50);
+}
+
+[data-theme="dark"] .stat-label {
+    color: var(--gray-400);
+}
+
+/* Jadwal Items */
+[data-theme="dark"] .jadwal-item-row {
+    background: var(--gray-800);
+    border-color: var(--gray-700);
+}
+
+[data-theme="dark"] .jadwal-item-row:hover {
+    background: var(--gray-700);
+}
+
+[data-theme="dark"] .jadwal-name {
+    color: var(--gray-100);
+}
+
+[data-theme="dark"] .jadwal-meta {
+    color: var(--gray-400);
+}
+
+/* User Items */
+[data-theme="dark"] .user-item:hover {
+    background: var(--gray-800);
+}
+
+[data-theme="dark"] .user-item-name {
+    color: var(--gray-100);
+}
+
+[data-theme="dark"] .user-item-role {
+    color: var(--gray-400);
+}
+
+/* Mini Stats */
+[data-theme="dark"] .mini-stat {
+    background: var(--gray-900);
+    border-color: var(--gray-700);
+}
+
+[data-theme="dark"] .mini-stat-value {
+    color: var(--gray-50);
+}
+
+[data-theme="dark"] .mini-stat-label {
+    color: var(--gray-400);
+}
+
+/* Exam Ongoing */
+[data-theme="dark"] .exam-ongoing-item {
+    background: var(--gray-800);
+    border-color: var(--gray-700);
+}
+
+[data-theme="dark"] .exam-ongoing-info h4 {
+    color: var(--gray-100);
+}
+
+[data-theme="dark"] .exam-ongoing-meta {
+    color: var(--gray-400);
+}
+
+/* Empty State */
+[data-theme="dark"] .empty-state {
+    color: var(--gray-400);
+}
+
+[data-theme="dark"] .empty-state h3 {
+    color: var(--gray-300);
+}
+
+/* Config Section */
+[data-theme="dark"] .config-section {
+    background: var(--gray-900);
+}
+
+[data-theme="dark"] .config-item {
+    color: var(--gray-300);
+}
+
+[data-theme="dark"] .config-item strong {
+    color: var(--accent-400);
+}
+
+/* Chart */
+[data-theme="dark"] .chart-label {
+    color: var(--gray-400);
+}
+
+/* Tahun Akademik Selector */
+[data-theme="dark"] .tahun-akademik-selector {
+    background: var(--gray-800);
+    border-color: var(--gray-700);
+}
+
+[data-theme="dark"] .tahun-akademik-selector select {
+    color: var(--gray-100);
+}
+
+/* Filters Row */
+[data-theme="dark"] .filters-row .form-input {
+    background: var(--gray-800);
+    border-color: var(--gray-600);
+    color: var(--gray-100);
+}
+
+[data-theme="dark"] .search-box .search-icon {
+    color: var(--gray-400);
+}
