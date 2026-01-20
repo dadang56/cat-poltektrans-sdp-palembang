@@ -322,6 +322,19 @@ export async function updatePassword(newPassword) {
 // ============================================
 
 function formatUserProfile(profile, session) {
+    // Parse JSON fields for dosen (could be string or array)
+    const parseJsonField = (field) => {
+        if (!field) return []
+        if (typeof field === 'string') {
+            try {
+                return JSON.parse(field)
+            } catch {
+                return []
+            }
+        }
+        return Array.isArray(field) ? field : []
+    }
+
     return {
         id: profile.id,
         authId: session?.user?.id,
@@ -336,6 +349,11 @@ function formatUserProfile(profile, session) {
         prodi: profile.prodi,
         kelasId: profile.kelas_id,
         kelas: profile.kelas,
+        // Dosen-specific fields
+        matkulIds: parseJsonField(profile.matkul_ids),
+        kelasIds: parseJsonField(profile.kelas_ids),
+        prodiIds: parseJsonField(profile.prodi_ids),
+        matkul_ids: profile.matkul_ids, // Keep original for compatibility
         session: session
     }
 }

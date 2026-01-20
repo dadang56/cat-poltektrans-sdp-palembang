@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useNavigate } from 'react-router-dom'
+import { matkulService, jadwalService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     BookOpen,
     FileText,
@@ -25,86 +26,122 @@ function DosenDashboard() {
     const [perluKoreksi, setPerluKoreksi] = useState(0)
     const [ujianSelesai, setUjianSelesai] = useState(0)
 
-    // Load data from localStorage
+    // Load data from Supabase or localStorage
     useEffect(() => {
-        const savedMatkul = localStorage.getItem('cat_matkul_data')
-        const savedJadwal = localStorage.getItem('cat_jadwal_data')
-        const savedResults = localStorage.getItem('cat_exam_results')
-        const savedSoal = localStorage.getItem('cat_soal_data')
-        const catUser = JSON.parse(localStorage.getItem('cat_user') || '{}')
-
-        if (savedMatkul) {
+        const loadData = async () => {
             try {
-                const allMatkul = JSON.parse(savedMatkul)
-                // Filter by dosen's matkulIds - only show assigned matkul (string comparison)
-                const dosenMatkulIds = (catUser.matkulIds || []).map(id => String(id))
-                const filteredMatkul = allMatkul.filter(m => dosenMatkulIds.includes(String(m.id)))
-                setMatkulList(filteredMatkul)
-            } catch (e) {
-                console.error('Error loading matkul:', e)
-            }
-        }
+                // Get matkulIds from logged-in user (stored from login)
+                const catUser = JSON.parse(localStorage.getItem('cat_user') || '{}')
 
-        if (savedSoal) {
-            try {
-                const allSoal = JSON.parse(savedSoal)
-                const dosenMatkulIds = (catUser.matkulIds || []).map(id => String(id))
-                // Only show soal for assigned matkul created by this dosen (string comparison)
-                const dosenSoal = allSoal.filter(s =>
-                    dosenMatkulIds.includes(String(s.matkulId)) &&
-                    (String(s.dosenId) === String(catUser.id) || s.dosenId === catUser.username)
-                )
-                setQuestionCount(dosenSoal.length)
-            } catch (e) {
-                console.error('Error loading soal:', e)
-            }
-        }
-
-        // Load exam results and calculate deadlines
-        if (savedResults && savedJadwal && savedMatkul) {
-            try {
-                const results = JSON.parse(savedResults)
-                const jadwal = JSON.parse(savedJadwal)
-                const matkul = JSON.parse(savedMatkul)
-                const dosenMatkulIds = catUser.matkulIds || []
-
-                // Group results by examId
-                const examGroups = {}
-                results.forEach(r => {
-                    const examJadwal = jadwal.find(j => j.id === r.examId)
-                    if (!examJadwal) return
-
-                    // Filter by dosen's matkul
-                    if (dosenMatkulIds.length > 0 && !dosenMatkulIds.includes(examJadwal.matkulId)) return
-
-                    if (!examGroups[r.examId]) {
-                        const mk = matkul.find(m => m.id === examJadwal.matkulId)
-                        examGroups[r.examId] = {
-                            id: r.examId,
-                            name: r.examName,
-                            matkul: mk?.nama || r.matkulName,
-                            deadline: examJadwal.deadlineKoreksi || new Date(new Date(examJadwal.tanggal).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                            totalStudents: 0,
-                            corrected: 0
-                        }
+                // Parse matkul_ids - could be array or JSON string
+                let dosenMatkulIds = []
+                const matkulIdsSource = catUser.matkulIds || catUser.matkul_ids || []
+                if (typeof matkulIdsSource === 'string') {
+                    try {
+                        dosenMatkulIds = JSON.parse(matkulIdsSource).map(id => String(id))
+                    } catch {
+                        dosenMatkulIds = []
                     }
-                    examGroups[r.examId].totalStudents++
-                    if (r.isFullyCorrected) examGroups[r.examId].corrected++
-                })
+                } else if (Array.isArray(matkulIdsSource)) {
+                    dosenMatkulIds = matkulIdsSource.map(id => String(id))
+                }
 
-                // Calculate stats
-                const examsWithResults = Object.values(examGroups)
-                const needsCorrection = examsWithResults.filter(e => e.corrected < e.totalStudents)
-                const fullyGraded = examsWithResults.filter(e => e.corrected === e.totalStudents && e.totalStudents > 0)
+                console.log('[DosenDashboard] User matkulIds:', dosenMatkulIds)
 
-                setPerluKoreksi(needsCorrection.length)
-                setUjianSelesai(fullyGraded.length)
-                setExamDeadlines(needsCorrection.slice(0, 5)) // Show top 5
-            } catch (e) {
-                console.error('Error loading exam results:', e)
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const [allMatkul, allSoal] = await Promise.all([
+                        matkulService.getAll(),
+                        soalService.getAll({ dosen_id: catUser.id })
+                    ])
+
+                    // Filter mata kuliah by dosen's matkulIds
+                    const filteredMatkul = dosenMatkulIds.length > 0
+                        ? allMatkul.filter(m => dosenMatkulIds.includes(String(m.id)))
+                        : []
+
+                    console.log('[DosenDashboard] Filtered matkul:', filteredMatkul.length)
+                    setMatkulList(filteredMatkul)
+
+                    // Count soal for this dosen
+                    const dosenSoal = allSoal.filter(s =>
+                        dosenMatkulIds.includes(String(s.matkul_id)) &&
+                        (String(s.dosen_id) === String(catUser.id))
+                    )
+                    setQuestionCount(dosenSoal.length)
+                } else {
+                    // Fallback to localStorage
+                    const savedMatkul = localStorage.getItem('cat_matkul_data')
+                    const savedSoal = localStorage.getItem('cat_soal_data')
+
+                    if (savedMatkul) {
+                        const allMatkul = JSON.parse(savedMatkul)
+                        const filteredMatkul = dosenMatkulIds.length > 0
+                            ? allMatkul.filter(m => dosenMatkulIds.includes(String(m.id)))
+                            : []
+                        setMatkulList(filteredMatkul)
+                    }
+
+                    if (savedSoal) {
+                        const allSoal = JSON.parse(savedSoal)
+                        const dosenSoal = allSoal.filter(s =>
+                            dosenMatkulIds.includes(String(s.matkulId)) &&
+                            (String(s.dosenId) === String(catUser.id) || s.dosenId === catUser.username)
+                        )
+                        setQuestionCount(dosenSoal.length)
+                    }
+                }
+
+                // Load exam results and calculate deadlines (from localStorage for now)
+                const savedResults = localStorage.getItem('cat_exam_results')
+                const savedJadwal = localStorage.getItem('cat_jadwal_data')
+                const savedMatkul = localStorage.getItem('cat_matkul_data')
+
+                if (savedResults && savedJadwal && savedMatkul) {
+                    const results = JSON.parse(savedResults)
+                    const jadwal = JSON.parse(savedJadwal)
+                    const matkul = JSON.parse(savedMatkul)
+
+                    // Group results by examId
+                    const examGroups = {}
+                    results.forEach(r => {
+                        const examJadwal = jadwal.find(j => j.id === r.examId)
+                        if (!examJadwal) return
+
+                        // Filter by dosen's matkul
+                        if (dosenMatkulIds.length > 0 && !dosenMatkulIds.includes(String(examJadwal.matkulId))) return
+
+                        if (!examGroups[r.examId]) {
+                            const mk = matkul.find(m => m.id === examJadwal.matkulId)
+                            examGroups[r.examId] = {
+                                id: r.examId,
+                                name: r.examName,
+                                matkul: mk?.nama || r.matkulName,
+                                deadline: examJadwal.deadlineKoreksi || new Date(new Date(examJadwal.tanggal).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+                                totalStudents: 0,
+                                corrected: 0
+                            }
+                        }
+                        examGroups[r.examId].totalStudents++
+                        if (r.isFullyCorrected) examGroups[r.examId].corrected++
+                    })
+
+                    // Calculate stats
+                    const examsWithResults = Object.values(examGroups)
+                    const needsCorrection = examsWithResults.filter(e => e.corrected < e.totalStudents)
+                    const fullyGraded = examsWithResults.filter(e => e.corrected === e.totalStudents && e.totalStudents > 0)
+
+                    setPerluKoreksi(needsCorrection.length)
+                    setUjianSelesai(fullyGraded.length)
+                    setExamDeadlines(needsCorrection.slice(0, 5))
+                }
+            } catch (err) {
+                console.error('[DosenDashboard] Error loading data:', err)
             }
         }
-    }, [])
+
+        loadData()
+    }, [user])
 
     // Stats dinamis
     const STATS = [
