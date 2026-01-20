@@ -531,8 +531,11 @@ function UsersPage() {
                 const mappedUsers = usersData.map(u => ({
                     id: u.id,
                     name: u.nama,
-                    username: u.nim_nip,
-                    nim: u.nim_nip,
+                    // Username is stored in 'username' field, fallback to nim_nip for legacy data
+                    username: u.username || u.nim_nip || '',
+                    // NIM for mahasiswa, NIP for dosen
+                    nim: u.role === 'mahasiswa' ? u.nim_nip : '',
+                    nip: u.role === 'dosen' ? u.nip : '',
                     email: u.email || '',
                     role: u.role,
                     status: u.status || 'active',
@@ -1100,7 +1103,7 @@ function UsersPage() {
                                 <thead>
                                     <tr>
                                         <th>Nama</th>
-                                        <th>Email</th>
+                                        <th>Username</th>
                                         <th>NIM/NIP</th>
                                         <th>Prodi/Kelas</th>
                                         <th>Role</th>
@@ -1121,8 +1124,8 @@ function UsersPage() {
                                                     <span className="font-medium">{user.name}</span>
                                                 </div>
                                             </td>
-                                            <td className="text-muted">{user.email}</td>
-                                            <td>{user.nim || '-'}</td>
+                                            <td className="text-muted">{user.username || '-'}</td>
+                                            <td>{user.role === 'mahasiswa' ? user.nim : (user.role === 'dosen' ? user.nip : '-')}</td>
                                             <td>
                                                 <span className="prodi-kelas-info">{getProdiKelasInfo(user)}</span>
                                             </td>
