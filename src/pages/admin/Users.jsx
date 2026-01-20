@@ -39,6 +39,7 @@ const MATKUL_STORAGE_KEY = 'cat_matkul_data'
 // Multi-Select Component
 function MultiSelect({ options, selected, onChange, placeholder, getLabel }) {
     const [isOpen, setIsOpen] = useState(false)
+    const [searchTerm, setSearchTerm] = useState('')
 
     const toggleOption = (id) => {
         if (selected.includes(id)) {
@@ -47,6 +48,12 @@ function MultiSelect({ options, selected, onChange, placeholder, getLabel }) {
             onChange([...selected, id])
         }
     }
+
+    // Filter options based on search term
+    const filteredOptions = options.filter(opt => {
+        const label = getLabel(opt).toLowerCase()
+        return label.includes(searchTerm.toLowerCase())
+    })
 
     return (
         <div className="multi-select">
@@ -70,21 +77,37 @@ function MultiSelect({ options, selected, onChange, placeholder, getLabel }) {
                 )}
             </div>
             {isOpen && (
-                <div className="multi-select-dropdown">
-                    {options.map(opt => (
-                        <label key={opt.id} className="multi-select-option">
-                            <input
-                                type="checkbox"
-                                checked={selected.includes(opt.id)}
-                                onChange={() => toggleOption(opt.id)}
-                            />
-                            <span className="checkmark"><Check size={12} /></span>
-                            {getLabel(opt)}
-                        </label>
-                    ))}
+                <div className="multi-select-dropdown multi-select-dropdown-up">
+                    <div className="multi-select-search">
+                        <input
+                            type="text"
+                            placeholder="Cari..."
+                            value={searchTerm}
+                            onChange={e => setSearchTerm(e.target.value)}
+                            onClick={e => e.stopPropagation()}
+                            autoFocus
+                        />
+                    </div>
+                    <div className="multi-select-options">
+                        {filteredOptions.length === 0 ? (
+                            <div className="multi-select-empty">Tidak ada hasil</div>
+                        ) : (
+                            filteredOptions.map(opt => (
+                                <label key={opt.id} className="multi-select-option">
+                                    <input
+                                        type="checkbox"
+                                        checked={selected.includes(opt.id)}
+                                        onChange={() => toggleOption(opt.id)}
+                                    />
+                                    <span className="checkmark"><Check size={12} /></span>
+                                    {getLabel(opt)}
+                                </label>
+                            ))
+                        )}
+                    </div>
                 </div>
             )}
-            {isOpen && <div className="multi-select-backdrop" onClick={() => setIsOpen(false)} />}
+            {isOpen && <div className="multi-select-backdrop" onClick={() => { setIsOpen(false); setSearchTerm(''); }} />}
         </div>
     )
 }
@@ -424,7 +447,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                         selected={formData.matkulIds || []}
                                         onChange={(ids) => setFormData({ ...formData, matkulIds: ids })}
                                         placeholder="Pilih Mata Kuliah..."
-                                        getLabel={(m) => `${m.kode} - ${m.nama}`}
+                                        getLabel={(m) => `[Smt ${m.semester || 1}] ${m.kode} - ${m.nama}`}
                                     />
                                 </div>
                             </div>
@@ -1505,14 +1528,53 @@ function UsersPage() {
           top: 100%;
           left: 0;
           right: 0;
-          max-height: 200px;
-          overflow-y: auto;
           background: var(--bg-secondary);
           border: 1px solid var(--border-color);
           border-radius: var(--radius-lg);
           box-shadow: var(--shadow-lg);
           z-index: 100;
           margin-top: var(--space-1);
+        }
+        
+        .multi-select-dropdown-up {
+          top: auto;
+          bottom: 100%;
+          margin-top: 0;
+          margin-bottom: var(--space-1);
+        }
+        
+        .multi-select-search {
+          padding: var(--space-2);
+          border-bottom: 1px solid var(--border-color);
+          position: sticky;
+          top: 0;
+          background: var(--bg-secondary);
+        }
+        
+        .multi-select-search input {
+          width: 100%;
+          padding: var(--space-2) var(--space-3);
+          border: 1px solid var(--border-color);
+          border-radius: var(--radius-md);
+          font-size: var(--font-size-sm);
+          background: var(--bg-primary);
+        }
+        
+        .multi-select-search input:focus {
+          outline: none;
+          border-color: var(--primary-500);
+        }
+        
+        .multi-select-options {
+          max-height: 200px;
+          overflow-y: auto;
+        }
+        
+        .multi-select-empty {
+          padding: var(--space-4);
+          text-align: center;
+          color: var(--text-tertiary);
+          font-size: var(--font-size-sm);
         }
         
         .multi-select-option {
