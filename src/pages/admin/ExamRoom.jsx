@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
+import { prodiService, kelasService, userService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Layout,
     Shuffle,
@@ -15,8 +16,11 @@ import {
 // LocalStorage keys
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const USERS_STORAGE_KEY = 'cat_users_data'  // Fixed: was cat_users
-const EXAM_ROOMS_KEY = 'cat_exam_rooms'  // For syncing room allocation
+const USERS_STORAGE_KEY = 'cat_users_data'
+const EXAM_ROOMS_KEY = 'cat_exam_rooms'
+
+// Helper for field compatibility
+const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
 // Default prodi colors
 const DEFAULT_COLORS = ['#ef4444', '#3b82f6', '#22c55e', '#a855f7', '#f59e0b', '#06b6d4', '#ec4899', '#10b981']
@@ -38,69 +42,92 @@ function ExamRoomPage() {
     const [rooms, setRooms] = useState([])
     const [selectedRoom, setSelectedRoom] = useState(0)
     const [isAllocated, setIsAllocated] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
     const printRef = useRef(null)
 
-    // Load from localStorage
+    // Load from Supabase or localStorage
     const [prodiList, setProdiList] = useState([])
     const [kelasList, setKelasList] = useState([])
     const [mahasiswaData, setMahasiswaData] = useState([])
 
     useEffect(() => {
-        const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-        const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-        const users = localStorage.getItem(USERS_STORAGE_KEY)
-        const savedRooms = localStorage.getItem(EXAM_ROOMS_KEY)
-
-        let prodiData = []
-        let kelasData = []
-        if (prodi) {
-            prodiData = JSON.parse(prodi).map((p, idx) => ({
-                ...p,
-                color: p.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
-            }))
-            setProdiList(prodiData)
-        }
-        if (kelas) {
-            kelasData = JSON.parse(kelas)
-            setKelasList(kelasData)
-        }
-        if (users) {
-            const allUsers = JSON.parse(users)
-            // Filter only mahasiswa and derive prodiId from kelas
-            // ALL admins (superadmin AND admin_prodi) see ALL students - no filtering by prodi
-            let mhs = allUsers.filter(u => u.role === 'mahasiswa').map(u => {
-                // Get prodiId from kelas if not directly set
-                const userKelas = kelasData.find(k => String(k.id) === String(u.kelasId))
-                const derivedProdiId = u.prodiId || userKelas?.prodiId || null
-                return {
-                    id: u.id,
-                    name: u.nama || u.name,
-                    nim: u.nim || '',
-                    prodiId: derivedProdiId,
-                    kelasId: u.kelasId,
-                    photo: u.photo
-                }
-            })
-
-            console.log('[ExamRoom] Found mahasiswa:', mhs.length, '(no prodi filter - all admins see all students)')
-            setMahasiswaData(mhs)
-        }
-
-        // Load existing room allocation (GLOBAL - same for all admins)
-        if (savedRooms) {
+        const loadData = async () => {
+            setIsLoading(true)
             try {
-                const roomData = JSON.parse(savedRooms)
-                // All admins (superadmin and admin_prodi) see the same rooms
-                if (roomData.rooms && roomData.rooms.length > 0) {
-                    setRooms(roomData.rooms)
-                    setRoomCapacity(roomData.roomCapacity || 25)
-                    setIsAllocated(true)
-                    console.log('[ExamRoom] Loaded existing room allocation:', roomData.rooms.length, 'rooms, allocated by:', roomData.allocatedBy)
+                let prodiData = []
+                let kelasData = []
+                let usersData = []
+
+                if (isSupabaseConfigured()) {
+                    console.log('[ExamRoom] Loading from Supabase...')
+                    const [prodi, kelas, users] = await Promise.all([
+                        prodiService.getAll(),
+                        kelasService.getAll(),
+                        userService.getAll({ role: 'mahasiswa' })
+                    ])
+                    prodiData = prodi.map((p, idx) => ({
+                        ...p,
+                        color: p.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
+                    }))
+                    kelasData = kelas
+                    usersData = users
+                    console.log('[ExamRoom] Loaded from Supabase:', usersData.length, 'mahasiswa')
+                } else {
+                    console.log('[ExamRoom] Loading from localStorage...')
+                    const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
+                    const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
+                    const users = localStorage.getItem(USERS_STORAGE_KEY)
+
+                    prodiData = prodi ? JSON.parse(prodi).map((p, idx) => ({
+                        ...p,
+                        color: p.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
+                    })) : []
+                    kelasData = kelas ? JSON.parse(kelas) : []
+                    const allUsers = users ? JSON.parse(users) : []
+                    usersData = allUsers.filter(u => u.role === 'mahasiswa')
                 }
-            } catch (e) {
-                console.error('Error loading saved rooms:', e)
+
+                setProdiList(prodiData)
+                setKelasList(kelasData)
+
+                // Map mahasiswa with prodi info
+                const mhs = usersData.map(u => {
+                    const kelasId = getField(u, 'kelas_id', 'kelasId')
+                    const userKelas = kelasData.find(k => String(k.id) === String(kelasId))
+                    const derivedProdiId = getField(u, 'prodi_id', 'prodiId') || getField(userKelas, 'prodi_id', 'prodiId') || null
+                    return {
+                        id: u.id,
+                        name: u.nama || u.name,
+                        nim: u.nim || u.nim_nip || '',
+                        prodiId: derivedProdiId,
+                        kelasId: kelasId,
+                        photo: u.photo
+                    }
+                })
+                console.log('[ExamRoom] Mapped mahasiswa:', mhs.length)
+                setMahasiswaData(mhs)
+
+                // Load existing room allocation
+                const savedRooms = localStorage.getItem(EXAM_ROOMS_KEY)
+                if (savedRooms) {
+                    try {
+                        const roomData = JSON.parse(savedRooms)
+                        if (roomData.rooms && roomData.rooms.length > 0) {
+                            setRooms(roomData.rooms)
+                            setRoomCapacity(roomData.roomCapacity || 25)
+                            setIsAllocated(true)
+                        }
+                    } catch (e) {
+                        console.error('Error loading saved rooms:', e)
+                    }
+                }
+            } catch (err) {
+                console.error('[ExamRoom] Error loading data:', err)
+            } finally {
+                setIsLoading(false)
             }
         }
+        loadData()
     }, [currentUser])
 
     // Allocate students to rooms with interleaved prodi
