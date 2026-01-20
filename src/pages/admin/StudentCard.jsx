@@ -679,29 +679,29 @@ function StudentCardPage() {
                 
                 /* Dark Mode - Student Cards */
                 [data-theme="dark"] .student-card-item {
-                    background: var(--gray-800);
-                    border-color: var(--gray-700);
+                    background: #1e293b !important;
+                    border-color: #334155 !important;
                 }
                 [data-theme="dark"] .student-card-item:hover {
-                    background: var(--gray-700);
-                    border-color: var(--primary-500);
+                    background: #334155 !important;
+                    border-color: #3b679f !important;
                 }
                 [data-theme="dark"] .student-card-item.selected {
-                    background: var(--gray-700);
-                    border-color: var(--primary-500);
+                    background: #334155 !important;
+                    border-color: #3b679f !important;
                 }
                 [data-theme="dark"] .student-name {
-                    color: var(--gray-100);
+                    color: #f8fafc !important;
                 }
                 [data-theme="dark"] .student-nim {
-                    color: var(--primary-400);
+                    color: #7795bd !important;
                 }
                 [data-theme="dark"] .student-prodi {
-                    color: var(--gray-400);
+                    color: #94a3b8 !important;
                 }
                 [data-theme="dark"] .photo-placeholder {
-                    background: var(--gray-700);
-                    color: var(--gray-400);
+                    background: #334155 !important;
+                    color: #94a3b8 !important;
                 }
             `}</style>
         </DashboardLayout>
