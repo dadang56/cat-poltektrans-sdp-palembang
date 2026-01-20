@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
+import { userService, prodiService, kelasService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     CreditCard,
     Search,
@@ -17,7 +18,7 @@ import {
 // LocalStorage keys
 const PRODI_STORAGE_KEY = 'cat_prodi_data'
 const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const USERS_STORAGE_KEY = 'cat_users_data' // Fixed: was 'cat_users'
+const USERS_STORAGE_KEY = 'cat_users_data'
 
 function StudentCardPage() {
     const { settings } = useSettings()
@@ -28,49 +29,69 @@ function StudentCardPage() {
     const [selectedStudents, setSelectedStudents] = useState([])
     const printRef = useRef(null)
 
-    // Load from localStorage
+    // Load from Supabase or localStorage
     const [prodiList, setProdiList] = useState([])
     const [kelasList, setKelasList] = useState([])
     const [mahasiswaData, setMahasiswaData] = useState([])
 
     useEffect(() => {
-        const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-        const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-        const users = localStorage.getItem(USERS_STORAGE_KEY)
+        const loadData = async () => {
+            try {
+                let prodiData = []
+                let kelasData = []
+                let usersData = []
 
-        let prodiData = []
-        let kelasData = []
-        if (prodi) {
-            prodiData = JSON.parse(prodi)
-            setProdiList(prodiData)
-        }
-        if (kelas) {
-            kelasData = JSON.parse(kelas)
-            setKelasList(kelasData)
-        }
-        if (users) {
-            const allUsers = JSON.parse(users)
-            // Filter only mahasiswa and derive prodiId from kelas if missing
-            const mhs = allUsers.filter(u => u.role === 'mahasiswa').map(u => {
-                // Get prodiId from kelas if not directly set
-                const userKelas = kelasData.find(k => k.id === u.kelasId)
-                const derivedProdiId = u.prodiId || userKelas?.prodiId || null
-                return {
-                    id: u.id,
-                    name: u.nama || u.name,
-                    nim: u.nim || '',
-                    prodiId: derivedProdiId,
-                    kelasId: u.kelasId,
-                    photo: u.photo,
-                    username: u.email,
-                    password: u.password || 'defaultpass'
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const [prodi, kelas, users] = await Promise.all([
+                        prodiService.getAll(),
+                        kelasService.getAll(),
+                        userService.getAll({ role: 'mahasiswa' })
+                    ])
+                    prodiData = prodi
+                    kelasData = kelas
+                    usersData = users
+                    console.log('[StudentCard] Loaded from Supabase:', { prodi: prodi.length, kelas: kelas.length, users: users.length })
+                } else {
+                    // Fallback to localStorage
+                    const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
+                    const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
+                    const users = localStorage.getItem(USERS_STORAGE_KEY)
+                    prodiData = prodi ? JSON.parse(prodi) : []
+                    kelasData = kelas ? JSON.parse(kelas) : []
+                    usersData = users ? JSON.parse(users).filter(u => u.role === 'mahasiswa') : []
                 }
-            })
-            console.log('StudentCard: Total mahasiswa found:', mhs.length)
-            console.log('StudentCard: Sample mahasiswa:', mhs[0])
-            console.log('StudentCard: All users count:', allUsers.length)
-            setMahasiswaData(mhs)
+
+                setProdiList(prodiData)
+                setKelasList(kelasData)
+
+                // Map users to mahasiswa format (handle both Supabase snake_case and localStorage camelCase)
+                const mhs = usersData.map(u => {
+                    const prodiId = u.prodi_id || u.prodiId
+                    const kelasId = u.kelas_id || u.kelasId
+                    const userKelas = kelasData.find(k => k.id === kelasId)
+                    const derivedProdiId = prodiId || userKelas?.prodi_id || userKelas?.prodiId || null
+
+                    return {
+                        id: u.id,
+                        name: u.nama || u.name,
+                        nim: u.nim_nip || u.nim || '',
+                        prodiId: derivedProdiId,
+                        kelasId: kelasId,
+                        photo: u.photo,
+                        username: u.username || u.nim_nip || u.nim || '',
+                        password: u.password || '******'
+                    }
+                })
+
+                console.log('[StudentCard] Total mahasiswa:', mhs.length)
+                setMahasiswaData(mhs)
+            } catch (err) {
+                console.error('[StudentCard] Error loading data:', err)
+            }
         }
+
+        loadData()
     }, [])
 
     // For admin_prodi, auto-filter by their prodi
