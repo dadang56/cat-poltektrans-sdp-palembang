@@ -285,6 +285,41 @@
   background: var(--gray-700);
 }
 
+/* Dark Mode - Info Box (used in NilaiAkhir, etc) */
+[data-theme="dark"] .card[style*="--info-50"],
+[data-theme="dark"] [style*="background: var(--info-50)"],
+[data-theme="dark"] [style*="background:var(--info-50)"] {
+  background: rgba(59, 130, 246, 0.1) !important;
+  border-color: rgba(59, 130, 246, 0.3) !important;
+}
+
+[data-theme="dark"] .info-box,
+[data-theme="dark"] .info-card {
+  background: rgba(59, 130, 246, 0.1);
+  border-color: rgba(59, 130, 246, 0.3);
+}
+
+[data-theme="dark"] .info-box *,
+[data-theme="dark"] .info-card *,
+[data-theme="dark"] [style*="--info-50"] * {
+  color: #93c5fd !important;
+}
+
+/* Dark Mode - Card Header Title */
+[data-theme="dark"] .card-header h3,
+[data-theme="dark"] .card-header h4 {
+  color: var(--gray-100);
+}
+
+/* Dark Mode - Search Input in Card Header */
+[data-theme="dark"] .card-header input[type="text"] {
+  color: var(--gray-100);
+}
+
+[data-theme="dark"] .card-header input[type="text"]::placeholder {
+  color: var(--gray-400);
+}
+
 /* ============================================
    Base Styles
    ============================================ */

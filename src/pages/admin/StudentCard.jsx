@@ -554,7 +554,7 @@ function StudentCardPage() {
                     left: 1rem;
                     top: 50%;
                     transform: translateY(-50%);
-                    color: var(--color-text-muted);
+                    color: var(--text-muted);
                 }
                 .search-box .form-input {
                     padding-left: 2.75rem;
@@ -563,7 +563,7 @@ function StudentCardPage() {
                     display: flex;
                     align-items: center;
                     gap: 0.5rem;
-                    color: var(--color-text-muted);
+                    color: var(--text-muted);
                 }
                 .filter-group .form-input {
                     min-width: 180px;
@@ -579,7 +579,7 @@ function StudentCardPage() {
                 }
                 .selected-count {
                     font-size: 0.875rem;
-                    color: var(--color-primary);
+                    color: var(--primary-600);
                     font-weight: 500;
                 }
                 .student-grid {
@@ -588,8 +588,8 @@ function StudentCardPage() {
                     gap: 1rem;
                 }
                 .student-card-item {
-                    background: var(--color-surface);
-                    border: 2px solid var(--color-border);
+                    background: var(--bg-secondary);
+                    border: 2px solid var(--border-color);
                     border-radius: 0.75rem;
                     padding: 1rem;
                     display: flex;
@@ -599,21 +599,21 @@ function StudentCardPage() {
                     position: relative;
                 }
                 .student-card-item:hover {
-                    border-color: var(--color-primary);
-                    background: var(--color-primary-alpha);
+                    border-color: var(--primary-500);
+                    background: var(--bg-tertiary);
                 }
                 .student-card-item.selected {
-                    border-color: var(--color-primary);
-                    background: var(--color-primary-alpha);
+                    border-color: var(--primary-500);
+                    background: var(--bg-tertiary);
                 }
                 .student-checkbox {
                     position: absolute;
                     top: 0.75rem;
                     right: 0.75rem;
-                    color: var(--color-text-muted);
+                    color: var(--text-muted);
                 }
                 .student-card-item.selected .student-checkbox {
-                    color: var(--color-primary);
+                    color: var(--primary-500);
                 }
                 .student-photo {
                     width: 70px;
@@ -630,11 +630,11 @@ function StudentCardPage() {
                 .photo-placeholder {
                     width: 100%;
                     height: 100%;
-                    background: var(--color-bg-tertiary);
+                    background: var(--bg-tertiary);
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    color: var(--color-text-muted);
+                    color: var(--text-muted);
                 }
                 .student-info {
                     flex: 1;
@@ -643,24 +643,24 @@ function StudentCardPage() {
                 .student-name {
                     font-weight: 600;
                     margin: 0 0 0.25rem 0;
-                    color: var(--color-text);
+                    color: var(--text-primary);
                 }
                 .student-nim {
                     font-size: 0.875rem;
-                    color: var(--color-primary);
+                    color: var(--primary-500);
                     font-weight: 500;
                     margin: 0 0 0.5rem 0;
                 }
                 .student-prodi {
                     font-size: 0.75rem;
-                    color: var(--color-text-muted);
+                    color: var(--text-muted);
                     margin: 0;
                 }
                 .empty-state {
                     grid-column: 1 / -1;
                     text-align: center;
                     padding: 3rem;
-                    color: var(--color-text-muted);
+                    color: var(--text-muted);
                 }
                 .empty-state p {
                     margin-top: 1rem;

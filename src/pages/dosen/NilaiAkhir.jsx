@@ -353,9 +353,9 @@ function NilaiAkhirPage() {
                 </div>
 
                 {/* Bobot Info - Dynamic based on matkul */}
-                <div className="card mb-4" style={{ background: 'var(--info-50)', border: '1px solid var(--info-200)' }}>
+                <div className="card mb-4 info-box">
                     <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                        <Info size={18} style={{ color: 'var(--info-600)' }} />
+                        <Info size={18} className="info-icon" />
                         <div>
                             <strong>Rumus Nilai:</strong>
                             <span style={{ marginLeft: '8px' }}>
@@ -535,6 +535,35 @@ function NilaiAkhirPage() {
                 .mb-4 { margin-bottom: 16px; }
                 .text-center { text-align: center; }
                 .btn-sm { padding: 4px 8px; font-size: 12px; }
+                
+                /* Info Box Styling */
+                .info-box {
+                    background: var(--info-50);
+                    border: 1px solid var(--info-200);
+                }
+                .info-box .card-body {
+                    color: var(--info-700);
+                }
+                .info-box .info-icon {
+                    color: var(--info-600);
+                }
+                .info-box strong {
+                    color: var(--info-800);
+                }
+                
+                /* Dark Mode Info Box */
+                [data-theme="dark"] .info-box {
+                    background: rgba(59, 130, 246, 0.1);
+                    border-color: rgba(59, 130, 246, 0.3);
+                }
+                [data-theme="dark"] .info-box .card-body,
+                [data-theme="dark"] .info-box strong,
+                [data-theme="dark"] .info-box span {
+                    color: #93c5fd;
+                }
+                [data-theme="dark"] .info-box .info-icon {
+                    color: #60a5fa;
+                }
             `}</style>
         </DashboardLayout>
     )
