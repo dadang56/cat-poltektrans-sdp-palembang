@@ -1160,6 +1160,97 @@ img {
   .progress {
     height: 6px;
   }
+
+  /* Mobile Table Badges - Consistent sizing */
+  .table .badge,
+  .badge-sm {
+    min-width: 28px;
+    height: 24px;
+    padding: 2px 8px;
+    font-size: 10px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    white-space: nowrap;
+  }
+
+  /* Consistent table cell spacing */
+  .table td,
+  .table th {
+    padding: var(--space-2) var(--space-2);
+    vertical-align: middle;
+    font-size: var(--font-size-xs);
+  }
+
+  /* Mata Kuliah table specific fixes */
+  .table td:first-child,
+  .table th:first-child {
+    padding-left: var(--space-3);
+  }
+
+  .table td:last-child,
+  .table th:last-child {
+    padding-right: var(--space-3);
+  }
+
+  /* Stats card grid for mobile */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-2);
+  }
+
+  .stat-card {
+    padding: var(--space-3);
+  }
+
+  .stat-icon {
+    width: 36px;
+    height: 36px;
+  }
+
+  .stat-icon svg {
+    width: 18px;
+    height: 18px;
+  }
+
+  .stat-value {
+    font-size: var(--font-size-lg);
+  }
+
+  .stat-label {
+    font-size: var(--font-size-xs);
+  }
+
+  /* Button group spacing */
+  .header-actions,
+  .btn-group,
+  .page-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .header-actions .btn,
+  .page-actions .btn {
+    flex: 1;
+    min-width: auto;
+    padding: var(--space-2) var(--space-3);
+  }
+
+  /* Filter row mobile fix */
+  .filters-row {
+    flex-direction: column;
+    gap: var(--space-2);
+  }
+
+  .filter-group {
+    width: 100%;
+  }
+
+  .filter-group .form-input,
+  .filter-group select {
+    width: 100%;
+  }
 }
 
 /* Extra Small Phones */

@@ -26,7 +26,8 @@ import {
     CreditCard,
     Layout,
     Award,
-    Shield
+    Shield,
+    Download
 } from 'lucide-react'
 import { useState } from 'react'
 import './DashboardLayout.css'
@@ -45,6 +46,7 @@ const NAV_ITEMS = {
         { path: '/superadmin/rekap-nilai', icon: Award, label: 'Rekap Nilai' },
         { path: '/superadmin/rekap-kehadiran', icon: ClipboardCheck, label: 'Rekap Kehadiran' },
         { path: '/superadmin/rekap-nilai-mahasiswa', icon: BarChart3, label: 'Rekap Nilai Mahasiswa' },
+        { path: '/superadmin/ekspor-data', icon: Download, label: 'Ekspor Data' },
         { path: '/superadmin/settings', icon: Settings, label: 'Pengaturan' }
     ],
     admin_prodi: [
@@ -59,6 +61,7 @@ const NAV_ITEMS = {
         { path: '/admin-prodi/rekap-kehadiran', icon: ClipboardCheck, label: 'Rekap Kehadiran' },
         { path: '/admin-prodi/rekap-berita-acara', icon: FileText, label: 'Rekap Berita Acara' },
         { path: '/admin-prodi/rekap-nilai-mahasiswa', icon: BarChart3, label: 'Rekap Nilai Mahasiswa' },
+        { path: '/admin-prodi/ekspor-data', icon: Download, label: 'Ekspor Data' },
         { path: '/admin-prodi/settings', icon: Settings, label: 'Pengaturan' }
     ],
     admin: [

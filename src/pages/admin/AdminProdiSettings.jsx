@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
 import {
     Building2,
     Save,
@@ -10,13 +11,13 @@ import {
 } from 'lucide-react'
 import './Dashboard.css'
 
-// Tahun Ajaran options - dynamically generate
+// Tahun Ajaran options - generate with consistent format matching Dashboard
 const generateTahunAjaranOptions = () => {
     const options = []
     const currentYear = new Date().getFullYear()
-    for (let year = currentYear; year >= currentYear - 2; year--) {
-        options.push({ value: `${year}/${year + 1}-1`, label: `${year}/${year + 1} Ganjil` })
-        options.push({ value: `${year}/${year + 1}-2`, label: `${year}/${year + 1} Genap` })
+    for (let year = currentYear + 1; year >= currentYear - 2; year--) {
+        options.push(`${year}/${year + 1} Ganjil`)
+        options.push(`${year}/${year + 1} Genap`)
     }
     return options
 }
@@ -25,38 +26,55 @@ const TAHUN_AJARAN_OPTIONS = generateTahunAjaranOptions()
 
 function AdminProdiSettings() {
     const { user } = useAuth()
+    const { settings: appSettings, saveSettings } = useSettings()
 
-    // Initialize settings from localStorage (lazy initialization)
-    const [settings, setSettings] = useState(() => {
+    // Local state for Ka. Prodi info (still per-prodi in localStorage)
+    const [localSettings, setLocalSettings] = useState(() => {
         const storageKey = `prodiSettings_${user?.prodiId || 'default'}`
         const savedSettings = localStorage.getItem(storageKey)
         if (savedSettings) {
             try {
-                return { kaprodiNama: '', kaprodiNip: '', tahunAjaran: '2025/2026-1', ...JSON.parse(savedSettings) }
+                return { kaprodiNama: '', kaprodiNip: '', ...JSON.parse(savedSettings) }
             } catch {
-                return { kaprodiNama: '', kaprodiNip: '', tahunAjaran: '2025/2026-1' }
+                return { kaprodiNama: '', kaprodiNip: '' }
             }
         }
-        return { kaprodiNama: '', kaprodiNip: '', tahunAjaran: '2025/2026-1' }
+        return { kaprodiNama: '', kaprodiNip: '' }
     })
+
+    // Tahun Akademik from SettingsContext (synchronized across app)
+    const [selectedTahunAkademik, setSelectedTahunAkademik] = useState('')
     const [saveStatus, setSaveStatus] = useState(null)
 
-    const handleChange = (field, value) => {
-        setSettings(prev => ({ ...prev, [field]: value }))
+    // Load tahun akademik from app settings
+    useEffect(() => {
+        if (appSettings?.tahunAkademik) {
+            setSelectedTahunAkademik(appSettings.tahunAkademik)
+        } else if (TAHUN_AJARAN_OPTIONS.length > 0) {
+            setSelectedTahunAkademik(TAHUN_AJARAN_OPTIONS[0])
+        }
+    }, [appSettings])
+
+    const handleLocalChange = (field, value) => {
+        setLocalSettings(prev => ({ ...prev, [field]: value }))
+    }
+
+    const handleTahunAkademikChange = (value) => {
+        setSelectedTahunAkademik(value)
     }
 
     const handleSave = () => {
         const storageKey = `prodiSettings_${user?.prodiId || 'default'}`
-        localStorage.setItem(storageKey, JSON.stringify(settings))
+        localStorage.setItem(storageKey, JSON.stringify(localSettings))
 
-        // Also save kaprodiInfo for printouts (keyed by prodiId)
+        // Save kaprodiInfo for printouts (keyed by prodiId)
         localStorage.setItem(`kaprodiInfo_${user?.prodiId || 'default'}`, JSON.stringify({
-            nama: settings.kaprodiNama,
-            nip: settings.kaprodiNip
+            nama: localSettings.kaprodiNama,
+            nip: localSettings.kaprodiNip
         }))
 
-        // Save current tahun ajaran for data filtering
-        localStorage.setItem(`tahunAjaran_${user?.prodiId || 'default'}`, settings.tahunAjaran)
+        // Save tahun akademik to SettingsContext (syncs across app)
+        saveSettings({ ...appSettings, tahunAkademik: selectedTahunAkademik })
 
         setSaveStatus('success')
         setTimeout(() => setSaveStatus(null), 3000)
@@ -72,7 +90,7 @@ function AdminProdiSettings() {
                     </div>
                 </div>
 
-                <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
+                <div className="settings-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '1.5rem', marginBottom: '2rem' }}>
                     {/* Tahun Akademik */}
                     <div className="card">
                         <div className="card-header">
@@ -80,21 +98,21 @@ function AdminProdiSettings() {
                                 <Calendar size={20} className="text-secondary" />
                                 <h3 className="font-semibold">Tahun Akademik</h3>
                             </div>
-                            <span className="badge badge-primary">{settings.tahunAjaran.replace('-1', ' Ganjil').replace('-2', ' Genap')}</span>
+                            <span className="badge badge-primary">{selectedTahunAkademik}</span>
                         </div>
                         <div className="card-body">
                             <p className="text-sm text-muted mb-4">
-                                Pilih tahun akademik aktif. Data ujian, nilai, dan kehadiran akan disimpan berdasarkan tahun akademik ini.
+                                Pilih tahun akademik aktif. Pengaturan ini akan disinkronkan ke seluruh halaman aplikasi.
                             </p>
                             <div className="form-group">
                                 <label className="form-label">Tahun Akademik Aktif</label>
                                 <select
                                     className="form-input"
-                                    value={settings.tahunAjaran}
-                                    onChange={(e) => handleChange('tahunAjaran', e.target.value)}
+                                    value={selectedTahunAkademik}
+                                    onChange={(e) => handleTahunAkademikChange(e.target.value)}
                                 >
                                     {TAHUN_AJARAN_OPTIONS.map(opt => (
-                                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                                        <option key={opt} value={opt}>{opt}</option>
                                     ))}
                                 </select>
                             </div>
@@ -119,8 +137,8 @@ function AdminProdiSettings() {
                                 <input
                                     type="text"
                                     className="form-input"
-                                    value={settings.kaprodiNama}
-                                    onChange={(e) => handleChange('kaprodiNama', e.target.value)}
+                                    value={localSettings.kaprodiNama}
+                                    onChange={(e) => handleLocalChange('kaprodiNama', e.target.value)}
                                     placeholder="Dr. Nama Lengkap, M.T."
                                 />
                             </div>
@@ -129,8 +147,8 @@ function AdminProdiSettings() {
                                 <input
                                     type="text"
                                     className="form-input"
-                                    value={settings.kaprodiNip}
-                                    onChange={(e) => handleChange('kaprodiNip', e.target.value)}
+                                    value={localSettings.kaprodiNip}
+                                    onChange={(e) => handleLocalChange('kaprodiNip', e.target.value)}
                                     placeholder="197012345678901234"
                                 />
                             </div>
@@ -179,6 +197,11 @@ function AdminProdiSettings() {
                     to {
                         transform: translateX(0);
                         opacity: 1;
+                    }
+                }
+                @media (max-width: 480px) {
+                    .settings-grid {
+                        grid-template-columns: 1fr !important;
                     }
                 }
             `}</style>

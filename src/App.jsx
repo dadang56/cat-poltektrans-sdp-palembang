@@ -23,6 +23,7 @@ import RekapBeritaAcara from './pages/admin/RekapBeritaAcara'
 import AdminProdiDashboard from './pages/admin/AdminProdiDashboard'
 import AdminProdiSettings from './pages/admin/AdminProdiSettings'
 import JadwalUjian from './pages/admin/JadwalUjian'
+import EksporData from './pages/admin/EksporData'
 
 // Dosen Pages
 import DosenDashboard from './pages/dosen/Dashboard'
@@ -256,6 +257,11 @@ function App() {
                 <JadwalUjian />
               </ProtectedRoute>
             } />
+            <Route path="/superadmin/ekspor-data" element={
+              <ProtectedRoute allowedRoles={['superadmin']}>
+                <EksporData />
+              </ProtectedRoute>
+            } />
 
             {/* Admin Prodi Routes */}
             <Route path="/admin-prodi" element={
@@ -316,6 +322,11 @@ function App() {
             <Route path="/admin-prodi/rekap-nilai-mahasiswa" element={
               <ProtectedRoute allowedRoles={['admin_prodi']}>
                 <RekapNilai />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/ekspor-data" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <EksporData />
               </ProtectedRoute>
             } />
 

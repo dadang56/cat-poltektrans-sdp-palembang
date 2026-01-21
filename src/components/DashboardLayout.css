@@ -358,6 +358,7 @@
     .sidebar-nav-item svg {
         width: 20px;
         height: 20px;
+        flex-shrink: 0;
     }
 
     /* Better spacing for nav items on mobile */
@@ -365,6 +366,9 @@
         display: flex;
         align-items: center;
         gap: var(--space-3);
+        padding: var(--space-3) var(--space-4);
+        min-height: 48px;
+        margin-bottom: var(--space-2);
     }
 
     .sidebar-nav-item span {
@@ -372,6 +376,17 @@
         white-space: nowrap;
         overflow: hidden;
         text-overflow: ellipsis;
+        flex: 1;
+    }
+
+    /* Ensure nav section has proper spacing */
+    .nav-section {
+        padding: 0 var(--space-2);
+    }
+
+    .nav-section-title {
+        padding: var(--space-2) var(--space-3);
+        margin-bottom: var(--space-2);
     }
 }
 

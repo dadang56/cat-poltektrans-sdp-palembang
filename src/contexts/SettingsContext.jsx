@@ -1,6 +1,19 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import { appSettingsService, isSupabaseConfigured } from '../services/supabaseService'
 
+// Generate current academic year
+const generateCurrentTahunAkademik = () => {
+    const now = new Date()
+    const year = now.getFullYear()
+    const month = now.getMonth() + 1 // 0-indexed
+    // Ganjil: August-January, Genap: February-July
+    if (month >= 8 || month <= 1) {
+        return `${year}/${year + 1} Ganjil`
+    } else {
+        return `${year - 1}/${year} Genap`
+    }
+}
+
 // Default settings
 const DEFAULT_SETTINGS = {
     appName: 'POLTEKTRANS EXAM',
@@ -11,7 +24,8 @@ const DEFAULT_SETTINGS = {
     institution: 'Politeknik Transportasi Sungai, Danau dan Penyeberangan Palembang',
     address: 'Jl. Residen Abdul Rozak, Palembang',
     phone: '(0711) 712345',
-    email: 'info@poltektrans.ac.id'
+    email: 'info@poltektrans.ac.id',
+    tahunAkademik: '2025/2026 Ganjil' // Default tahun akademik aktif
 }
 
 // Color presets
