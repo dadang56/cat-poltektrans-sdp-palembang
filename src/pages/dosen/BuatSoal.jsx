@@ -122,7 +122,7 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions }) {
     )
 }
 
-function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, currentExamType }) {
+function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, currentExamType, selectedPackage }) {
     const getDefaultFormData = () => ({
         text: '',
         type: 'pilihan_ganda',
@@ -239,21 +239,23 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                 </div>
                 <form onSubmit={handleSubmit}>
                     <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
-                        {/* Mata Kuliah dan Bobot */}
+                        {/* Mata Kuliah dan Bobot - Hide matkul when inside package */}
                         <div className="form-row form-row-2">
-                            <div className="form-group">
-                                <label className="form-label">Mata Kuliah</label>
-                                <select
-                                    className="form-input"
-                                    value={formData.matkulId}
-                                    onChange={e => setFormData({ ...formData, matkulId: parseInt(e.target.value), kelasIds: [] })}
-                                >
-                                    {matkul.map(mk => (
-                                        <option key={mk.id} value={mk.id}>{mk.nama}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="form-group">
+                            {!selectedPackage && (
+                                <div className="form-group">
+                                    <label className="form-label">Mata Kuliah</label>
+                                    <select
+                                        className="form-input"
+                                        value={formData.matkulId}
+                                        onChange={e => setFormData({ ...formData, matkulId: parseInt(e.target.value), kelasIds: [] })}
+                                    >
+                                        {matkul.map(mk => (
+                                            <option key={mk.id} value={mk.id}>{mk.nama}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
+                            <div className="form-group" style={selectedPackage ? { width: '100%' } : {}}>
                                 <label className="form-label">Bobot Nilai</label>
                                 <input
                                     type="number"
@@ -328,25 +330,27 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                             )
                         })()}
 
-                        {/* Jenis Ujian */}
-                        <div className="form-group">
-                            <label className="form-label">Jenis Ujian</label>
-                            <div className="type-selector">
-                                {[
-                                    { value: 'UTS', label: 'UTS' },
-                                    { value: 'UAS', label: 'UAS' }
-                                ].map(type => (
-                                    <button
-                                        key={type.value}
-                                        type="button"
-                                        className={`type-btn ${formData.examType?.toUpperCase() === type.value ? 'active' : ''}`}
-                                        onClick={() => setFormData({ ...formData, examType: type.value })}
-                                    >
-                                        {type.label}
-                                    </button>
-                                ))}
+                        {/* Jenis Ujian - Hide when inside package */}
+                        {!selectedPackage && (
+                            <div className="form-group">
+                                <label className="form-label">Jenis Ujian</label>
+                                <div className="type-selector">
+                                    {[
+                                        { value: 'UTS', label: 'UTS' },
+                                        { value: 'UAS', label: 'UAS' }
+                                    ].map(type => (
+                                        <button
+                                            key={type.value}
+                                            type="button"
+                                            className={`type-btn ${formData.examType?.toUpperCase() === type.value ? 'active' : ''}`}
+                                            onClick={() => setFormData({ ...formData, examType: type.value })}
+                                        >
+                                            {type.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
-                        </div>
+                        )}
 
                         {/* Tipe Soal */}
                         <div className="form-group">
@@ -576,6 +580,11 @@ function BuatSoalPage() {
     const [previewQuestion, setPreviewQuestion] = useState(null)
     const [bankSoalModalOpen, setBankSoalModalOpen] = useState(false)
 
+    // Package-based view states
+    const [viewMode, setViewMode] = useState('packages') // 'packages' or 'questions'
+    const [selectedPackage, setSelectedPackage] = useState(null) // { matkulId, examType }
+    const [createPackageModalOpen, setCreatePackageModalOpen] = useState(false)
+
     // Load matkul, kelas, and soal from localStorage
     useEffect(() => {
         const savedMatkul = localStorage.getItem(MATKUL_STORAGE_KEY)
@@ -722,6 +731,41 @@ function BuatSoalPage() {
         return matchesSearch && matchesMatkul && matchesType && matchesExamType
     })
 
+    // Group questions by matkulId + examType for package view
+    const questionPackages = questions.reduce((acc, q) => {
+        const key = `${q.matkulId}-${q.examType?.toUpperCase() || 'UTS'}`
+        if (!acc[key]) {
+            acc[key] = {
+                matkulId: q.matkulId,
+                examType: q.examType?.toUpperCase() || 'UTS',
+                questions: []
+            }
+        }
+        acc[key].questions.push(q)
+        return acc
+    }, {})
+
+    // Get questions for selected package
+    const getPackageQuestions = () => {
+        if (!selectedPackage) return []
+        return questions.filter(q =>
+            q.matkulId === selectedPackage.matkulId &&
+            q.examType?.toUpperCase() === selectedPackage.examType?.toUpperCase()
+        )
+    }
+
+    // Handle entering a package
+    const handleEnterPackage = (pkg) => {
+        setSelectedPackage({ matkulId: pkg.matkulId, examType: pkg.examType })
+        setViewMode('questions')
+    }
+
+    // Handle going back to packages view
+    const handleBackToPackages = () => {
+        setSelectedPackage(null)
+        setViewMode('packages')
+    }
+
     const handleAddQuestion = () => {
         setEditingQuestion(null)
         setModalOpen(true)
@@ -733,9 +777,16 @@ function BuatSoalPage() {
     }
 
     const handleSaveQuestion = (data) => {
+        // If inside a package, auto-set matkulId and examType
+        const questionData = selectedPackage ? {
+            ...data,
+            matkulId: selectedPackage.matkulId,
+            examType: selectedPackage.examType
+        } : data
+
         // Add dosenId to identify question ownership
         const questionWithDosen = {
-            ...data,
+            ...questionData,
             dosenId: user?.id || user?.email, // Store dosen identifier
             dosenName: user?.nama || user?.name || 'Unknown'
         }
@@ -788,10 +839,15 @@ function BuatSoalPage() {
     }
 
     const handleImportFromBank = (importedQuestions) => {
+        // If inside a package, use package's matkulId and examType
+        const targetMatkulId = selectedPackage?.matkulId || matkulList[0]?.id || 1
+        const targetExamType = selectedPackage?.examType || 'UTS'
+
         const newQuestions = importedQuestions.map(q => ({
             ...q,
             id: Date.now() + Math.random(),
-            matkulId: matkulList[0]?.id || 1,
+            matkulId: targetMatkulId,
+            examType: targetExamType,
             dosenId: user?.id || user?.email,
             dosenName: user?.nama || user?.name || 'Unknown'
         }))
@@ -809,20 +865,41 @@ function BuatSoalPage() {
     return (
         <DashboardLayout>
             <div className="dashboard-page animate-fadeIn">
+                {/* Header changes based on view mode */}
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Buat Soal</h1>
-                        <p className="page-subtitle">Kelola soal untuk ujian mata kuliah Anda</p>
+                        {viewMode === 'packages' ? (
+                            <>
+                                <h1 className="page-title">Buat Soal</h1>
+                                <p className="page-subtitle">Kelola paket soal untuk ujian mata kuliah Anda</p>
+                            </>
+                        ) : (
+                            <>
+                                <button
+                                    className="btn btn-ghost"
+                                    onClick={handleBackToPackages}
+                                    style={{ marginBottom: '0.5rem', padding: '0.25rem 0.5rem' }}
+                                >
+                                    ← Kembali ke Paket Soal
+                                </button>
+                                <h1 className="page-title">{getMatkulName(selectedPackage?.matkulId)} - {selectedPackage?.examType}</h1>
+                                <p className="page-subtitle">Kelola soal dalam paket ini</p>
+                            </>
+                        )}
                     </div>
                     <div className="header-actions">
-                        <button className="btn btn-secondary" onClick={() => setBankSoalModalOpen(true)}>
-                            <Database size={18} />
-                            Ambil dari Bank Soal
-                        </button>
-                        <button className="btn btn-primary" onClick={handleAddQuestion}>
-                            <Plus size={18} />
-                            Tambah Soal
-                        </button>
+                        {viewMode === 'questions' && (
+                            <>
+                                <button className="btn btn-secondary" onClick={() => setBankSoalModalOpen(true)}>
+                                    <Database size={18} />
+                                    Ambil dari Bank Soal
+                                </button>
+                                <button className="btn btn-primary" onClick={handleAddQuestion}>
+                                    <Plus size={18} />
+                                    Tambah Soal
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -835,119 +912,224 @@ function BuatSoalPage() {
                     </div>
                 </div>
 
-                {/* Filters */}
-                <div className="card">
-                    <div className="card-body">
-                        <div className="filters-row">
-                            <div className="search-box">
-                                <Search size={18} className="search-icon" />
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    placeholder="Cari soal..."
-                                    value={search}
-                                    onChange={e => setSearch(e.target.value)}
-                                />
-                            </div>
-                            <select
-                                className="form-input"
-                                value={matkulFilter}
-                                onChange={e => setMatkulFilter(e.target.value)}
-                                style={{ width: 'auto', minWidth: '180px' }}
-                            >
-                                <option value="all">Semua Mata Kuliah</option>
-                                {matkulList.map(mk => (
-                                    <option key={mk.id} value={mk.id}>{mk.nama}</option>
-                                ))}
-                            </select>
-                            <select
-                                className="form-input"
-                                value={typeFilter}
-                                onChange={e => setTypeFilter(e.target.value)}
-                                style={{ width: 'auto', minWidth: '150px' }}
-                            >
-                                <option value="all">Semua Tipe Soal</option>
-                                <option value="pilihan_ganda">Pilihan Ganda</option>
-                                <option value="essay">Essay</option>
-                                <option value="benar_salah">Benar/Salah</option>
-                                <option value="mencocokan">Mencocokan</option>
-                            </select>
-                            <select
-                                className="form-input exam-type-filter"
-                                value={examTypeFilter}
-                                onChange={e => setExamTypeFilter(e.target.value)}
-                                style={{ width: 'auto', minWidth: '120px' }}
-                            >
-                                <option value="all">Semua Ujian</option>
-                                <option value="uts">UTS</option>
-                                <option value="uas">UAS</option>
-                            </select>
-                        </div>
-
-                        {/* Questions List */}
-                        <div className="questions-list">
-                            {filteredQuestions.length === 0 ? (
+                {/* Content based on view mode */}
+                {viewMode === 'packages' ? (
+                    /* PACKAGES VIEW */
+                    <div className="card">
+                        <div className="card-body">
+                            {Object.keys(questionPackages).length === 0 ? (
                                 <div className="empty-state">
                                     <BookOpen size={48} />
-                                    <h3>Belum ada soal</h3>
-                                    <p>Klik tombol "Tambah Soal" untuk membuat soal baru</p>
+                                    <h3>Belum ada paket soal</h3>
+                                    <p>Mulai buat soal dengan mengklik tombol di bawah</p>
+                                    <button className="btn btn-primary" onClick={() => {
+                                        setSelectedPackage(null)
+                                        setModalOpen(true)
+                                    }} style={{ marginTop: '1rem' }}>
+                                        <Plus size={18} />
+                                        Buat Soal Pertama
+                                    </button>
                                 </div>
                             ) : (
-                                filteredQuestions.map((question, index) => (
-                                    <div key={question.id} className="question-card">
-                                        <div className="question-header">
-                                            <div className="question-meta">
-                                                <span className="question-number">#{index + 1}</span>
-                                                <span className={`badge badge-${question.type === 'pilihan_ganda' ? 'primary' :
-                                                    question.type === 'essay' ? 'accent' :
-                                                        question.type === 'benar_salah' ? 'success' : 'info'
-                                                    }`}>
-                                                    {typeLabels[question.type]}
-                                                </span>
-                                                <span className="badge badge-outline">{getMatkulName(question.matkulId)}</span>
-                                                {question.examType && (
-                                                    <span className={`badge badge-${question.examType.toUpperCase() === 'UAS' ? 'error' : 'warning'}`}>
-                                                        {question.examType.toUpperCase()}
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <span className="question-points">{question.points} poin</span>
-                                        </div>
-                                        <p className="question-text">{question.text}</p>
-                                        {question.image && (
-                                            <div className="question-image-thumb">
-                                                <img src={question.image} alt="Question" />
-                                            </div>
-                                        )}
-                                        <div className="question-actions">
-                                            <button
-                                                className="btn btn-ghost btn-sm"
-                                                onClick={() => setPreviewQuestion(question)}
-                                            >
-                                                <Eye size={16} />
-                                                Preview
-                                            </button>
-                                            <button
-                                                className="btn btn-ghost btn-sm"
-                                                onClick={() => handleEditQuestion(question)}
-                                            >
-                                                <Edit2 size={16} />
-                                                Edit
-                                            </button>
-                                            <button
-                                                className="btn btn-ghost btn-sm text-error"
-                                                onClick={() => handleDeleteQuestion(question.id)}
-                                            >
-                                                <Trash2 size={16} />
-                                                Hapus
-                                            </button>
-                                        </div>
+                                <>
+                                    <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
+                                        <button className="btn btn-primary" onClick={() => {
+                                            setSelectedPackage(null)
+                                            setModalOpen(true)
+                                        }}>
+                                            <Plus size={18} />
+                                            Buat Soal Baru
+                                        </button>
                                     </div>
-                                ))
+                                    <div className="packages-grid" style={{
+                                        display: 'grid',
+                                        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+                                        gap: '1rem'
+                                    }}>
+                                        {Object.values(questionPackages).map((pkg, index) => (
+                                            <div
+                                                key={`${pkg.matkulId}-${pkg.examType}`}
+                                                className="package-card"
+                                                style={{
+                                                    background: 'var(--bg-secondary)',
+                                                    border: '1px solid var(--border-color)',
+                                                    borderRadius: 'var(--radius-lg)',
+                                                    padding: '1.5rem',
+                                                    cursor: 'pointer',
+                                                    transition: 'all 0.2s ease'
+                                                }}
+                                                onClick={() => handleEnterPackage(pkg)}
+                                                onMouseEnter={e => {
+                                                    e.currentTarget.style.borderColor = 'var(--primary)'
+                                                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.1)'
+                                                }}
+                                                onMouseLeave={e => {
+                                                    e.currentTarget.style.borderColor = 'var(--border-color)'
+                                                    e.currentTarget.style.boxShadow = 'none'
+                                                }}
+                                            >
+                                                <h3 style={{
+                                                    margin: '0 0 0.5rem 0',
+                                                    fontSize: '1.1rem',
+                                                    fontWeight: '600',
+                                                    color: 'var(--text-primary)'
+                                                }}>
+                                                    {getMatkulName(pkg.matkulId)}
+                                                </h3>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                                                    <span className={`badge badge-${pkg.examType === 'UAS' ? 'error' : 'warning'}`}>
+                                                        {pkg.examType}
+                                                    </span>
+                                                </div>
+                                                <div style={{
+                                                    display: 'flex',
+                                                    justifyContent: 'space-between',
+                                                    alignItems: 'center',
+                                                    borderTop: '1px solid var(--border-color)',
+                                                    paddingTop: '1rem',
+                                                    marginTop: '0.5rem'
+                                                }}>
+                                                    <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
+                                                        {pkg.questions.length} soal
+                                                    </span>
+                                                    <span style={{
+                                                        color: 'var(--primary)',
+                                                        fontSize: '0.875rem',
+                                                        fontWeight: '500'
+                                                    }}>
+                                                        Kelola Soal →
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </>
                             )}
                         </div>
                     </div>
-                </div>
+                ) : (
+                    /* QUESTIONS VIEW (inside a package) */
+                    <div className="card">
+                        <div className="card-body">
+                            {/* Filters */}
+                            <div className="filters-row" style={{ marginBottom: '1rem' }}>
+                                <div className="search-box">
+                                    <Search size={18} className="search-icon" />
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="Cari soal..."
+                                        value={search}
+                                        onChange={e => setSearch(e.target.value)}
+                                    />
+                                </div>
+                                <select
+                                    className="form-input"
+                                    value={typeFilter}
+                                    onChange={e => setTypeFilter(e.target.value)}
+                                    style={{ width: 'auto', minWidth: '150px' }}
+                                >
+                                    <option value="all">Semua Tipe Soal</option>
+                                    <option value="pilihan_ganda">Pilihan Ganda</option>
+                                    <option value="essay">Essay</option>
+                                    <option value="benar_salah">Benar/Salah</option>
+                                    <option value="mencocokan">Mencocokan</option>
+                                </select>
+                            </div>
+
+                            {/* Questions List for selected package */}
+                            <div className="questions-list">
+                                {(() => {
+                                    const packageQuestions = getPackageQuestions().filter(q => {
+                                        const matchesSearch = q.text.toLowerCase().includes(search.toLowerCase())
+                                        const matchesType = typeFilter === 'all' || q.type === typeFilter
+                                        return matchesSearch && matchesType
+                                    })
+
+                                    return packageQuestions.length === 0 ? (
+                                        <div className="empty-state">
+                                            <BookOpen size={48} />
+                                            <h3>Belum ada soal dalam paket ini</h3>
+                                            <p>Klik tombol "Tambah Soal" untuk menambahkan soal</p>
+                                        </div>
+                                    ) : (
+                                        packageQuestions.map((question, index) => (
+                                            <div key={question.id} className="question-card">
+                                                <div className="question-header">
+                                                    <div className="question-meta">
+                                                        <span className="question-number">#{index + 1}</span>
+                                                        <span className={`badge badge-${question.type === 'pilihan_ganda' ? 'primary' :
+                                                            question.type === 'essay' ? 'accent' :
+                                                                question.type === 'benar_salah' ? 'success' : 'info'
+                                                            }`}>
+                                                            {typeLabels[question.type]}
+                                                        </span>
+                                                    </div>
+                                                    <span className="question-points">{question.points} poin</span>
+                                                </div>
+                                                <p className="question-text">{question.text}</p>
+                                                {question.image && (
+                                                    <div className="question-image-thumb">
+                                                        <img src={question.image} alt="Question" />
+                                                    </div>
+                                                )}
+                                                <div className="question-actions">
+                                                    <button
+                                                        className="btn btn-ghost btn-sm"
+                                                        onClick={() => setPreviewQuestion(question)}
+                                                    >
+                                                        <Eye size={16} />
+                                                        Preview
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-ghost btn-sm"
+                                                        onClick={() => handleEditQuestion(question)}
+                                                    >
+                                                        <Edit2 size={16} />
+                                                        Edit
+                                                    </button>
+                                                    <button
+                                                        className="btn btn-ghost btn-sm text-error"
+                                                        onClick={() => handleDeleteQuestion(question.id)}
+                                                    >
+                                                        <Trash2 size={16} />
+                                                        Hapus
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        ))
+                                    )
+                                })()}
+                            </div>
+
+                            {/* Add Question Button at bottom */}
+                            <div
+                                onClick={handleAddQuestion}
+                                style={{
+                                    marginTop: '1rem',
+                                    padding: '1.5rem',
+                                    border: '2px dashed var(--border-color)',
+                                    borderRadius: 'var(--radius-lg)',
+                                    textAlign: 'center',
+                                    cursor: 'pointer',
+                                    transition: 'all 0.2s ease',
+                                    color: 'var(--text-muted)'
+                                }}
+                                onMouseEnter={e => {
+                                    e.currentTarget.style.borderColor = 'var(--primary)'
+                                    e.currentTarget.style.color = 'var(--primary)'
+                                }}
+                                onMouseLeave={e => {
+                                    e.currentTarget.style.borderColor = 'var(--border-color)'
+                                    e.currentTarget.style.color = 'var(--text-muted)'
+                                }}
+                            >
+                                <Plus size={24} style={{ marginBottom: '0.5rem' }} />
+                                <div>Tambah Soal Baru</div>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 <QuestionModal
                     isOpen={modalOpen}
@@ -956,7 +1138,8 @@ function BuatSoalPage() {
                     onSave={handleSaveQuestion}
                     matkul={matkulList}
                     kelasList={kelasList}
-                    currentExamType={examTypeFilter !== 'all' ? examTypeFilter : 'uts'}
+                    currentExamType={selectedPackage?.examType || (examTypeFilter !== 'all' ? examTypeFilter : 'uts')}
+                    selectedPackage={selectedPackage}
                 />
 
                 <BankSoalModal
