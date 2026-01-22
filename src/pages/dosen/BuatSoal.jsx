@@ -640,7 +640,6 @@ function BuatSoalPage() {
                         points: s.bobot || 10,
                         options: s.pilihan || [],
                         correctAnswer: s.jawaban_benar,
-                        image: s.gambar,
                         dosenId: s.dosen_id,
                         matkul: s.matkul // Include joined matkul data
                     }))
@@ -739,16 +738,26 @@ function BuatSoalPage() {
                 examType: selectedPackage.examType
             } : data
 
-            // Map to Supabase format
+            // Map tipe_soal to Supabase schema values
+            const mapTipeSoal = (type) => {
+                const mapping = {
+                    'pilihan_ganda': 'pilihan_ganda',
+                    'essay': 'uraian',
+                    'benar_salah': 'benar_salah',
+                    'mencocokan': 'menjodohkan'
+                }
+                return mapping[type] || 'pilihan_ganda'
+            }
+
+            // Map to Supabase format (without gambar - column doesn't exist)
             const supabaseData = {
                 pertanyaan: questionData.text,
-                tipe_soal: questionData.type,
+                tipe_soal: mapTipeSoal(questionData.type),
                 matkul_id: questionData.matkulId,
                 tipe_ujian: questionData.examType?.toUpperCase() || 'UTS',
                 bobot: questionData.points || 10,
                 pilihan: questionData.options || [],
                 jawaban_benar: questionData.correctAnswer,
-                gambar: questionData.image,
                 dosen_id: user?.id
             }
 
@@ -784,7 +793,6 @@ function BuatSoalPage() {
                     points: created.bobot || 10,
                     options: created.pilihan || [],
                     correctAnswer: created.jawaban_benar,
-                    image: created.gambar,
                     dosenId: created.dosen_id
                 }
                 setQuestions([...questions, newQuestion])
@@ -819,17 +827,27 @@ function BuatSoalPage() {
             const targetMatkulId = selectedPackage?.matkulId || matkulList[0]?.id
             const targetExamType = selectedPackage?.examType || 'UTS'
 
+            // Map tipe_soal to Supabase schema values
+            const mapTipeSoal = (type) => {
+                const mapping = {
+                    'pilihan_ganda': 'pilihan_ganda',
+                    'essay': 'uraian',
+                    'benar_salah': 'benar_salah',
+                    'mencocokan': 'menjodohkan'
+                }
+                return mapping[type] || 'pilihan_ganda'
+            }
+
             const newQuestions = []
             for (const q of importedQuestions) {
                 const supabaseData = {
                     pertanyaan: q.text,
-                    tipe_soal: q.type,
+                    tipe_soal: mapTipeSoal(q.type),
                     matkul_id: targetMatkulId,
                     tipe_ujian: targetExamType,
                     bobot: q.points || 10,
                     pilihan: q.options || [],
                     jawaban_benar: q.correctAnswer,
-                    gambar: q.image,
                     dosen_id: user?.id
                 }
                 const created = await soalService.create(supabaseData)
@@ -842,7 +860,6 @@ function BuatSoalPage() {
                     points: created.bobot || 10,
                     options: created.pilihan || [],
                     correctAnswer: created.jawaban_benar,
-                    image: created.gambar,
                     dosenId: created.dosen_id
                 })
             }
