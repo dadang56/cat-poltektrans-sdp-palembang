@@ -629,9 +629,9 @@ function BuatSoalPage() {
                     setMatkulList(dosenMatkul)
                     console.log('[BuatSoal] Dosen matkul loaded:', dosenMatkul.length, dosenMatkul)
                 } else {
-                    // No specific matkul assigned - show empty list (dosen must have assigned matkul)
-                    setMatkulList([])
-                    console.log('[BuatSoal] No matkulIds assigned, showing empty list')
+                    // No specific matkul assigned - show all matkul as fallback
+                    setMatkulList(allMatkul)
+                    console.log('[BuatSoal] No matkulIds assigned, showing all matkul as fallback:', allMatkul.length)
                 }
             } catch (e) {
                 console.error('Error loading matkul:', e)
