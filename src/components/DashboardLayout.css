@@ -163,6 +163,15 @@
 }
 
 /* Header */
+.main-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-3) var(--space-4);
+    background: var(--bg-primary);
+    border-bottom: 1px solid var(--border-color);
+}
+
 .header-left,
 .header-right {
     display: flex;
@@ -238,15 +247,15 @@
     .header-user-details {
         display: none;
     }
-    
+
     .header-user-info {
         padding: var(--space-1);
     }
-    
+
     .logout-text {
         display: none;
     }
-    
+
     .header-logout-btn {
         padding: var(--space-2);
     }
