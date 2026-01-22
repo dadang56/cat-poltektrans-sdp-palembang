@@ -245,7 +245,7 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                                     <select
                                         className="form-input"
                                         value={formData.matkulId}
-                                        onChange={e => setFormData({ ...formData, matkulId: parseInt(e.target.value), kelasIds: [] })}
+                                        onChange={e => setFormData({ ...formData, matkulId: e.target.value, kelasIds: [] })}
                                     >
                                         {matkul.map(mk => (
                                             <option key={mk.id} value={mk.id}>{mk.nama}</option>
@@ -683,7 +683,7 @@ function BuatSoalPage() {
     // Filter questions
     const filteredQuestions = questions.filter(q => {
         const matchesSearch = q.text.toLowerCase().includes(search.toLowerCase())
-        const matchesMatkul = matkulFilter === 'all' || q.matkulId === parseInt(matkulFilter)
+        const matchesMatkul = matkulFilter === 'all' || String(q.matkulId) === String(matkulFilter)
         const matchesType = typeFilter === 'all' || q.type === typeFilter
         // Case-insensitive examType matching
         const matchesExamType = examTypeFilter === 'all' ||
