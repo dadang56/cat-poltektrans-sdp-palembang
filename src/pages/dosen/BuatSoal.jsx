@@ -749,9 +749,9 @@ function BuatSoalPage() {
             const mapTipeSoal = (type) => {
                 const mapping = {
                     'pilihan_ganda': 'pilihan_ganda',
-                    'essay': 'uraian',
+                    'essay': 'essay',
                     'benar_salah': 'benar_salah',
-                    'mencocokan': 'menjodohkan'
+                    'mencocokan': 'pilihan_ganda'
                 }
                 return mapping[type] || 'pilihan_ganda'
             }
@@ -838,9 +838,9 @@ function BuatSoalPage() {
             const mapTipeSoal = (type) => {
                 const mapping = {
                     'pilihan_ganda': 'pilihan_ganda',
-                    'essay': 'uraian',
+                    'essay': 'essay',
                     'benar_salah': 'benar_salah',
-                    'mencocokan': 'menjodohkan'
+                    'mencocokan': 'pilihan_ganda'
                 }
                 return mapping[type] || 'pilihan_ganda'
             }
