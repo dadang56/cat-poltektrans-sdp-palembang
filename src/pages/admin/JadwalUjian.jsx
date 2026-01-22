@@ -94,20 +94,43 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 onChange={e => setMatkulSearch(e.target.value)}
                                 style={{ marginBottom: '0.5rem' }}
                             />
-                            <select
-                                className="form-input"
-                                value={formData.matkul_id}
-                                onChange={e => setFormData({ ...formData, matkul_id: e.target.value })}
-                                required
+                            <div
+                                className="matkul-list"
+                                style={{
+                                    maxHeight: '180px',
+                                    overflowY: 'auto',
+                                    border: '1px solid var(--border-color)',
+                                    borderRadius: 'var(--radius-md)',
+                                    background: 'var(--bg-primary)'
+                                }}
                             >
-                                <option value="">Pilih Mata Kuliah</option>
-                                {filteredMatkul.map(m => (
-                                    <option key={m.id} value={m.id}>{m.kode} - {m.nama}</option>
-                                ))}
-                            </select>
-                            {matkulSearch && filteredMatkul.length === 0 && (
-                                <p style={{ color: 'var(--error-500)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
-                                    Tidak ada hasil untuk "{matkulSearch}"
+                                {filteredMatkul.length === 0 ? (
+                                    <div style={{ padding: '1rem', color: 'var(--text-muted)', textAlign: 'center' }}>
+                                        Tidak ada hasil untuk "{matkulSearch}"
+                                    </div>
+                                ) : (
+                                    filteredMatkul.map(m => (
+                                        <div
+                                            key={m.id}
+                                            onClick={() => setFormData({ ...formData, matkul_id: m.id })}
+                                            style={{
+                                                padding: '0.75rem 1rem',
+                                                cursor: 'pointer',
+                                                borderBottom: '1px solid var(--border-color)',
+                                                background: formData.matkul_id === m.id ? 'var(--primary-100)' : 'transparent',
+                                                color: formData.matkul_id === m.id ? 'var(--primary-700)' : 'var(--text-primary)',
+                                                fontWeight: formData.matkul_id === m.id ? '600' : '400'
+                                            }}
+                                            className="matkul-item"
+                                        >
+                                            {m.kode} - {m.nama}
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                            {formData.matkul_id && (
+                                <p style={{ fontSize: '0.75rem', color: 'var(--success-600)', marginTop: '0.25rem' }}>
+                                    ✓ Dipilih: {filteredMatkul.find(m => m.id === formData.matkul_id)?.nama || matkulList.find(m => m.id === formData.matkul_id)?.nama}
                                 </p>
                             )}
                         </div>
