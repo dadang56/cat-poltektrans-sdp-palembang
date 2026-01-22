@@ -172,25 +172,6 @@ function DashboardLayout({ children }) {
                         ))}
                     </div>
                 </nav>
-
-                <div className="sidebar-footer">
-                    <div className="user-info">
-                        <div className="avatar">
-                            {user?.name?.charAt(0).toUpperCase()}
-                        </div>
-                        <div className="user-details">
-                            <span className="user-name">{user?.name}</span>
-                            <span className="user-role">{ROLE_LABELS[user?.role]}</span>
-                        </div>
-                    </div>
-                    <button
-                        className="btn btn-ghost btn-sm logout-btn"
-                        onClick={handleLogout}
-                    >
-                        <LogOut size={18} />
-                        <span>Keluar</span>
-                    </button>
-                </div>
             </aside>
 
             {/* Main Content */}
@@ -205,12 +186,34 @@ function DashboardLayout({ children }) {
                         </button>
                     </div>
                     <div className="header-right">
+                        {/* User Info */}
+                        <div className="header-user-info">
+                            <div className="avatar avatar-sm">
+                                {user?.name?.charAt(0).toUpperCase()}
+                            </div>
+                            <div className="header-user-details">
+                                <span className="header-user-name">{user?.name}</span>
+                                <span className="header-user-role">{ROLE_LABELS[user?.role]}</span>
+                            </div>
+                        </div>
+
+                        {/* Theme Toggle */}
                         <button
                             className="btn btn-icon btn-ghost"
                             onClick={toggleTheme}
                             title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
                         >
                             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
+                        </button>
+
+                        {/* Logout Button */}
+                        <button
+                            className="btn btn-ghost btn-sm header-logout-btn"
+                            onClick={handleLogout}
+                            title="Keluar"
+                        >
+                            <LogOut size={18} />
+                            <span className="logout-text">Keluar</span>
                         </button>
                     </div>
                 </header>
