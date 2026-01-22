@@ -99,17 +99,17 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 value={formData.matkul_id}
                                 onChange={e => setFormData({ ...formData, matkul_id: e.target.value })}
                                 required
-                                size={6}
-                                style={{ height: 'auto', minHeight: '150px', width: '100%' }}
                             >
-                                {filteredMatkul.length === 0 ? (
-                                    <option disabled>Tidak ada hasil</option>
-                                ) : (
-                                    filteredMatkul.map(m => (
-                                        <option key={m.id} value={m.id}>{m.kode} - {m.nama}</option>
-                                    ))
-                                )}
+                                <option value="">Pilih Mata Kuliah</option>
+                                {filteredMatkul.map(m => (
+                                    <option key={m.id} value={m.id}>{m.kode} - {m.nama}</option>
+                                ))}
                             </select>
+                            {matkulSearch && filteredMatkul.length === 0 && (
+                                <p style={{ color: 'var(--error-500)', fontSize: '0.875rem', marginTop: '0.25rem' }}>
+                                    Tidak ada hasil untuk "{matkulSearch}"
+                                </p>
+                            )}
                         </div>
 
                         {/* Kelas - Simple Dropdown */}
@@ -128,29 +128,18 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                             </select>
                         </div>
 
-                        <div className="form-row">
-                            <div className="form-group">
-                                <label className="form-label">Tipe Ujian</label>
-                                <select
-                                    className="form-input"
-                                    value={formData.tipe_ujian}
-                                    onChange={e => setFormData({ ...formData, tipe_ujian: e.target.value })}
-                                    required
-                                >
-                                    <option value="UTS">UTS</option>
-                                    <option value="UAS">UAS</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Ruangan</label>
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    value={formData.ruangan || ''}
-                                    onChange={e => setFormData({ ...formData, ruangan: e.target.value })}
-                                    placeholder="Contoh: Lab 1"
-                                />
-                            </div>
+                        {/* Tipe Ujian - Full Width */}
+                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                            <label className="form-label">Tipe Ujian</label>
+                            <select
+                                className="form-input"
+                                value={formData.tipe_ujian}
+                                onChange={e => setFormData({ ...formData, tipe_ujian: e.target.value })}
+                                required
+                            >
+                                <option value="UTS">UTS</option>
+                                <option value="UAS">UAS</option>
+                            </select>
                         </div>
                         <div className="form-group">
                             <label className="form-label">Tanggal</label>
