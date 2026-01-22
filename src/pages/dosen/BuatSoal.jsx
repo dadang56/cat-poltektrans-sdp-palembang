@@ -21,11 +21,9 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
-const SOAL_STORAGE_KEY = 'cat_soal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const USERS_STORAGE_KEY = 'cat_users_data'
+// Supabase services
+import { soalService, matkulService, kelasService } from '../../services/supabaseService'
+import { isSupabaseConfigured } from '../../lib/supabase'
 
 
 // Bank Soal Modal for selecting existing questions
@@ -585,127 +583,83 @@ function BuatSoalPage() {
     const [selectedPackage, setSelectedPackage] = useState(null) // { matkulId, examType }
     const [createPackageModalOpen, setCreatePackageModalOpen] = useState(false)
 
-    // Load matkul, kelas, and soal from localStorage
+    // Load matkul, kelas, and soal from Supabase
     useEffect(() => {
-        const savedMatkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-        const savedSoal = localStorage.getItem(SOAL_STORAGE_KEY)
-        const savedKelas = localStorage.getItem(KELAS_STORAGE_KEY)
-
-        // Get dosen data directly from the logged-in user session (cat_user)
-        // This is more reliable than looking up in cat_users_data which may have stale/different IDs
-        let dosenData = null
-        const catUser = localStorage.getItem('cat_user')
-        if (catUser) {
+        const loadData = async () => {
             try {
-                dosenData = JSON.parse(catUser)
-                console.log('[BuatSoal] Dosen data from cat_user:', {
-                    username: dosenData.username,
-                    id: dosenData.id,
-                    matkulIds: dosenData.matkulIds,
-                    kelasIds: dosenData.kelasIds
-                })
-            } catch (e) {
-                console.error('Error getting dosen data from cat_user:', e)
-            }
-        }
+                // Get current user info
+                const dosenId = user?.id
+                const dosenMatkulIds = user?.matkulIds || []
 
-        // Load and filter mata kuliah based on dosen's assigned courses
-        if (savedMatkul) {
-            try {
-                const allMatkul = JSON.parse(savedMatkul)
-
-                // Convert matkulIds to strings for comparison (handle type mismatch)
-                const dosenMatkulIds = (dosenData?.matkulIds || []).map(id => String(id))
-
-                console.log('[BuatSoal] Debug matkulIds:', {
-                    raw: dosenData?.matkulIds,
-                    asStrings: dosenMatkulIds,
-                    allMatkulIds: allMatkul.map(m => ({ id: m.id, type: typeof m.id }))
+                console.log('[BuatSoal] Loading data for dosen:', {
+                    id: dosenId,
+                    matkulIds: dosenMatkulIds
                 })
 
+                // Load mata kuliah from Supabase
+                const allMatkul = await matkulService.getAll()
                 if (dosenMatkulIds.length > 0) {
-                    // Filter matkul based on dosen's assigned courses (string comparison)
-                    const dosenMatkul = allMatkul.filter(mk => dosenMatkulIds.includes(String(mk.id)))
-                    setMatkulList(dosenMatkul)
-                    console.log('[BuatSoal] Dosen matkul loaded:', dosenMatkul.length, dosenMatkul)
-                } else {
-                    // No specific matkul assigned - show empty list (dosen must have assigned matkul)
-                    setMatkulList([])
-                    console.log('[BuatSoal] No matkulIds assigned, showing empty list')
-                }
-            } catch (e) {
-                console.error('Error loading matkul:', e)
-            }
-        }
-
-        // Load kelas and filter by dosen's assigned classes
-        if (savedKelas) {
-            try {
-                const allKelas = JSON.parse(savedKelas)
-
-                // Convert kelasIds to strings for comparison (handle type mismatch)
-                const dosenKelasIds = (dosenData?.kelasIds || []).map(id => String(id))
-
-                console.log('[BuatSoal] Debug kelasIds:', {
-                    raw: dosenData?.kelasIds,
-                    asStrings: dosenKelasIds,
-                    allKelasIds: allKelas.map(k => ({ id: k.id, type: typeof k.id, prodiId: k.prodiId }))
-                })
-
-                if (dosenKelasIds.length > 0) {
-                    // Filter kelas based on dosen's assigned classes (string comparison)
-                    const dosenKelas = allKelas.filter(k => dosenKelasIds.includes(String(k.id)))
-                    setKelasList(dosenKelas)
-                    console.log('[BuatSoal] Dosen kelas loaded:', dosenKelas.length, dosenKelas)
-                } else if (dosenData && dosenData.prodiId) {
-                    // Fallback: filter by prodi if no specific kelas assigned
-                    const prodiKelas = allKelas.filter(k => String(k.prodiId) === String(dosenData.prodiId))
-                    setKelasList(prodiKelas)
-                    console.log('[BuatSoal] Prodi kelas loaded:', prodiKelas.length)
-                } else {
-                    // Show empty list if no filter applies
-                    setKelasList([])
-                    console.log('[BuatSoal] No kelasIds assigned, showing empty list')
-                }
-            } catch (e) {
-                console.error('Error loading kelas:', e)
-            }
-        }
-
-        if (savedSoal) {
-            try {
-                // Load all soal and filter by dosenId + matkulIds
-                const allSoal = JSON.parse(savedSoal)
-
-                // Filter questions by dosenId AND matkulIds
-                // Dosen only sees questions they created AND for courses they teach
-                const dosenSoal = allSoal.filter(q => {
-                    // First check: question must be created by this dosen
-                    const isOwnQuestion = q.dosenId && (
-                        q.dosenId === dosenData?.id ||
-                        q.dosenId === dosenData?.email ||
-                        q.dosenId === dosenData?.username
+                    // Filter matkul based on dosen's assigned courses
+                    const dosenMatkul = allMatkul.filter(mk =>
+                        dosenMatkulIds.some(id => String(id) === String(mk.id))
                     )
+                    setMatkulList(dosenMatkul)
+                    console.log('[BuatSoal] Dosen matkul loaded:', dosenMatkul.length)
+                } else {
+                    // No specific matkul assigned - show empty list
+                    setMatkulList([])
+                    console.log('[BuatSoal] No matkulIds assigned')
+                }
 
-                    if (!isOwnQuestion) return false
+                // Load kelas from Supabase
+                const allKelas = await kelasService.getAll()
+                const dosenKelasIds = user?.kelasIds || []
+                if (dosenKelasIds.length > 0) {
+                    const dosenKelas = allKelas.filter(k =>
+                        dosenKelasIds.some(id => String(id) === String(k.id))
+                    )
+                    setKelasList(dosenKelas)
+                    console.log('[BuatSoal] Dosen kelas loaded:', dosenKelas.length)
+                } else if (user?.prodiId) {
+                    const prodiKelas = allKelas.filter(k => String(k.prodi_id) === String(user.prodiId))
+                    setKelasList(prodiKelas)
+                } else {
+                    setKelasList([])
+                }
 
-                    // Second check: if dosen has matkulIds, question must be for one of those courses
-                    if (dosenData?.matkulIds && dosenData.matkulIds.length > 0) {
-                        return dosenData.matkulIds.includes(q.matkulId)
-                    }
+                // Load soal from Supabase (filtered by dosen_id)
+                if (dosenId) {
+                    const allSoal = await soalService.getAll({ dosen_id: dosenId })
+                    // Map Supabase fields to local format
+                    const mappedSoal = allSoal.map(s => ({
+                        id: s.id,
+                        text: s.pertanyaan,
+                        type: s.tipe_soal,
+                        matkulId: s.matkul_id,
+                        examType: s.tipe_ujian?.toUpperCase() || 'UTS',
+                        points: s.bobot || 10,
+                        options: s.pilihan || [],
+                        correctAnswer: s.jawaban_benar,
+                        image: s.gambar,
+                        dosenId: s.dosen_id,
+                        matkul: s.matkul // Include joined matkul data
+                    }))
+                    setQuestions(mappedSoal)
+                    console.log('[BuatSoal] Soal loaded:', mappedSoal.length)
+                } else {
+                    setQuestions([])
+                }
 
-                    // If no matkulIds filter, show all own questions
-                    return true
-                })
-
-                setQuestions(dosenSoal)
-                console.log(`[BuatSoal] Dosen ${dosenData?.username || 'unknown'} loaded ${dosenSoal.length} of ${allSoal.length} total soal`)
-            } catch (e) {
-                console.error('Error loading soal:', e)
+                setIsInitialized(true)
+            } catch (error) {
+                console.error('[BuatSoal] Error loading data:', error)
+                setIsInitialized(true)
             }
         }
-        // Mark as initialized after loading
-        setIsInitialized(true)
+
+        if (user) {
+            loadData()
+        }
     }, [user])
 
     // Note: We no longer auto-save all questions because we need to preserve
@@ -776,47 +730,69 @@ function BuatSoalPage() {
         setModalOpen(true)
     }
 
-    const handleSaveQuestion = (data) => {
-        // If inside a package, auto-set matkulId and examType
-        const questionData = selectedPackage ? {
-            ...data,
-            matkulId: selectedPackage.matkulId,
-            examType: selectedPackage.examType
-        } : data
+    const handleSaveQuestion = async (data) => {
+        try {
+            // If inside a package, auto-set matkulId and examType
+            const questionData = selectedPackage ? {
+                ...data,
+                matkulId: selectedPackage.matkulId,
+                examType: selectedPackage.examType
+            } : data
 
-        // Add dosenId to identify question ownership
-        const questionWithDosen = {
-            ...questionData,
-            dosenId: user?.id || user?.email, // Store dosen identifier
-            dosenName: user?.nama || user?.name || 'Unknown'
-        }
-
-        if (editingQuestion) {
-            // Update existing question
-            const updatedQuestions = questions.map(q =>
-                q.id === editingQuestion.id ? { ...questionWithDosen, id: editingQuestion.id } : q
-            )
-            setQuestions(updatedQuestions)
-
-            // Update in localStorage by merging with all questions
-            const savedSoal = localStorage.getItem(SOAL_STORAGE_KEY)
-            if (savedSoal) {
-                const allSoal = JSON.parse(savedSoal)
-                const mergedSoal = allSoal.map(q =>
-                    q.id === editingQuestion.id ? { ...questionWithDosen, id: editingQuestion.id } : q
-                )
-                localStorage.setItem(SOAL_STORAGE_KEY, JSON.stringify(mergedSoal))
+            // Map to Supabase format
+            const supabaseData = {
+                pertanyaan: questionData.text,
+                tipe_soal: questionData.type,
+                matkul_id: questionData.matkulId,
+                tipe_ujian: questionData.examType?.toUpperCase() || 'UTS',
+                bobot: questionData.points || 10,
+                pilihan: questionData.options || [],
+                jawaban_benar: questionData.correctAnswer,
+                gambar: questionData.image,
+                dosen_id: user?.id
             }
-        } else {
-            // Create new question with unique ID
-            const newQuestion = { ...questionWithDosen, id: Date.now() }
-            setQuestions([...questions, newQuestion])
 
-            // Add to localStorage by merging with all questions
-            const savedSoal = localStorage.getItem(SOAL_STORAGE_KEY)
-            const allSoal = savedSoal ? JSON.parse(savedSoal) : []
-            allSoal.push(newQuestion)
-            localStorage.setItem(SOAL_STORAGE_KEY, JSON.stringify(allSoal))
+            if (editingQuestion) {
+                // Update existing question in Supabase
+                const updated = await soalService.update(editingQuestion.id, supabaseData)
+                // Update local state
+                const updatedQuestions = questions.map(q =>
+                    q.id === editingQuestion.id ? {
+                        ...q,
+                        text: questionData.text,
+                        type: questionData.type,
+                        matkulId: questionData.matkulId,
+                        examType: questionData.examType?.toUpperCase() || 'UTS',
+                        points: questionData.points,
+                        options: questionData.options,
+                        correctAnswer: questionData.correctAnswer,
+                        image: questionData.image
+                    } : q
+                )
+                setQuestions(updatedQuestions)
+                console.log('[BuatSoal] Question updated:', updated)
+            } else {
+                // Create new question in Supabase
+                const created = await soalService.create(supabaseData)
+                // Map back to local format and add to state
+                const newQuestion = {
+                    id: created.id,
+                    text: created.pertanyaan,
+                    type: created.tipe_soal,
+                    matkulId: created.matkul_id,
+                    examType: created.tipe_ujian?.toUpperCase() || 'UTS',
+                    points: created.bobot || 10,
+                    options: created.pilihan || [],
+                    correctAnswer: created.jawaban_benar,
+                    image: created.gambar,
+                    dosenId: created.dosen_id
+                }
+                setQuestions([...questions, newQuestion])
+                console.log('[BuatSoal] Question created:', created)
+            }
+        } catch (error) {
+            console.error('[BuatSoal] Error saving question:', error)
+            alert('Gagal menyimpan soal: ' + error.message)
         }
     }
 
@@ -824,40 +800,58 @@ function BuatSoalPage() {
         showConfirm({
             title: 'Konfirmasi Hapus',
             message: 'Apakah Anda yakin ingin menghapus soal ini?',
-            onConfirm: () => {
-                setQuestions(questions.filter(q => q.id !== id))
-
-                // Delete from localStorage by merging with all questions
-                const savedSoal = localStorage.getItem(SOAL_STORAGE_KEY)
-                if (savedSoal) {
-                    const allSoal = JSON.parse(savedSoal)
-                    const filteredSoal = allSoal.filter(q => q.id !== id)
-                    localStorage.setItem(SOAL_STORAGE_KEY, JSON.stringify(filteredSoal))
+            onConfirm: async () => {
+                try {
+                    await soalService.delete(id)
+                    setQuestions(questions.filter(q => q.id !== id))
+                    console.log('[BuatSoal] Question deleted:', id)
+                } catch (error) {
+                    console.error('[BuatSoal] Error deleting question:', error)
+                    alert('Gagal menghapus soal: ' + error.message)
                 }
             }
         })
     }
 
-    const handleImportFromBank = (importedQuestions) => {
-        // If inside a package, use package's matkulId and examType
-        const targetMatkulId = selectedPackage?.matkulId || matkulList[0]?.id || 1
-        const targetExamType = selectedPackage?.examType || 'UTS'
+    const handleImportFromBank = async (importedQuestions) => {
+        try {
+            // If inside a package, use package's matkulId and examType
+            const targetMatkulId = selectedPackage?.matkulId || matkulList[0]?.id
+            const targetExamType = selectedPackage?.examType || 'UTS'
 
-        const newQuestions = importedQuestions.map(q => ({
-            ...q,
-            id: Date.now() + Math.random(),
-            matkulId: targetMatkulId,
-            examType: targetExamType,
-            dosenId: user?.id || user?.email,
-            dosenName: user?.nama || user?.name || 'Unknown'
-        }))
-        setQuestions([...questions, ...newQuestions])
-
-        // Add to localStorage
-        const savedSoal = localStorage.getItem(SOAL_STORAGE_KEY)
-        const allSoal = savedSoal ? JSON.parse(savedSoal) : []
-        allSoal.push(...newQuestions)
-        localStorage.setItem(SOAL_STORAGE_KEY, JSON.stringify(allSoal))
+            const newQuestions = []
+            for (const q of importedQuestions) {
+                const supabaseData = {
+                    pertanyaan: q.text,
+                    tipe_soal: q.type,
+                    matkul_id: targetMatkulId,
+                    tipe_ujian: targetExamType,
+                    bobot: q.points || 10,
+                    pilihan: q.options || [],
+                    jawaban_benar: q.correctAnswer,
+                    gambar: q.image,
+                    dosen_id: user?.id
+                }
+                const created = await soalService.create(supabaseData)
+                newQuestions.push({
+                    id: created.id,
+                    text: created.pertanyaan,
+                    type: created.tipe_soal,
+                    matkulId: created.matkul_id,
+                    examType: created.tipe_ujian?.toUpperCase() || 'UTS',
+                    points: created.bobot || 10,
+                    options: created.pilihan || [],
+                    correctAnswer: created.jawaban_benar,
+                    image: created.gambar,
+                    dosenId: created.dosen_id
+                })
+            }
+            setQuestions([...questions, ...newQuestions])
+            console.log('[BuatSoal] Imported', newQuestions.length, 'questions')
+        } catch (error) {
+            console.error('[BuatSoal] Error importing questions:', error)
+            alert('Gagal mengimpor soal: ' + error.message)
+        }
     }
 
     const getMatkulName = (id) => matkulList.find(m => String(m.id) === String(id))?.nama || '-'
