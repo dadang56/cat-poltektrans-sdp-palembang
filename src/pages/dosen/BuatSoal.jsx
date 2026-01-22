@@ -994,11 +994,31 @@ function BuatSoalPage() {
                                                 }}>
                                                     {getMatkulName(pkg.matkulId)}
                                                 </h3>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '1rem' }}>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                                                     <span className={`badge badge-${pkg.examType === 'UAS' ? 'error' : 'warning'}`}>
                                                         {pkg.examType}
                                                     </span>
                                                 </div>
+                                                {/* Show related kelas for this matkul */}
+                                                {(() => {
+                                                    const matkul = matkulList.find(m => String(m.id) === String(pkg.matkulId))
+                                                    const relatedKelas = kelasList.filter(k =>
+                                                        matkul && String(k.prodi_id || k.prodiId) === String(matkul.prodi_id || matkul.prodiId)
+                                                    )
+                                                    if (relatedKelas.length > 0) {
+                                                        return (
+                                                            <div style={{
+                                                                fontSize: '0.8rem',
+                                                                color: 'var(--text-muted)',
+                                                                marginBottom: '0.75rem'
+                                                            }}>
+                                                                <span style={{ fontWeight: '500' }}>Kelas: </span>
+                                                                {relatedKelas.map(k => k.nama).join(', ')}
+                                                            </div>
+                                                        )
+                                                    }
+                                                    return null
+                                                })()}
                                                 <div style={{
                                                     display: 'flex',
                                                     justifyContent: 'space-between',
