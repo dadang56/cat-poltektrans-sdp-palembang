@@ -61,6 +61,11 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
 
     const handleSubmit = (e) => {
         e.preventDefault()
+        // Validate matkul_id is selected
+        if (!formData.matkul_id) {
+            alert('Silakan pilih Mata Kuliah')
+            return
+        }
         onSave(formData)
     }
 
@@ -329,11 +334,10 @@ function JadwalUjianPage() {
             const jadwalData = {
                 matkul_id: data.matkul_id || data.matkulId,
                 kelas_id: data.kelas_id || data.kelasId,
-                tipe_ujian: data.tipe_ujian || data.tipeUjian || 'UTS',
+                tipe: data.tipe_ujian || data.tipeUjian || data.tipe || 'UTS',
                 tanggal: data.tanggal,
                 waktu_mulai: data.waktu_mulai || data.waktuMulai,
                 waktu_selesai: data.waktu_selesai || data.waktuSelesai,
-                ruangan: data.ruangan || data.ruang || '',
                 prodi_id: user?.prodiId || null
             }
 
@@ -351,10 +355,9 @@ function JadwalUjianPage() {
                     prodiId: jadwalData.prodi_id,
                     matkulId: jadwalData.matkul_id,
                     kelasId: jadwalData.kelas_id,
-                    tipeUjian: jadwalData.tipe_ujian,
+                    tipeUjian: jadwalData.tipe,
                     waktuMulai: jadwalData.waktu_mulai,
-                    waktuSelesai: jadwalData.waktu_selesai,
-                    ruang: jadwalData.ruangan
+                    waktuSelesai: jadwalData.waktu_selesai
                 }
                 if (editingJadwal) {
                     setJadwalList(jadwalList.map(j => j.id === editingJadwal.id ? { ...localData, id: editingJadwal.id } : j))
