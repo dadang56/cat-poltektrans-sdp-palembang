@@ -642,7 +642,6 @@ function JadwalUjianPage() {
                                                 <th>Kelas</th>
                                                 {isSuperAdmin && <th>Prodi</th>}
                                                 <th>Tipe</th>
-                                                <th>Ruang</th>
                                                 {!isSuperAdmin && <th>Aksi</th>}
                                             </tr>
                                         </thead>
@@ -665,12 +664,7 @@ function JadwalUjianPage() {
                                                     <td>
                                                         <span className={`badge badge-${getTipeBadge(getJadwalTipe(j))}`}>{getJadwalTipe(j)}</span>
                                                     </td>
-                                                    <td>
-                                                        <div className="room-cell">
-                                                            <MapPin size={14} />
-                                                            {getJadwalRuang(j)}
-                                                        </div>
-                                                    </td>
+
                                                     {!isSuperAdmin && (
                                                         <td>
                                                             <div className="flex gap-2">
