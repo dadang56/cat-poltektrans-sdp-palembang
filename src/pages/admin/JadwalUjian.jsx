@@ -359,8 +359,7 @@ function JadwalUjianPage() {
                 tipe: data.tipe_ujian || data.tipeUjian || data.tipe || 'UTS',
                 tanggal: data.tanggal,
                 waktu_mulai: data.waktu_mulai || data.waktuMulai,
-                waktu_selesai: data.waktu_selesai || data.waktuSelesai,
-                prodi_id: user?.prodiId || null
+                waktu_selesai: data.waktu_selesai || data.waktuSelesai
             }
 
             if (useSupabase) {
