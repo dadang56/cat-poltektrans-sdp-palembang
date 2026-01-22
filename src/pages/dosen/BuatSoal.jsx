@@ -603,12 +603,19 @@ function BuatSoalPage() {
                     const dosenMatkul = allMatkul.filter(mk =>
                         dosenMatkulIds.some(id => String(id) === String(mk.id))
                     )
-                    setMatkulList(dosenMatkul)
-                    console.log('[BuatSoal] Dosen matkul loaded:', dosenMatkul.length)
+                    // If filter finds matching matkul, use them; otherwise fallback to all
+                    if (dosenMatkul.length > 0) {
+                        setMatkulList(dosenMatkul)
+                        console.log('[BuatSoal] Dosen matkul loaded:', dosenMatkul.length)
+                    } else {
+                        // Fallback: IDs may be integer vs UUID mismatch, show all matkul
+                        setMatkulList(allMatkul)
+                        console.log('[BuatSoal] ID mismatch, showing all matkul:', allMatkul.length)
+                    }
                 } else {
-                    // No specific matkul assigned - show empty list
-                    setMatkulList([])
-                    console.log('[BuatSoal] No matkulIds assigned')
+                    // No specific matkul assigned - show all matkul as fallback
+                    setMatkulList(allMatkul)
+                    console.log('[BuatSoal] No matkulIds assigned, showing all:', allMatkul.length)
                 }
 
                 // Load kelas from Supabase
