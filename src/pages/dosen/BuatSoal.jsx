@@ -267,8 +267,8 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                         </div>
 
 
-                        {/* Kelas Multi-Select Checkbox - Filtered by selected matkul's prodi */}
-                        {(() => {
+                        {/* Kelas Multi-Select Checkbox - Only show when creating new package (not inside existing) */}
+                        {!selectedPackage && (() => {
                             const selectedMatkul = matkul.find(m => String(m.id) === String(formData.matkulId))
                             const filteredKelas = selectedMatkul
                                 ? kelasList.filter(k => String(k.prodiId) === String(selectedMatkul.prodiId))
