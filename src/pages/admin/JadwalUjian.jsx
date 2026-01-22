@@ -28,12 +28,12 @@ const KELAS_STORAGE_KEY = 'cat_kelas_data'
 
 function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], isLoading }) {
     const getDefaultFormData = () => ({
-        matkul_id: matkulList[0]?.id || '',
-        kelas_id: kelasList[0]?.id || '',
-        tipe_ujian: 'UTS',
+        matkul_id: '',
+        kelas_id: '',
+        tipe_ujian: '',
         tanggal: '',
-        waktu_mulai: '08:00',
-        waktu_selesai: '10:00',
+        waktu_mulai: '',
+        waktu_selesai: '',
         ruangan: ''
     })
 
@@ -45,11 +45,11 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
             if (jadwal) {
                 setFormData({
                     ...jadwal,
-                    matkul_id: jadwal.matkul_id || jadwal.matkulId || matkulList[0]?.id || '',
-                    kelas_id: jadwal.kelas_id || jadwal.kelasId || kelasList[0]?.id || '',
-                    tipe_ujian: jadwal.tipe_ujian || jadwal.tipeUjian || 'UTS',
-                    waktu_mulai: jadwal.waktu_mulai || jadwal.waktuMulai || '08:00',
-                    waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '10:00',
+                    matkul_id: jadwal.matkul_id || jadwal.matkulId || '',
+                    kelas_id: jadwal.kelas_id || jadwal.kelasId || '',
+                    tipe_ujian: jadwal.tipe_ujian || jadwal.tipeUjian || jadwal.tipe || '',
+                    waktu_mulai: jadwal.waktu_mulai || jadwal.waktuMulai || '',
+                    waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '',
                     ruangan: jadwal.ruangan || jadwal.ruang || ''
                 })
             } else {
@@ -187,6 +187,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 onChange={e => setFormData({ ...formData, tipe_ujian: e.target.value })}
                                 required
                             >
+                                <option value="">Pilih Tipe Ujian</option>
                                 <option value="UTS">UTS</option>
                                 <option value="UAS">UAS</option>
                             </select>
