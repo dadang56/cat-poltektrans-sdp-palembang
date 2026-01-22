@@ -860,7 +860,7 @@ function BuatSoalPage() {
         localStorage.setItem(SOAL_STORAGE_KEY, JSON.stringify(allSoal))
     }
 
-    const getMatkulName = (id) => matkulList.find(m => m.id === id)?.nama || '-'
+    const getMatkulName = (id) => matkulList.find(m => String(m.id) === String(id))?.nama || '-'
 
     return (
         <DashboardLayout>
