@@ -316,11 +316,18 @@ function JadwalUjianPage() {
 
     const isSuperAdmin = user?.role === 'superadmin'
 
-    // Helper to get prodi_id from jadwal (handles both Supabase and localStorage field names)
-    const getJadwalProdiId = (j) => j.prodi_id || j.prodiId
+    // Helper to get prodi_id from jadwal via kelas relation
+    const getJadwalProdiId = (j) => {
+        // First try direct prodi_id on jadwal (localStorage)
+        if (j.prodi_id || j.prodiId) return j.prodi_id || j.prodiId
+        // Otherwise get from kelas
+        const kelasId = j.kelas_id || j.kelasId
+        const kelas = kelasList.find(k => k.id === kelasId)
+        return kelas?.prodi_id || kelas?.prodiId || null
+    }
     const getJadwalMatkul = (j) => j.matkul_id || j.matkulId
     const getJadwalKelas = (j) => j.kelas_id || j.kelasId
-    const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian
+    const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian || j.tipe
     const getJadwalWaktuMulai = (j) => j.waktu_mulai || j.waktuMulai
     const getJadwalWaktuSelesai = (j) => j.waktu_selesai || j.waktuSelesai
     const getJadwalRuang = (j) => j.ruangan || j.ruang || '-'
