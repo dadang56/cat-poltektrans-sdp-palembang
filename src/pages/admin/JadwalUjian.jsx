@@ -38,6 +38,8 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
     })
 
     const [formData, setFormData] = useState(jadwal || getDefaultFormData())
+    const [matkulSearch, setMatkulSearch] = useState('')
+    const [kelasSearch, setKelasSearch] = useState('')
 
     useEffect(() => {
         if (isOpen) {
@@ -54,6 +56,8 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
             } else {
                 setFormData(getDefaultFormData())
             }
+            setMatkulSearch('')
+            setKelasSearch('')
         }
     }, [jadwal, isOpen, matkulList, kelasList])
 
@@ -61,6 +65,17 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
         e.preventDefault()
         onSave(formData)
     }
+
+    // Filter lists based on search
+    const filteredMatkul = matkulList.filter(m =>
+        m.nama?.toLowerCase().includes(matkulSearch.toLowerCase()) ||
+        m.kode?.toLowerCase().includes(matkulSearch.toLowerCase())
+    )
+
+    const filteredKelas = kelasList.filter(k =>
+        k.nama?.toLowerCase().includes(kelasSearch.toLowerCase()) ||
+        String(k.angkatan).includes(kelasSearch)
+    )
 
     if (!isOpen) return null
 
@@ -78,30 +93,56 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                         <div className="form-row">
                             <div className="form-group">
                                 <label className="form-label">Mata Kuliah</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="🔍 Cari mata kuliah..."
+                                    value={matkulSearch}
+                                    onChange={e => setMatkulSearch(e.target.value)}
+                                    style={{ marginBottom: '0.5rem' }}
+                                />
                                 <select
                                     className="form-input"
                                     value={formData.matkul_id}
                                     onChange={e => setFormData({ ...formData, matkul_id: e.target.value })}
                                     required
+                                    size={5}
+                                    style={{ height: 'auto', minHeight: '120px' }}
                                 >
-                                    <option value="">Pilih Mata Kuliah</option>
-                                    {matkulList.map(m => (
-                                        <option key={m.id} value={m.id}>{m.kode} - {m.nama}</option>
-                                    ))}
+                                    {filteredMatkul.length === 0 ? (
+                                        <option disabled>Tidak ada hasil</option>
+                                    ) : (
+                                        filteredMatkul.map(m => (
+                                            <option key={m.id} value={m.id}>{m.kode} - {m.nama}</option>
+                                        ))
+                                    )}
                                 </select>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Kelas</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    placeholder="🔍 Cari kelas..."
+                                    value={kelasSearch}
+                                    onChange={e => setKelasSearch(e.target.value)}
+                                    style={{ marginBottom: '0.5rem' }}
+                                />
                                 <select
                                     className="form-input"
                                     value={formData.kelas_id}
                                     onChange={e => setFormData({ ...formData, kelas_id: e.target.value })}
                                     required
+                                    size={5}
+                                    style={{ height: 'auto', minHeight: '120px' }}
                                 >
-                                    <option value="">Pilih Kelas</option>
-                                    {kelasList.map(k => (
-                                        <option key={k.id} value={k.id}>{k.nama} ({k.angkatan})</option>
-                                    ))}
+                                    {filteredKelas.length === 0 ? (
+                                        <option disabled>Tidak ada hasil</option>
+                                    ) : (
+                                        filteredKelas.map(k => (
+                                            <option key={k.id} value={k.id}>{k.nama} ({k.angkatan})</option>
+                                        ))
+                                    )}
                                 </select>
                             </div>
                         </div>
