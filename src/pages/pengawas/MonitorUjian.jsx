@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { jadwalService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
   Eye,
   Users,
@@ -154,7 +154,7 @@ function MonitorUjian() {
     return false
   }
 
-  const handleSelectRoom = (room) => {
+  const handleSelectRoom = async (room) => {
     if (!canAccessRoom(room)) {
       alert(`Ruangan ini sudah diawasi oleh ${room.pengawasName}. Pengawas lain tidak dapat mengakses.`)
       return
@@ -169,8 +169,30 @@ function MonitorUjian() {
       ))
     }
 
-    // Load participants from the allocated room's students
-    if (room.students && room.students.length > 0) {
+    // Load participants from hasil_ujian for this jadwal
+    if (isSupabaseConfigured() && room.jadwalId) {
+      try {
+        const hasilData = await hasilUjianService.getByJadwal(room.jadwalId)
+        console.log('[MonitorUjian] Participants for jadwal', room.jadwalId, ':', hasilData)
+
+        const roomParticipants = hasilData.map((hasil, idx) => ({
+          id: hasil.id,
+          name: hasil.mahasiswa?.nama || 'Unknown',
+          nim: hasil.mahasiswa?.nim_nip || '-',
+          examNumber: `UJIAN-${String(idx + 1).padStart(3, '0')}`,
+          status: hasil.status === 'submitted' || hasil.status === 'graded' ? 'submitted' : 'active',
+          progress: hasil.status === 'submitted' || hasil.status === 'graded' ? 100 : 50,
+          currentQuestion: 1,
+          warnings: 0,
+          lastActivity: hasil.status === 'submitted' ? 'Sudah Submit' : 'Sedang Mengerjakan'
+        }))
+        setParticipants(roomParticipants)
+      } catch (error) {
+        console.error('[MonitorUjian] Error loading participants:', error)
+        setParticipants([])
+      }
+    } else if (room.students && room.students.length > 0) {
+      // Fallback to localStorage room.students
       const roomParticipants = room.students.map((student, idx) => ({
         id: student.id || idx + 1,
         name: student.name || 'Unknown',
