@@ -246,7 +246,30 @@ function MonitorUjian() {
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
-    await new Promise(resolve => setTimeout(resolve, 1000))
+
+    // Actually reload participants from Supabase
+    if (isSupabaseConfigured() && selectedRoom?.jadwalId) {
+      try {
+        const hasilData = await hasilUjianService.getByJadwal(selectedRoom.jadwalId)
+        console.log('[MonitorUjian] Refresh - participants found:', hasilData.length)
+
+        const roomParticipants = hasilData.map((hasil, idx) => ({
+          id: hasil.id,
+          name: hasil.mahasiswa?.nama || 'Unknown',
+          nim: hasil.mahasiswa?.nim_nip || '-',
+          examNumber: `UJIAN-${String(idx + 1).padStart(3, '0')}`,
+          status: hasil.status === 'submitted' || hasil.status === 'graded' ? 'submitted' : 'active',
+          progress: hasil.status === 'submitted' || hasil.status === 'graded' ? 100 : 50,
+          currentQuestion: 1,
+          warnings: 0,
+          lastActivity: hasil.status === 'submitted' ? 'Sudah Submit' : 'Sedang Mengerjakan'
+        }))
+        setParticipants(roomParticipants)
+      } catch (error) {
+        console.error('[MonitorUjian] Error refreshing participants:', error)
+      }
+    }
+
     setIsRefreshing(false)
   }
 
