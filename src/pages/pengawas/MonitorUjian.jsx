@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { jadwalService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
   Eye,
   Users,
@@ -42,58 +43,107 @@ function MonitorUjian() {
   const [selectedStudent, setSelectedStudent] = useState(null)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [jadwalList, setJadwalList] = useState([])
+  const [loading, setLoading] = useState(true)
 
-  // Load rooms from cat_exam_rooms (allocated by admin) - NOT from jadwal
+  // Load active exams from Supabase jadwal_ujian
   useEffect(() => {
-    const savedRooms = localStorage.getItem(EXAM_ROOMS_KEY)
-    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+    const loadActiveExams = async () => {
+      const now = new Date()
 
-    if (matkul) setMatkulList(JSON.parse(matkul))
-    if (jadwal) setJadwalList(JSON.parse(jadwal))
-
-    // Load allocated rooms from admin
-    if (savedRooms) {
       try {
-        const roomData = JSON.parse(savedRooms)
-        const allocatedRooms = roomData.rooms || []
+        if (isSupabaseConfigured()) {
+          // Load jadwal from Supabase
+          const allJadwal = await jadwalService.getAll()
+          setJadwalList(allJadwal)
 
-        // Get current active jadwal for time info
-        const now = new Date()
-        const activeJadwal = jadwal ? JSON.parse(jadwal).filter(j => {
-          const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-          const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-          const thirtyMinsBefore = new Date(examStart.getTime() - 30 * 60 * 1000)
-          return now >= thirtyMinsBefore && now <= examEnd
-        }) : []
+          // Filter for active/upcoming exams (30 mins before to end time)
+          const activeExams = allJadwal.filter(j => {
+            const waktuMulai = j.waktu_mulai || j.waktuMulai
+            const waktuSelesai = j.waktu_selesai || j.waktuSelesai
+            if (!j.tanggal || !waktuMulai || !waktuSelesai) return false
 
-        // Get time from first active jadwal
-        const firstJadwal = activeJadwal[0]
-        const startTime = firstJadwal?.waktuMulai || '08:00'
-        const endTime = firstJadwal?.waktuSelesai || '10:00'
+            const examStart = new Date(`${j.tanggal}T${waktuMulai}`)
+            const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+            const thirtyMinsBefore = new Date(examStart.getTime() - 30 * 60 * 1000)
+            return now >= thirtyMinsBefore && now <= examEnd
+          })
 
-        // Convert allocated rooms to monitor format
-        const monitorRooms = allocatedRooms.map(room => ({
-          id: room.id,
-          name: room.name,
-          exam: 'Ujian Bersama',  // Combined exam since all prodi in same room
-          startTime: startTime,
-          endTime: endTime,
-          participants: room.students?.length || 0,
-          students: room.students || [],
-          status: 'available',
-          pengawas: null,
-          pengawasName: null
-        }))
+          console.log('[MonitorUjian] Active exams from Supabase:', activeExams.length)
 
-        setRooms(monitorRooms)
-        console.log('[MonitorUjian] Loaded allocated rooms:', monitorRooms.length)
-      } catch (e) {
-        console.error('Error loading exam rooms:', e)
+          // Group by ruangan or create rooms from jadwal
+          const roomMap = {}
+          activeExams.forEach(j => {
+            const roomId = j.ruangan_id || j.ruanganId || 'default'
+            const roomName = j.ruangan?.nama || 'Ruang Ujian'
+            const waktuMulai = j.waktu_mulai || j.waktuMulai
+            const waktuSelesai = j.waktu_selesai || j.waktuSelesai
+            const matkulName = j.matkul?.nama || 'Ujian'
+            const tipe = j.tipe || j.tipe_ujian || 'UTS'
+
+            if (!roomMap[roomId]) {
+              roomMap[roomId] = {
+                id: roomId,
+                name: roomName,
+                exam: `${tipe} - ${matkulName}`,
+                startTime: waktuMulai,
+                endTime: waktuSelesai,
+                participants: 0,
+                students: [],
+                status: 'available',
+                pengawas: null,
+                pengawasName: null,
+                jadwalId: j.id
+              }
+            }
+          })
+
+          setRooms(Object.values(roomMap))
+        } else {
+          // Fallback to localStorage
+          const savedRooms = localStorage.getItem(EXAM_ROOMS_KEY)
+          const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+          const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+
+          if (matkul) setMatkulList(JSON.parse(matkul))
+          if (jadwal) setJadwalList(JSON.parse(jadwal))
+
+          if (savedRooms) {
+            const roomData = JSON.parse(savedRooms)
+            const allocatedRooms = roomData.rooms || []
+            const activeJadwal = jadwal ? JSON.parse(jadwal).filter(j => {
+              const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
+              const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+              const thirtyMinsBefore = new Date(examStart.getTime() - 30 * 60 * 1000)
+              return now >= thirtyMinsBefore && now <= examEnd
+            }) : []
+
+            const firstJadwal = activeJadwal[0]
+            const startTime = firstJadwal?.waktuMulai || '08:00'
+            const endTime = firstJadwal?.waktuSelesai || '10:00'
+
+            const monitorRooms = allocatedRooms.map(room => ({
+              id: room.id,
+              name: room.name,
+              exam: 'Ujian Bersama',
+              startTime: startTime,
+              endTime: endTime,
+              participants: room.students?.length || 0,
+              students: room.students || [],
+              status: 'available',
+              pengawas: null,
+              pengawasName: null
+            }))
+
+            setRooms(monitorRooms)
+          }
+        }
+      } catch (error) {
+        console.error('[MonitorUjian] Error loading exams:', error)
       }
-    } else {
-      console.log('[MonitorUjian] No allocated rooms found - admin needs to allocate first')
+      setLoading(false)
     }
+
+    loadActiveExams()
   }, [])
 
   // Check if user can access room (admin/superadmin can access any, pengawas only available rooms)
