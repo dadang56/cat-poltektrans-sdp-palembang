@@ -158,6 +158,21 @@ function TakeExamPage() {
 
                     setQuestions(examSoal)
 
+                    // Record exam start to Supabase for pengawas monitoring
+                    if (isSupabaseConfigured() && user?.id) {
+                        try {
+                            await hasilUjianService.upsert({
+                                jadwal_id: jadwal.id,
+                                mahasiswa_id: user.id,
+                                status: 'in_progress',
+                                waktu_mulai: new Date().toISOString()
+                            })
+                            console.log('[TakeExam] Exam start recorded to Supabase')
+                        } catch (err) {
+                            console.error('[TakeExam] Error recording exam start:', err)
+                        }
+                    }
+
                     // Set timer
                     const now = new Date()
                     const remainingMs = endTime - now
@@ -181,7 +196,7 @@ function TakeExamPage() {
         }
 
         if (id) loadExamData()
-    }, [id])
+    }, [id, user])
 
     // SEB Detection & Anti-Cheat Initialization
     useEffect(() => {
