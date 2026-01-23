@@ -93,7 +93,7 @@ function MahasiswaDashboard() {
         waktuMulai,
         waktuSelesai,
         durasi,
-        tipeUjian: getField(j, 'tipe_ujian', 'tipeUjian'),
+        tipeUjian: j.tipe || getField(j, 'tipe_ujian', 'tipeUjian') || 'UTS',
         matkulName: matkul?.nama || 'Mata Kuliah',
         status
       }

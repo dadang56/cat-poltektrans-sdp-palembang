@@ -286,7 +286,7 @@ function UjianPage() {
             // Calculate duration from waktuMulai and waktuSelesai
             const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
             const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
-            const tipeUjian = getField(j, 'tipe_ujian', 'tipeUjian')
+            const tipeUjian = j.tipe || getField(j, 'tipe_ujian', 'tipeUjian') || 'UTS'
             const startTime = new Date(`${j.tanggal}T${waktuMulai}`)
             const endTime = new Date(`${j.tanggal}T${waktuSelesai}`)
             const durasiMenit = Math.round((endTime - startTime) / 60000)
@@ -307,7 +307,7 @@ function UjianPage() {
                 ...j,
                 tipeUjian,
                 matkulName: matkul?.nama || 'Mata Kuliah',
-                dosenName: dosen?.nama || 'Dosen',
+                dosenName: dosen?.nama || j.dosen?.nama || 'Pengampu', // Better fallback
                 kelasName: kelas?.nama || '-',
                 ruang: ruangan?.nama || '-', // Use room name from ruang_ujian table
                 // Calculate exam time
