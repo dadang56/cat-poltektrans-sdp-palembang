@@ -548,11 +548,46 @@ export const hasilUjianService = {
     },
 
     async upsert(hasilData) {
+        console.log('[hasilUjianService] Upserting:', hasilData)
+
+        // Try upsert first
         const { data, error } = await supabase
             .from('hasil_ujian')
             .upsert(hasilData, {
-                onConflict: 'jadwal_id,mahasiswa_id'
+                onConflict: 'jadwal_id,mahasiswa_id',
+                ignoreDuplicates: false
             })
+            .select()
+            .single()
+
+        if (error) {
+            console.error('[hasilUjianService] Upsert failed:', error.message, error.details)
+
+            // If upsert fails, try direct insert
+            const { data: insertData, error: insertError } = await supabase
+                .from('hasil_ujian')
+                .insert([hasilData])
+                .select()
+                .single()
+
+            if (insertError) {
+                console.error('[hasilUjianService] Insert also failed:', insertError.message)
+                throw insertError
+            }
+
+            console.log('[hasilUjianService] Insert succeeded:', insertData)
+            return insertData
+        }
+
+        console.log('[hasilUjianService] Upsert succeeded:', data)
+        return data
+    },
+
+    async update(id, hasilData) {
+        const { data, error } = await supabase
+            .from('hasil_ujian')
+            .update(hasilData)
+            .eq('id', id)
             .select()
             .single()
 
