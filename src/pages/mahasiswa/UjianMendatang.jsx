@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
-import { jadwalService, matkulService, kelasService, userService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, kelasService, userService, soalService, ruangService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardList,
     Calendar,
@@ -82,7 +82,7 @@ function ConfirmExamModal({ isOpen, onClose, exam, onStart }) {
                                 <MapPin size={20} />
                                 <div>
                                     <span className="detail-label">Ruangan</span>
-                                    <span className="detail-value">{exam.ruang || 'Lab Komputer'}</span>
+                                    <span className="detail-value">{exam.ruang || '-'}</span>
                                 </div>
                             </div>
                         </div>
@@ -198,24 +198,27 @@ function UjianPage() {
     const [kelasList, setKelasList] = useState([])
     const [usersList, setUsersList] = useState([])
     const [soalList, setSoalList] = useState([])
+    const [ruangList, setRuangList] = useState([])
     const [confirmModal, setConfirmModal] = useState({ open: false, exam: null })
 
     useEffect(() => {
         const loadData = async () => {
             try {
                 if (isSupabaseConfigured()) {
-                    const [jadwal, matkul, kelas, users, soal] = await Promise.all([
+                    const [jadwal, matkul, kelas, users, soal, ruang] = await Promise.all([
                         jadwalService.getAll(),
                         matkulService.getAll(),
                         kelasService.getAll(),
                         userService.getAll({ role: 'dosen' }),
-                        soalService.getAll()
+                        soalService.getAll(),
+                        ruangService.getAll()
                     ])
                     setJadwalList(jadwal)
                     setMatkulList(matkul)
                     setKelasList(kelas)
                     setUsersList(users)
                     setSoalList(soal)
+                    setRuangList(ruang)
                 } else {
                     const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
                     const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
@@ -275,6 +278,10 @@ function UjianPage() {
             const kelasId = getField(j, 'kelas_id', 'kelasId')
             const kelas = kelasList.find(k => k.id === kelasId)
 
+            // Get ruangan from ruang_ujian table
+            const ruanganId = getField(j, 'ruangan_id', 'ruanganId')
+            const ruangan = ruangList.find(r => r.id === ruanganId)
+
             // Calculate duration from waktuMulai and waktuSelesai
             const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
             const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
@@ -301,6 +308,7 @@ function UjianPage() {
                 matkulName: matkul?.nama || 'Mata Kuliah',
                 dosenName: dosen?.nama || 'Dosen',
                 kelasName: kelas?.nama || '-',
+                ruang: ruangan?.nama || '-', // Use room name from ruang_ujian table
                 // Calculate exam time
                 date: j.tanggal,
                 time: waktuMulai,
@@ -491,7 +499,7 @@ function UjianPage() {
                                             <MapPin size={16} />
                                             <div>
                                                 <span className="detail-label">Ruang</span>
-                                                <span className="detail-value">{exam.ruang || 'Lab Komputer'}</span>
+                                                <span className="detail-value">{exam.ruang || '-'}</span>
                                             </div>
                                         </div>
                                         <div className="exam-detail-item">
