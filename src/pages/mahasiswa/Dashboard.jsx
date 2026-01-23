@@ -80,6 +80,10 @@ function MahasiswaDashboard() {
       const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
       const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
       const examStart = new Date(`${j.tanggal}T${waktuMulai}`)
+
+      // Calculate duration in minutes
+      const durasi = Math.round((examEnd - examStart) / 60000)
+
       let status = 'upcoming'
       if (now >= examStart && now <= examEnd) status = 'active'
       else if (now > examEnd) status = 'expired'
@@ -88,6 +92,7 @@ function MahasiswaDashboard() {
         ...j,
         waktuMulai,
         waktuSelesai,
+        durasi,
         tipeUjian: getField(j, 'tipe_ujian', 'tipeUjian'),
         matkulName: matkul?.nama || 'Mata Kuliah',
         status

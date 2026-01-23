@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../App'
 import { SEBService, AntiCheat } from '../../services/SEBService'
+import { jadwalService, matkulService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Clock,
     ChevronLeft,
@@ -63,83 +64,123 @@ function TakeExamPage() {
     const [violations, setViolations] = useState([])
     const [antiCheatSettings, setAntiCheatSettings] = useState(DEFAULT_ANTICHEAT_SETTINGS)
 
-    // Load exam from localStorage
+    // Load exam from Supabase (with localStorage fallback)
     useEffect(() => {
-        const jadwalData = localStorage.getItem(JADWAL_STORAGE_KEY)
-        const matkulData = localStorage.getItem(MATKUL_STORAGE_KEY)
-        const soalData = localStorage.getItem(SOAL_STORAGE_KEY)
+        const loadExamData = async () => {
+            console.log('TakeExam: Loading exam with id:', id, 'type:', typeof id)
 
-        console.log('TakeExam: Loading exam with id:', id, 'type:', typeof id)
+            try {
+                let jadwal = null
+                let matkulList = []
+                let allSoal = []
 
-        if (jadwalData && id) {
-            const jadwalList = JSON.parse(jadwalData)
-            // Handle both string and number ID comparison
-            const jadwal = jadwalList.find(j => String(j.id) === String(id))
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const [jadwalData, matkulData] = await Promise.all([
+                        jadwalService.getAll(),
+                        matkulService.getAll()
+                    ])
+                    jadwal = jadwalData.find(j => String(j.id) === String(id))
+                    matkulList = matkulData
 
-            console.log('TakeExam: Found jadwal:', jadwal)
+                    if (jadwal) {
+                        // Get the mata kuliah ID for this jadwal
+                        const matkulId = jadwal.matkul_id || jadwal.matkulId
+                        const examType = (jadwal.tipe || jadwal.tipe_ujian || jadwal.tipeUjian || '').toUpperCase()
 
-            if (jadwal) {
-                const matkulList = matkulData ? JSON.parse(matkulData) : []
-                const allSoal = soalData ? JSON.parse(soalData) : []
+                        // Fetch soal from Supabase filtered by matkul_id and tipe_ujian
+                        allSoal = await soalService.getAll({ matkul_id: matkulId })
 
-                const matkul = matkulList.find(m => m.id === jadwal.matkulId)
+                        // Filter by exam type
+                        allSoal = allSoal.filter(s => {
+                            if (!s.tipe_ujian) return true // Include soal without examType
+                            return s.tipe_ujian.toUpperCase() === examType
+                        })
 
-                // Filter soal by matkulId and examType (UTS/UAS) - case insensitive
-                // Also include soal that don't have examType set (for backward compatibility)
-                const examType = jadwal.tipeUjian?.toUpperCase()
-                const examSoal = allSoal.filter(s => {
-                    const soalMatkulMatch = s.matkulId === jadwal.matkulId
-
-                    // If soal has no examType, include it for any exam
-                    if (!s.examType) return soalMatkulMatch
-
-                    const soalExamType = s.examType.toUpperCase()
-                    const examTypeMatch = soalExamType === examType
-                    return soalMatkulMatch && examTypeMatch
-                })
-
-                console.log('TakeExam: Found soal:', examSoal.length, 'for matkulId:', jadwal.matkulId, 'examType:', examType, 'allSoal:', allSoal.length)
-
-                // Calculate duration from jadwal waktuMulai and waktuSelesai
-                const startTime = new Date(`${jadwal.tanggal}T${jadwal.waktuMulai}`)
-                const endTime = new Date(`${jadwal.tanggal}T${jadwal.waktuSelesai}`)
-                const durationMinutes = Math.round((endTime - startTime) / 60000)
-
-                setExamData({
-                    id: jadwal.id,
-                    name: `${jadwal.tipeUjian} ${matkul?.nama || 'Ujian'}`,
-                    duration: durationMinutes,
-                    matkulName: matkul?.nama || 'N/A'
-                })
-
-                setQuestions(examSoal.map((s, idx) => ({
-                    id: s.id,
-                    type: s.type,
-                    text: s.text,
-                    points: s.bobot || s.points || 10,
-                    options: s.options?.map(o => typeof o === 'string' ? o : o.text) || [],
-                    correctAnswer: s.correctAnswer,
-                    image: s.image
-                })))
-
-                // Set timer - calculate remaining time
-                const now = new Date()
-                const remainingMs = endTime - now
-                const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000))
-
-                // If exam hasn't started yet, use full duration
-                if (now < startTime) {
-                    setTimeLeft(durationMinutes * 60)
-                } else if (now > endTime) {
-                    setTimeLeft(0)
+                        console.log('TakeExam: Supabase soal found:', allSoal.length, 'for matkulId:', matkulId, 'examType:', examType)
+                    }
                 } else {
-                    setTimeLeft(remainingSeconds)
+                    // Fallback to localStorage
+                    const jadwalData = localStorage.getItem(JADWAL_STORAGE_KEY)
+                    const matkulData = localStorage.getItem(MATKUL_STORAGE_KEY)
+                    const soalData = localStorage.getItem(SOAL_STORAGE_KEY)
+
+                    if (jadwalData) {
+                        const jadwalList = JSON.parse(jadwalData)
+                        jadwal = jadwalList.find(j => String(j.id) === String(id))
+                    }
+                    matkulList = matkulData ? JSON.parse(matkulData) : []
+                    allSoal = soalData ? JSON.parse(soalData) : []
+
+                    // Filter soal for localStorage data
+                    if (jadwal) {
+                        const examType = jadwal.tipeUjian?.toUpperCase()
+                        allSoal = allSoal.filter(s => {
+                            const soalMatkulMatch = s.matkulId === jadwal.matkulId
+                            if (!s.examType) return soalMatkulMatch
+                            return soalMatkulMatch && s.examType.toUpperCase() === examType
+                        })
+                    }
                 }
-            } else {
-                console.log('TakeExam: No jadwal found for id:', id)
+
+                console.log('TakeExam: Found jadwal:', jadwal)
+
+                if (jadwal) {
+                    const matkulId = jadwal.matkul_id || jadwal.matkulId
+                    const matkul = matkulList.find(m => String(m.id) === String(matkulId))
+                    const waktuMulai = jadwal.waktu_mulai || jadwal.waktuMulai
+                    const waktuSelesai = jadwal.waktu_selesai || jadwal.waktuSelesai
+                    const tipeUjian = jadwal.tipe || jadwal.tipe_ujian || jadwal.tipeUjian || 'UTS'
+
+                    // Calculate duration
+                    const startTime = new Date(`${jadwal.tanggal}T${waktuMulai}`)
+                    const endTime = new Date(`${jadwal.tanggal}T${waktuSelesai}`)
+                    const durationMinutes = Math.round((endTime - startTime) / 60000)
+
+                    // Map soal to questions format
+                    const examSoal = allSoal.map(s => ({
+                        id: s.id,
+                        type: s.tipe_soal || s.type,
+                        text: s.pertanyaan || s.text,
+                        points: s.bobot || s.points || 10,
+                        options: (s.pilihan || s.options || []).map(o => typeof o === 'string' ? o : o.text),
+                        correctAnswer: s.jawaban_benar || s.correctAnswer
+                    }))
+
+                    console.log('TakeExam: Processed', examSoal.length, 'questions')
+
+                    setExamData({
+                        id: jadwal.id,
+                        name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
+                        duration: durationMinutes,
+                        matkulName: matkul?.nama || 'N/A'
+                    })
+
+                    setQuestions(examSoal)
+
+                    // Set timer
+                    const now = new Date()
+                    const remainingMs = endTime - now
+                    const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000))
+
+                    if (now < startTime) {
+                        setTimeLeft(durationMinutes * 60)
+                    } else if (now > endTime) {
+                        setTimeLeft(0)
+                    } else {
+                        setTimeLeft(remainingSeconds)
+                    }
+                } else {
+                    console.log('TakeExam: No jadwal found for id:', id)
+                }
+            } catch (error) {
+                console.error('TakeExam: Error loading exam data:', error)
             }
+
+            setLoading(false)
         }
-        setLoading(false)
+
+        if (id) loadExamData()
     }, [id])
 
     // SEB Detection & Anti-Cheat Initialization
