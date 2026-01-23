@@ -1,49 +1,49 @@
 -- ================================================================
--- MIGRATION: Fix hasil_ujian table for exam tracking
--- Run this in Supabase SQL Editor
+-- CRITICAL FIX: Add missing columns to hasil_ujian table
+-- Run this ENTIRE script in Supabase SQL Editor
 -- ================================================================
 
--- 1. Add answers_detail column if not exists
-ALTER TABLE hasil_ujian 
-ADD COLUMN IF NOT EXISTS answers_detail JSONB;
+-- 1. Add ALL missing columns
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS status TEXT DEFAULT 'in_progress';
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS answers_detail JSONB;
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS nilai_total INTEGER DEFAULT 0;
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS jumlah_benar INTEGER DEFAULT 0;
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS jumlah_salah INTEGER DEFAULT 0;
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS jumlah_kosong INTEGER DEFAULT 0;
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS waktu_mulai TIMESTAMPTZ;
+ALTER TABLE hasil_ujian ADD COLUMN IF NOT EXISTS waktu_selesai TIMESTAMPTZ;
 
--- 2. Make sure unique constraint exists for upsert
+-- 2. Add unique constraint for upsert (if not exists)
 DO $$ 
 BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_constraint 
-        WHERE conname = 'hasil_ujian_jadwal_id_mahasiswa_id_key'
+        WHERE conname = 'hasil_ujian_jadwal_mahasiswa_unique'
     ) THEN
         ALTER TABLE hasil_ujian 
-        ADD CONSTRAINT hasil_ujian_jadwal_id_mahasiswa_id_key 
+        ADD CONSTRAINT hasil_ujian_jadwal_mahasiswa_unique 
         UNIQUE (jadwal_id, mahasiswa_id);
     END IF;
 EXCEPTION
-    WHEN duplicate_table THEN NULL;
+    WHEN duplicate_object THEN NULL;
 END $$;
 
--- 3. Disable RLS temporarily for testing (re-enable later)
+-- 3. Disable RLS and fix policies
 ALTER TABLE hasil_ujian DISABLE ROW LEVEL SECURITY;
 
--- 4. Drop existing restrictive policies and create permissive one
+DROP POLICY IF EXISTS "allow_all_hasil" ON hasil_ujian;
+DROP POLICY IF EXISTS "hasil_all_access" ON hasil_ujian;
 DROP POLICY IF EXISTS "hasil_superadmin" ON hasil_ujian;
 DROP POLICY IF EXISTS "hasil_mahasiswa_own" ON hasil_ujian;
-DROP POLICY IF EXISTS "hasil_dosen_manage" ON hasil_ujian;
-DROP POLICY IF EXISTS "hasil_admin_prodi_view" ON hasil_ujian;
-DROP POLICY IF EXISTS "hasil_service_role" ON hasil_ujian;
-DROP POLICY IF EXISTS "hasil_all_access" ON hasil_ujian;
 
--- 5. Create permissive policy for all authenticated users
 CREATE POLICY "allow_all_hasil" ON hasil_ujian
-  FOR ALL
-  TO authenticated
-  USING (true)
-  WITH CHECK (true);
+  FOR ALL TO authenticated
+  USING (true) WITH CHECK (true);
 
--- 6. Re-enable RLS with permissive policy
 ALTER TABLE hasil_ujian ENABLE ROW LEVEL SECURITY;
 
--- Verify changes
-SELECT column_name, data_type 
+-- 4. Verify the columns exist now
+SELECT column_name, data_type, is_nullable
 FROM information_schema.columns 
-WHERE table_name = 'hasil_ujian';
+WHERE table_name = 'hasil_ujian'
+ORDER BY ordinal_position;
