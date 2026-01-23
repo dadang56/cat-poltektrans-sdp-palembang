@@ -648,6 +648,7 @@ function BuatSoalPage() {
                         options: s.pilihan || [],
                         correctAnswer: s.jawaban_benar,
                         dosenId: s.dosen_id,
+                        kelasIds: s.kelas_ids || [],
                         matkul: s.matkul // Include joined matkul data
                     }))
                     setQuestions(mappedSoal)
@@ -756,7 +757,7 @@ function BuatSoalPage() {
                 return mapping[type] || 'pilihan_ganda'
             }
 
-            // Map to Supabase format (without gambar - column doesn't exist)
+            // Map to Supabase format
             const supabaseData = {
                 pertanyaan: questionData.text,
                 tipe_soal: mapTipeSoal(questionData.type),
@@ -765,7 +766,8 @@ function BuatSoalPage() {
                 bobot: questionData.points || 10,
                 pilihan: questionData.options || [],
                 jawaban_benar: questionData.correctAnswer,
-                dosen_id: user?.id
+                dosen_id: user?.id,
+                kelas_ids: questionData.kelasIds || []
             }
 
             if (editingQuestion) {
@@ -800,7 +802,8 @@ function BuatSoalPage() {
                     points: created.bobot || 10,
                     options: created.pilihan || [],
                     correctAnswer: created.jawaban_benar,
-                    dosenId: created.dosen_id
+                    dosenId: created.dosen_id,
+                    kelasIds: created.kelas_ids || []
                 }
                 setQuestions([...questions, newQuestion])
                 console.log('[BuatSoal] Question created:', created)
@@ -855,7 +858,8 @@ function BuatSoalPage() {
                     bobot: q.points || 10,
                     pilihan: q.options || [],
                     jawaban_benar: q.correctAnswer,
-                    dosen_id: user?.id
+                    dosen_id: user?.id,
+                    kelas_ids: q.kelasIds || []
                 }
                 const created = await soalService.create(supabaseData)
                 newQuestions.push({
@@ -867,7 +871,8 @@ function BuatSoalPage() {
                     points: created.bobot || 10,
                     options: created.pilihan || [],
                     correctAnswer: created.jawaban_benar,
-                    dosenId: created.dosen_id
+                    dosenId: created.dosen_id,
+                    kelasIds: created.kelas_ids || []
                 })
             }
             setQuestions([...questions, ...newQuestions])
@@ -999,13 +1004,17 @@ function BuatSoalPage() {
                                                         {pkg.examType}
                                                     </span>
                                                 </div>
-                                                {/* Show related kelas for this matkul */}
+                                                {/* Show selected kelas for this package */}
                                                 {(() => {
-                                                    const matkul = matkulList.find(m => String(m.id) === String(pkg.matkulId))
-                                                    const relatedKelas = kelasList.filter(k =>
-                                                        matkul && String(k.prodi_id || k.prodiId) === String(matkul.prodi_id || matkul.prodiId)
+                                                    // Collect all unique kelasIds from questions in this package
+                                                    const allKelasIds = [...new Set(
+                                                        pkg.questions.flatMap(q => q.kelasIds || [])
+                                                    )]
+                                                    // Get kelas names from kelasList
+                                                    const selectedKelas = kelasList.filter(k =>
+                                                        allKelasIds.includes(k.id)
                                                     )
-                                                    if (relatedKelas.length > 0) {
+                                                    if (selectedKelas.length > 0) {
                                                         return (
                                                             <div style={{
                                                                 fontSize: '0.8rem',
@@ -1013,7 +1022,7 @@ function BuatSoalPage() {
                                                                 marginBottom: '0.75rem'
                                                             }}>
                                                                 <span style={{ fontWeight: '500' }}>Kelas: </span>
-                                                                {relatedKelas.map(k => k.nama).join(', ')}
+                                                                {selectedKelas.map(k => k.nama).join(', ')}
                                                             </div>
                                                         )
                                                     }
