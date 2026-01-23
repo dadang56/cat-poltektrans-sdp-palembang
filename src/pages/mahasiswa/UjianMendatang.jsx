@@ -271,16 +271,17 @@ function UjianPage() {
             return true
         })
         .map(j => {
+            // Use nested relations from Supabase or fallback to lookup
             const matkulId = getField(j, 'matkul_id', 'matkulId')
-            const matkul = matkulList.find(m => m.id === matkulId)
-            const dosenId = getField(j, 'dosen_id', 'dosenId')
-            const dosen = usersList.find(u => u.id === dosenId)
+            const matkul = j.matkul || matkulList.find(m => m.id === matkulId)
             const kelasId = getField(j, 'kelas_id', 'kelasId')
-            const kelas = kelasList.find(k => k.id === kelasId)
-
-            // Get ruangan from ruang_ujian table
+            const kelas = j.kelas || kelasList.find(k => k.id === kelasId)
             const ruanganId = getField(j, 'ruangan_id', 'ruanganId')
-            const ruangan = ruangList.find(r => r.id === ruanganId)
+            const ruangan = j.ruangan || ruangList.find(r => r.id === ruanganId)
+
+            // Get dosen from nested relation (Supabase) or fallback
+            const dosenId = getField(j, 'dosen_id', 'dosenId')
+            const dosen = j.dosen || usersList.find(u => u.id === dosenId)
 
             // Calculate duration from waktuMulai and waktuSelesai
             const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
