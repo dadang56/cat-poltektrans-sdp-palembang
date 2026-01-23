@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../App'
 import { SEBService, AntiCheat } from '../../services/SEBService'
-import { jadwalService, matkulService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, soalService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Clock,
     ChevronLeft,
@@ -375,39 +375,51 @@ function TakeExamPage() {
             submittedAtDisplay: new Date().toLocaleString('id-ID')
         }
 
-        // Save to localStorage
-        const EXAM_RESULTS_KEY = 'cat_exam_results'
-        const existingResults = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
+        // Save to Supabase (primary) and localStorage (fallback)
+        const saveExamResult = async () => {
+            // Count statistics
+            const jumlahBenar = answerDetails.filter(a => a.isCorrect === true).length
+            const jumlahSalah = answerDetails.filter(a => a.isCorrect === false).length
+            const jumlahKosong = answerDetails.filter(a => a.answer === null).length
 
-        // Check if already submitted (prevent duplicate)
-        const alreadySubmitted = existingResults.some(r =>
-            r.examId === examResult.examId && r.mahasiswaId === examResult.mahasiswaId
-        )
-
-        if (!alreadySubmitted) {
-            existingResults.push(examResult)
-            localStorage.setItem(EXAM_RESULTS_KEY, JSON.stringify(existingResults))
-            console.log('[TakeExam] Exam result saved:', examResult)
-        } else {
-            console.log('[TakeExam] Exam already submitted, skipping duplicate')
-        }
-
-        // Also mark jadwal as completed for this student
-        const jadwalData = localStorage.getItem(JADWAL_STORAGE_KEY)
-        if (jadwalData) {
-            const jadwalList = JSON.parse(jadwalData)
-            const updatedJadwal = jadwalList.map(j => {
-                if (String(j.id) === String(id)) {
-                    const completedBy = j.completedBy || []
-                    if (!completedBy.includes(user?.id)) {
-                        completedBy.push(user?.id)
+            if (isSupabaseConfigured()) {
+                try {
+                    // Save to hasil_ujian table
+                    const hasilData = {
+                        jadwal_id: examData.id,
+                        mahasiswa_id: user?.id,
+                        nilai_total: totalScore,
+                        jumlah_benar: jumlahBenar,
+                        jumlah_salah: jumlahSalah,
+                        jumlah_kosong: jumlahKosong,
+                        waktu_mulai: new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
+                        waktu_selesai: new Date().toISOString(),
+                        status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
+                        // Store detailed answers as JSON
+                        answers_detail: JSON.stringify(answerDetails)
                     }
-                    return { ...j, completedBy }
+
+                    await hasilUjianService.upsert(hasilData)
+                    console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
+                } catch (error) {
+                    console.error('[TakeExam] Error saving to Supabase:', error)
                 }
-                return j
-            })
-            localStorage.setItem(JADWAL_STORAGE_KEY, JSON.stringify(updatedJadwal))
+            }
+
+            // Also save to localStorage for compatibility
+            const EXAM_RESULTS_KEY = 'cat_exam_results'
+            const existingResults = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
+            const alreadySubmitted = existingResults.some(r =>
+                r.examId === examResult.examId && r.mahasiswaId === examResult.mahasiswaId
+            )
+
+            if (!alreadySubmitted) {
+                existingResults.push(examResult)
+                localStorage.setItem(EXAM_RESULTS_KEY, JSON.stringify(existingResults))
+            }
         }
+
+        saveExamResult()
     }
 
     // Calculate score for display

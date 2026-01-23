@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { hasilUjianService, soalService, jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     CheckSquare,
     Clock,
@@ -228,71 +229,142 @@ function KoreksiUjianPage() {
     const [selectedExam, setSelectedExam] = useState(null)
     const [correctionModal, setCorrectionModal] = useState({ open: false, student: null })
     const [soalList, setSoalList] = useState([])
+    const [loading, setLoading] = useState(true)
 
-    // Load exam results from localStorage
+    // Load exam results from Supabase (with localStorage fallback)
     useEffect(() => {
-        const EXAM_RESULTS_KEY = 'cat_exam_results'
-        const SOAL_KEY = 'cat_soal_data'
-        const JADWAL_KEY = 'cat_jadwal_data'
-        const MATKUL_KEY = 'cat_matkul_data'
+        const loadData = async () => {
+            try {
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const [hasilData, soalData] = await Promise.all([
+                        hasilUjianService.getAll(),
+                        soalService.getAll()
+                    ])
 
-        const results = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-        const soal = JSON.parse(localStorage.getItem(SOAL_KEY) || '[]')
-        const jadwal = JSON.parse(localStorage.getItem(JADWAL_KEY) || '[]')
-        const matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
+                    setSoalList(soalData)
 
-        setSoalList(soal)
+                    // Group results by jadwal (exam)
+                    const examGroups = {}
+                    hasilData.forEach(hasil => {
+                        const jadwalId = hasil.jadwal_id
+                        if (!jadwalId) return
 
-        // Filter results for this dosen's mata kuliah only
-        // Get dosen's matkulIds from cat_user
-        const catUser = JSON.parse(localStorage.getItem('cat_user') || '{}')
-        const dosenMatkulIds = catUser.matkulIds || []
+                        const jadwal = hasil.jadwal
+                        const mahasiswa = hasil.mahasiswa
 
-        // Group results by examId and enrich with exam info
-        const examGroups = {}
-        results.forEach(result => {
-            const examJadwal = jadwal.find(j => j.id === result.examId)
+                        if (!examGroups[jadwalId]) {
+                            examGroups[jadwalId] = {
+                                id: jadwalId,
+                                name: `${jadwal?.tipe || 'Ujian'} ${jadwal?.matkul?.nama || 'Mata Kuliah'}`,
+                                matkul: jadwal?.matkul?.nama || 'N/A',
+                                date: jadwal?.tanggal || 'N/A',
+                                deadline: jadwal?.tanggal ? new Date(new Date(jadwal.tanggal).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 'N/A',
+                                students: [],
+                                totalStudents: 0,
+                                corrected: 0,
+                                status: 'in_progress'
+                            }
+                        }
 
-            // Filter by dosen's matkul if they have specific assignments
-            if (dosenMatkulIds.length > 0 && examJadwal) {
-                if (!dosenMatkulIds.includes(examJadwal.matkulId)) {
-                    return // Skip if not dosen's matkul
+                        // Parse answers_detail if exists
+                        let answers = []
+                        try {
+                            if (hasil.answers_detail) {
+                                answers = typeof hasil.answers_detail === 'string'
+                                    ? JSON.parse(hasil.answers_detail)
+                                    : hasil.answers_detail
+                            }
+                        } catch (e) {
+                            console.error('Error parsing answers:', e)
+                        }
+
+                        const isFullyCorrected = hasil.status === 'graded'
+
+                        examGroups[jadwalId].students.push({
+                            id: hasil.id,
+                            resultId: hasil.id,
+                            studentName: mahasiswa?.nama || 'N/A',
+                            nim: mahasiswa?.nim_nip || 'N/A',
+                            submittedAt: hasil.waktu_selesai ? new Date(hasil.waktu_selesai).toLocaleString('id-ID') : 'N/A',
+                            answers: answers,
+                            totalScore: hasil.nilai_total,
+                            maxScore: answers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
+                            hasEssay: answers.some(a => a.type === 'essay'),
+                            isFullyCorrected
+                        })
+
+                        examGroups[jadwalId].totalStudents = examGroups[jadwalId].students.length
+                        examGroups[jadwalId].corrected = examGroups[jadwalId].students.filter(s => s.isFullyCorrected).length
+                    })
+
+                    setExamResults(Object.values(examGroups))
+                    console.log('[KoreksiUjian] Loaded', Object.keys(examGroups).length, 'exams from Supabase')
+                } else {
+                    // Fallback to localStorage
+                    loadFromLocalStorage()
                 }
+            } catch (error) {
+                console.error('[KoreksiUjian] Error loading from Supabase:', error)
+                // Fallback to localStorage
+                loadFromLocalStorage()
             }
+            setLoading(false)
+        }
 
-            if (!examGroups[result.examId]) {
-                const mk = examJadwal ? matkul.find(m => m.id === examJadwal.matkulId) : null
-                examGroups[result.examId] = {
-                    id: result.examId,
-                    name: result.examName || `Ujian ${result.examId}`,
-                    matkul: mk?.nama || result.matkulName || 'N/A',
-                    date: examJadwal?.tanggal || 'N/A',
-                    deadline: examJadwal ? new Date(new Date(examJadwal.tanggal).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 'N/A',
-                    students: [],
-                    totalStudents: 0,
-                    corrected: 0,
-                    status: 'in_progress'
+        const loadFromLocalStorage = () => {
+            const EXAM_RESULTS_KEY = 'cat_exam_results'
+            const SOAL_KEY = 'cat_soal_data'
+            const JADWAL_KEY = 'cat_jadwal_data'
+            const MATKUL_KEY = 'cat_matkul_data'
+
+            const results = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
+            const soal = JSON.parse(localStorage.getItem(SOAL_KEY) || '[]')
+            const jadwal = JSON.parse(localStorage.getItem(JADWAL_KEY) || '[]')
+            const matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
+
+            setSoalList(soal)
+
+            const examGroups = {}
+            results.forEach(result => {
+                const examJadwal = jadwal.find(j => j.id === result.examId)
+
+                if (!examGroups[result.examId]) {
+                    const mk = examJadwal ? matkul.find(m => m.id === examJadwal.matkulId) : null
+                    examGroups[result.examId] = {
+                        id: result.examId,
+                        name: result.examName || `Ujian ${result.examId}`,
+                        matkul: mk?.nama || result.matkulName || 'N/A',
+                        date: examJadwal?.tanggal || 'N/A',
+                        deadline: examJadwal ? new Date(new Date(examJadwal.tanggal).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 'N/A',
+                        students: [],
+                        totalStudents: 0,
+                        corrected: 0,
+                        status: 'in_progress'
+                    }
                 }
-            }
 
-            examGroups[result.examId].students.push({
-                id: result.id,
-                resultId: result.id,
-                studentName: result.mahasiswaName,
-                nim: result.nim,
-                submittedAt: result.submittedAtDisplay || new Date(result.submittedAt).toLocaleString('id-ID'),
-                answers: result.answers,
-                totalScore: result.isFullyCorrected ? result.totalScore : null,
-                maxScore: result.maxScore,
-                hasEssay: result.hasEssay,
-                isFullyCorrected: result.isFullyCorrected
+                examGroups[result.examId].students.push({
+                    id: result.id,
+                    resultId: result.id,
+                    studentName: result.mahasiswaName,
+                    nim: result.nim,
+                    submittedAt: result.submittedAtDisplay || new Date(result.submittedAt).toLocaleString('id-ID'),
+                    answers: result.answers,
+                    totalScore: result.isFullyCorrected ? result.totalScore : null,
+                    maxScore: result.maxScore,
+                    hasEssay: result.hasEssay,
+                    isFullyCorrected: result.isFullyCorrected
+                })
+
+                examGroups[result.examId].totalStudents = examGroups[result.examId].students.length
+                examGroups[result.examId].corrected = examGroups[result.examId].students.filter(s => s.isFullyCorrected).length
             })
 
-            examGroups[result.examId].totalStudents = examGroups[result.examId].students.length
-            examGroups[result.examId].corrected = examGroups[result.examId].students.filter(s => s.isFullyCorrected).length
-        })
+            setExamResults(Object.values(examGroups))
+        }
 
-        setExamResults(Object.values(examGroups))
+        loadData()
     }, [])
 
     const handleSelectExam = (exam) => {
