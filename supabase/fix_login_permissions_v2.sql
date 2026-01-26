@@ -13,6 +13,7 @@ DROP POLICY IF EXISTS "Staff can view all users" ON public.users; -- Reset yang 
 -- 2. Buat Policy BARU yang Mengizinkan LOGIN
 -- Ini mengizinkan SIAPAPUN (termasuk saat belum login) untuk membaca data user.
 -- Diperlukan agar aplikasi bisa mengecek apakah user ada atau tidak.
+DROP POLICY IF EXISTS "Allow Public Read for Login" ON public.users;
 CREATE POLICY "Allow Public Read for Login"
 ON public.users
 FOR SELECT
