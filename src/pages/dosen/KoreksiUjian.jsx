@@ -81,7 +81,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                             </h4>
                             <div className="answer-summary-grid">
                                 {autoGradedAnswers.map((answer, idx) => {
-                                    const question = questions.find(q => q.id === answer.questionId)
+                                    const question = questions.find(q => String(q.id) === String(answer.questionId))
                                     const isCorrect = answer.isCorrect
                                     return (
                                         <div key={idx} className={`answer-summary-item ${isCorrect ? 'correct' : 'incorrect'}`}>
@@ -111,7 +111,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                             </h4>
                             <div className="essay-grading-list">
                                 {essayAnswers.map((answer, idx) => {
-                                    const question = questions.find(q => q.id === answer.questionId)
+                                    const question = questions.find(q => String(q.id) === String(answer.questionId))
                                     return (
                                         <div key={idx} className="essay-grading-item">
                                             <div className="essay-q-header">
