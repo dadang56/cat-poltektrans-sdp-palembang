@@ -45,6 +45,28 @@ function MonitorUjian() {
   const [jadwalList, setJadwalList] = useState([])
   const [loading, setLoading] = useState(true)
 
+  // Helper functions for status mapping
+  const getDerivedStatus = (hasil) => {
+    if (hasil.status === 'graded') return 'submitted'
+    if (hasil.status === 'submitted') return 'submitted'
+    if (hasil.status === 'kicked') return 'kicked'
+    if (hasil.waktu_selesai) return 'submitted'
+    return 'active'
+  }
+
+  const getDerivedProgress = (hasil) => {
+    if (hasil.status === 'graded' || hasil.status === 'submitted' || hasil.waktu_selesai) return 100
+    // Estimate progress if answer count is available (would need BE update to really track this)
+    return 5 // Default started progress
+  }
+
+  const getDetailedActivityStatus = (hasil) => {
+    if (hasil.status === 'graded') return 'Selesai & Dinilai'
+    if (hasil.status === 'submitted') return 'Sudah Mengumpulkan'
+    if (hasil.waktu_selesai) return 'Selesai'
+    return 'Sedang Mengerjakan'
+  }
+
   // Load active exams from Supabase jadwal_ujian
   useEffect(() => {
     const loadActiveExams = async () => {
@@ -172,29 +194,40 @@ function MonitorUjian() {
     // Load participants from hasil_ujian for this jadwal
     if (isSupabaseConfigured() && room.jadwalId) {
       try {
-        const hasilData = await hasilUjianService.getByJadwal(room.jadwalId)
-        console.log('[MonitorUjian] Participants for jadwal', room.jadwalId, ':', hasilData)
+        console.log('[MonitorUjian] Fetching participants for jadwal:', room.jadwalId)
 
-        const roomParticipants = hasilData.map((hasil, idx) => ({
-          id: hasil.id,
+        // Use direct Supabase query if service fails or for debugging
+        const hasilData = await hasilUjianService.getByJadwal(room.jadwalId)
+
+        if (!hasilData || hasilData.length === 0) {
+          console.log('[MonitorUjian] No participants found.')
+        } else {
+          console.log('[MonitorUjian] Participants found:', hasilData.length, hasilData)
+        }
+
+        const roomParticipants = (hasilData || []).map((hasil, idx) => ({
+          id: hasil.id, // Use hasil.id as unique key
+          studentId: hasil.mahasiswa_id,
           name: hasil.mahasiswa?.nama || 'Unknown',
           nim: hasil.mahasiswa?.nim_nip || '-',
           examNumber: `UJIAN-${String(idx + 1).padStart(3, '0')}`,
-          status: hasil.status === 'submitted' || hasil.status === 'graded' ? 'submitted' : 'active',
-          progress: hasil.status === 'submitted' || hasil.status === 'graded' ? 100 : 50,
-          currentQuestion: 1,
+          status: getDerivedStatus(hasil),
+          progress: getDerivedProgress(hasil),
+          currentQuestion: 0, // Not tracked in realtime yet without websocket
           warnings: 0,
-          lastActivity: hasil.status === 'submitted' ? 'Sudah Submit' : 'Sedang Mengerjakan'
+          lastActivity: getDetailedActivityStatus(hasil)
         }))
         setParticipants(roomParticipants)
       } catch (error) {
         console.error('[MonitorUjian] Error loading participants:', error)
+        alert('Gagal memuat data peserta. Pastikan koneksi internet stabil.')
         setParticipants([])
       }
     } else if (room.students && room.students.length > 0) {
       // Fallback to localStorage room.students
       const roomParticipants = room.students.map((student, idx) => ({
         id: student.id || idx + 1,
+        studentId: student.id,
         name: student.name || 'Unknown',
         nim: student.nim || '-',
         examNumber: student.examNumber || `UJIAN-${String(idx + 1).padStart(3, '0')}`,
@@ -255,14 +288,15 @@ function MonitorUjian() {
 
         const roomParticipants = hasilData.map((hasil, idx) => ({
           id: hasil.id,
+          studentId: hasil.mahasiswa_id,
           name: hasil.mahasiswa?.nama || 'Unknown',
           nim: hasil.mahasiswa?.nim_nip || '-',
           examNumber: `UJIAN-${String(idx + 1).padStart(3, '0')}`,
-          status: hasil.status === 'submitted' || hasil.status === 'graded' ? 'submitted' : 'active',
-          progress: hasil.status === 'submitted' || hasil.status === 'graded' ? 100 : 50,
-          currentQuestion: 1,
+          status: getDerivedStatus(hasil),
+          progress: getDerivedProgress(hasil),
+          currentQuestion: 0,
           warnings: 0,
-          lastActivity: hasil.status === 'submitted' ? 'Sudah Submit' : 'Sedang Mengerjakan'
+          lastActivity: getDetailedActivityStatus(hasil)
         }))
         setParticipants(roomParticipants)
       } catch (error) {

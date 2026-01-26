@@ -41,12 +41,17 @@ function Login() {
     const [error, setError] = useState('')
     const [isLoading, setIsLoading] = useState(false)
 
-    // Load saved tahunAkademik from settings
+    // Clear form on mount/unmount and load settings
     useEffect(() => {
-        if (settings?.tahunAkademik) {
-            setFormData(prev => ({ ...prev, tahunAkademik: settings.tahunAkademik }))
-        }
-    }, [settings])
+        // Reset form to clean state
+        setFormData(prev => ({
+            username: '',
+            password: '',
+            tahunAkademik: settings?.tahunAkademik || TAHUN_AJARAN_OPTIONS[0] || ''
+        }))
+        setShowPassword(false)
+        setError('')
+    }, [settings?.tahunAkademik]) // Re-run if default academic year changes
 
     const handleChange = (e) => {
         const { name, value } = e.target
@@ -98,8 +103,12 @@ function Login() {
                 <div className="wave wave-1"></div>
                 <div className="wave wave-2"></div>
                 <div className="wave wave-3"></div>
-                <Ship className="floating-icon ship-1" size={48} />
-                <Ship className="floating-icon ship-2" size={32} />
+                <div className="ship-container-1">
+                    <Ship className="floating-icon ship-1" size={48} />
+                </div>
+                <div className="ship-container-2">
+                    <Ship className="floating-icon ship-2" size={32} />
+                </div>
                 <Anchor className="floating-icon anchor-1" size={40} />
                 <Waves className="floating-icon waves-1" size={36} />
             </div>
@@ -148,7 +157,7 @@ function Login() {
                             <p>Silakan masuk ke akun Anda</p>
                         </div>
 
-                        <form onSubmit={handleSubmit} className="login-form">
+                        <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
                             {error && (
                                 <div className="alert alert-error animate-shake">
                                     <span>{error}</span>
@@ -168,7 +177,7 @@ function Login() {
                                         value={formData.username}
                                         onChange={handleChange}
                                         required
-                                        autoComplete="username"
+                                        autoComplete="off"
                                     />
                                 </div>
                             </div>
@@ -186,7 +195,7 @@ function Login() {
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
-                                        autoComplete="current-password"
+                                        autoComplete="new-password"
                                         style={{ paddingRight: '48px' }}
                                     />
                                     <button

@@ -547,6 +547,50 @@ export const hasilUjianService = {
         return data
     },
 
+    // Get results for a specific Dosen's classes
+    async getByDosen(dosenId) {
+        // 1. First get schedule IDs (jadwal) for this dosen
+        const { data: jadwalData, error: jadwalError } = await supabase
+            .from('jadwal_ujian')
+            .select('id')
+            .eq('dosen_id', dosenId)
+
+        if (jadwalError) throw jadwalError
+
+        if (!jadwalData || jadwalData.length === 0) return []
+
+        const jadwalIds = jadwalData.map(j => j.id)
+
+        // 2. Fetch results only for those schedules
+        const { data, error } = await supabase
+            .from('hasil_ujian')
+            .select(`
+                *,
+                mahasiswa:mahasiswa_id(
+                    id, 
+                    nama, 
+                    nim_nip,
+                    kelas:kelas_id(
+                        id, 
+                        nama,
+                        prodi:prodi_id(id, nama)
+                    )
+                ),
+                jadwal:jadwal_id(
+                    id,
+                    tanggal,
+                    tipe,
+                    matkul:matkul_id(id, nama, kode),
+                    dosen:dosen_id(id, nama)
+                )
+            `)
+            .in('jadwal_id', jadwalIds)
+            .order('created_at', { ascending: false })
+
+        if (error) throw error
+        return data
+    },
+
     async upsert(hasilData) {
         console.log('[hasilUjianService] Upserting:', hasilData)
 

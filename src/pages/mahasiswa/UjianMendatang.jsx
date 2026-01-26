@@ -294,8 +294,11 @@ function UjianPage() {
             // Count soal for this exam
             const examSoal = soalList.filter(s => {
                 const sMatkulId = getField(s, 'matkul_id', 'matkulId')
-                const sExamType = getField(s, 'exam_type', 'examType')
-                return sMatkulId === matkulId && sExamType === tipeUjian
+                // Fix: Check 'tipe_ujian' (Supabase) or 'examType' (LocalStorage)
+                // The 'exam_type' key was incorrect for Supabase data
+                const sExamType = s.tipe_ujian || s.tipeUjian || s.examType
+                return String(sMatkulId) === String(matkulId) &&
+                    String(sExamType || '').toUpperCase() === String(tipeUjian).toUpperCase()
             })
 
             // Check if mahasiswa already completed this exam
@@ -303,11 +306,20 @@ function UjianPage() {
                 String(r.examId) === String(j.id) && String(r.mahasiswaId) === String(user?.id)
             )
 
+            // Dosen Name Resolution
+            // Priority: 1. Nested relation (j.dosen.nama), 2. Lookup in usersList, 3. Fallback
+            let finalDosenName = 'Pengampu'
+            if (j.dosen && j.dosen.nama) {
+                finalDosenName = j.dosen.nama
+            } else if (dosen && dosen.nama) {
+                finalDosenName = dosen.nama
+            }
+
             return {
                 ...j,
                 tipeUjian,
                 matkulName: matkul?.nama || 'Mata Kuliah',
-                dosenName: dosen?.nama || j.dosen?.nama || 'Pengampu', // Better fallback
+                dosenName: finalDosenName,
                 kelasName: kelas?.nama || '-',
                 ruang: ruangan?.nama || '-', // Use room name from ruang_ujian table
                 // Calculate exam time

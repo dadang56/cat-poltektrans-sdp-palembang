@@ -237,10 +237,18 @@ function KoreksiUjianPage() {
             try {
                 if (isSupabaseConfigured()) {
                     // Load from Supabase
-                    const [hasilData, soalData] = await Promise.all([
-                        hasilUjianService.getAll(),
-                        soalService.getAll()
-                    ])
+                    let hasilData = []
+
+                    // If user is Dosen, use specialized fetch to respect RLS and Logic
+                    if (user.role === 'dosen') {
+                        console.log('[KoreksiUjian] Fetching for Dosen:', user.id)
+                        hasilData = await hasilUjianService.getByDosen(user.id)
+                    } else {
+                        // Admin can see all
+                        hasilData = await hasilUjianService.getAll()
+                    }
+
+                    const soalData = await soalService.getAll()
 
                     setSoalList(soalData)
 
