@@ -49,8 +49,8 @@ export const userService = {
         prodi:prodi_id(id, nama, kode),
         kelas:kelas_id(id, nama)
       `)
-            .eq('nim_nip', nimNip)
-            .single()
+            .ilike('nim_nip', nimNip)
+            .maybeSingle()
 
         if (error && error.code !== 'PGRST116') throw error
         return data

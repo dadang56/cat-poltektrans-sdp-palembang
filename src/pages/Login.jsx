@@ -65,6 +65,7 @@ function Login() {
         setIsLoading(true)
 
         const { username, password, tahunAkademik } = formData
+        const cleanUsername = username.trim()
 
         // Save tahunAkademik to settings (non-blocking)
         try {
@@ -78,7 +79,7 @@ function Login() {
         try {
             // Use authService via the login function from AuthContext
             // The login function now handles both Supabase Auth and demo mode
-            await login(username, password)
+            await login(cleanUsername, password)
             // On success, App.jsx will handle navigation via user state change
         } catch (err) {
             console.error('Login error:', err)
