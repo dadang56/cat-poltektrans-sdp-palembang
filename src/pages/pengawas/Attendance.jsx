@@ -382,6 +382,13 @@ function AttendancePage() {
                         </div>
                     </>
                 )}
+                <div style={{ marginTop: '20px', padding: '10px', background: '#f5f5f5', fontSize: '10px', color: '#666' }}>
+                    <p><strong>Debug Info (Untuk konfirmasi teknis):</strong></p>
+                    <p>Exam ID: {selectedExam?.id}</p>
+                    <p>Total Data Ujian Loaded: {examResults.length}</p>
+                    <p>Submissions for this Exam: {examResults.filter(r => String(r.examId) === String(selectedExam?.id)).length}</p>
+                    <p>Sample Student IDs: {examResults.slice(0, 2).map(r => r.mahasiswaId).join(', ')}</p>
+                </div>
             </div>
 
             {/* Print Template */}
