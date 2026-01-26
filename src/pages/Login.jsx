@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../App'
 import { useSettings } from '../contexts/SettingsContext'
 import { userService, isSupabaseConfigured } from '../services/supabaseService'
+import { supabase } from '../lib/supabase'
 import {
     User,
     Lock,
@@ -249,6 +250,28 @@ function Login() {
 
                         <div className="login-footer">
                             <p>© 2026 Politeknik Transportasi SDP Palembang (Ver 2.1 - Updated)</p>
+                            <button
+                                type="button"
+                                onClick={async () => {
+                                    if (!confirm('Cek koneksi database?')) return;
+                                    try {
+                                        // Check Access
+                                        alert('Memeriksa akses database...');
+                                        const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
+
+                                        if (error) {
+                                            alert(`❌ GAGAL AKSES: ${error.message}\n\nSOLUSI: Jalankan script "/supabase/fix_login_visibility.sql" di Supabase Editor.`);
+                                        } else {
+                                            alert(`✅ KONEKSI AMAN! Database terbuka. Total user terbaca: ${count}.\n\nJika user 'DILA' tetap gagal, pastikan datanya ada.`);
+                                        }
+                                    } catch (e) {
+                                        alert('Error: ' + e.message);
+                                    }
+                                }}
+                                style={{ marginTop: '10px', fontSize: '11px', color: '#666', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
+                            >
+                                Cek Koneksi Database (Troubleshoot)
+                            </button>
                         </div>
                     </div>
                 </div>
