@@ -248,7 +248,7 @@ function Login() {
 
 
                         <div className="login-footer">
-                            <p>© 2026 Politeknik Transportasi SDP Palembang</p>
+                            <p>© 2026 Politeknik Transportasi SDP Palembang (Ver 2.1 - Updated)</p>
                         </div>
                     </div>
                 </div>

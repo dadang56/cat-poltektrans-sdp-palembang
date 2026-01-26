@@ -442,11 +442,16 @@ export async function getCurrentUser() {
         const usersData = localStorage.getItem(USERS_KEY)
         const users = usersData ? JSON.parse(usersData) : []
 
-        // Find user by nim_nip (no more demo accounts)
-        const user = users.find(u => u.nim_nip === nimNip || u.nimNip === nimNip)
+        const normalizedNim = String(nimNip).trim().toLowerCase()
+
+        // Find user by nim_nip (no more demo accounts) - Case Insensitive
+        const user = users.find(u =>
+            (u.nim_nip && String(u.nim_nip).toLowerCase() === normalizedNim) ||
+            (u.nimNip && String(u.nimNip).toLowerCase() === normalizedNim)
+        )
 
         if (!user) {
-            return { data: null, error: new Error('NIM/NIP tidak ditemukan') }
+            return { data: null, error: new Error('NIM/NIP tidak ditemukan (Demo Mode)') }
         }
 
         if (user.status !== 'active') {
