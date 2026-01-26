@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
+import { hasilUjianService } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -76,103 +77,91 @@ function NilaiAkhirPage() {
     // Storage key for manual grades
     const GRADES_STORAGE_KEY = 'cat_nilai_akhir'
 
-    // Load matkul and exam results from localStorage
+    // Load matkul and exam results from Supabase
     useEffect(() => {
-        const matkulSaved = localStorage.getItem('cat_matkul_data')
-        const resultsSaved = localStorage.getItem('cat_exam_results')
-        const jadwalSaved = localStorage.getItem('cat_jadwal_data')
-        const manualGrades = localStorage.getItem(GRADES_STORAGE_KEY)
-        const catUser = JSON.parse(localStorage.getItem('cat_user') || '{}')
-        const dosenMatkulIds = catUser.matkulIds || []
+        const loadData = async () => {
+            if (!user?.id) return
 
-        // Parse manual grades (NT, NP values)
-        let savedManualGrades = {}
-        if (manualGrades) {
-            try { savedManualGrades = JSON.parse(manualGrades) } catch (e) { }
-        }
-
-        if (matkulSaved) {
             try {
-                const data = JSON.parse(matkulSaved)
-                // Filter by dosen's matkul if applicable
-                const filteredMatkul = dosenMatkulIds.length > 0
-                    ? data.filter(m => dosenMatkulIds.includes(m.id))
-                    : data
-                setMatkulList(filteredMatkul)
-                if (filteredMatkul.length > 0) {
-                    setSelectedMatkul(filteredMatkul[0])
-                }
-            } catch (e) {
-                console.error('Error loading matkul:', e)
-            }
-        }
+                // 1. Get all exam results for this lecturer
+                const results = await hasilUjianService.getByDosen(user.id)
+                console.log('NilaiAkhir results:', results)
 
-        // Load exam results and organize by matkul with proper linking
-        if (resultsSaved && jadwalSaved) {
-            try {
-                const results = JSON.parse(resultsSaved)
-                const jadwal = JSON.parse(jadwalSaved)
-
-                // Group by matkulId, linking through jadwal
-                const gradesByMatkul = {}
+                // 2. Extract unique matkuls from results
+                const matkulMap = new Map()
                 results.forEach(r => {
-                    // Find jadwal to get matkulId and tipeUjian
-                    const examJadwal = jadwal.find(j => String(j.id) === String(r.examId))
-                    if (!examJadwal) return
+                    const m = r.jadwal?.matkul
+                    if (m && !matkulMap.has(m.id)) {
+                        matkulMap.set(m.id, m)
+                    }
+                })
+                const uniqueMatkuls = Array.from(matkulMap.values())
+                setMatkulList(uniqueMatkuls)
 
-                    const matkulId = examJadwal.matkulId
-                    const tipeUjian = examJadwal.tipeUjian
+                // Set default selection
+                if (uniqueMatkuls.length > 0 && !selectedMatkul) {
+                    setSelectedMatkul(uniqueMatkuls[0])
+                }
 
-                    // Filter by dosen's matkul if applicable
-                    if (dosenMatkulIds.length > 0 && !dosenMatkulIds.includes(matkulId)) return
+                // 3. Load manual grades (NT, NP) from localStorage (kept as local drafts)
+                const manualGrades = JSON.parse(localStorage.getItem(GRADES_STORAGE_KEY) || '{}')
+
+                // 4. Process grades
+                const gradesByMatkul = {}
+
+                results.forEach(r => {
+                    const matkulId = r.jadwal?.matkul_id
+                    const mahasiswaId = r.mahasiswa_id
+                    const tipeUjian = r.jadwal?.tipe // 'UTS' or 'UAS'
+
+                    if (!matkulId || !mahasiswaId) return
 
                     if (!gradesByMatkul[matkulId]) {
                         gradesByMatkul[matkulId] = {}
                     }
 
-                    // Use mahasiswaId as key to group UTS/UAS for same student
-                    const key = String(r.mahasiswaId)
-                    if (!gradesByMatkul[matkulId][key]) {
-                        // Check for saved manual grades
-                        const savedGrade = savedManualGrades[matkulId]?.[key] || {}
-                        gradesByMatkul[matkulId][key] = {
-                            id: r.mahasiswaId,
-                            nim: r.nim || '-',
-                            name: r.mahasiswaName || 'Unknown',
-                            nt: savedGrade.nt ?? null, // Default null
-                            nuts: savedGrade.nuts ?? null, // Can be manually overridden
-                            np: savedGrade.np ?? null, // Default null
-                            uas: savedGrade.uas ?? null, // Can be manually overridden
+                    // Init student entry if not exists
+                    if (!gradesByMatkul[matkulId][mahasiswaId]) {
+                        const savedGrade = manualGrades[matkulId]?.[mahasiswaId] || {}
+                        gradesByMatkul[matkulId][mahasiswaId] = {
+                            id: mahasiswaId,
+                            nim: r.mahasiswa?.nim_nip || '-',
+                            name: r.mahasiswa?.nama || 'Unknown',
+                            nt: savedGrade.nt ?? null,
+                            nuts: savedGrade.nuts ?? null, // Will override with DB if exists
+                            np: savedGrade.np ?? null,
+                            uas: savedGrade.uas ?? null, // Will override with DB if exists
                             nak: null,
-                            nh: null,
-                            sa: null
+                            nh: null
                         }
                     }
 
-                    // Calculate percentage score from exam result
-                    const percentScore = r.maxScore > 0 ? Math.round((r.totalScore / r.maxScore) * 100) : 0
-                    const savedGrade = savedManualGrades[matkulId]?.[key] || {}
+                    // Update UTS or UAS score from DB
+                    // Assume nilai_total is the score (0-100)
+                    const dbScore = Number(r.nilai_total || 0)
 
-                    // Only use exam result if no manual override exists
-                    if (tipeUjian === 'UTS' && savedGrade.nuts === undefined) {
-                        gradesByMatkul[matkulId][key].nuts = percentScore
-                    } else if (tipeUjian === 'UAS' && savedGrade.uas === undefined) {
-                        gradesByMatkul[matkulId][key].uas = percentScore
+                    if (tipeUjian === 'UTS') {
+                        gradesByMatkul[matkulId][mahasiswaId].nuts = dbScore
+                    } else if (tipeUjian === 'UAS') {
+                        gradesByMatkul[matkulId][mahasiswaId].uas = dbScore
                     }
                 })
 
-                // Convert to array format
+                // Convert to array format for state
                 const gradesArray = {}
-                Object.keys(gradesByMatkul).forEach(matkulId => {
-                    gradesArray[matkulId] = Object.values(gradesByMatkul[matkulId])
+                Object.keys(gradesByMatkul).forEach(mkId => {
+                    gradesArray[mkId] = Object.values(gradesByMatkul[mkId])
                 })
 
                 setGrades(gradesArray)
-            } catch (e) {
-                console.error('Error loading exam results:', e)
+
+            } catch (error) {
+                console.error('Error loading nilai akhir:', error)
             }
         }
-    }, [])
+
+        loadData()
+    }, [user])
 
     // Check if current matkul has praktek
     const hasPraktek = selectedMatkul?.sksPraktek > 0

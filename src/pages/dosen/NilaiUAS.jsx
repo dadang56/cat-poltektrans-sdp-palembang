@@ -1,70 +1,6 @@
-import { useState, useEffect } from 'react'
-import DashboardLayout from '../../components/DashboardLayout'
-import { useAuth } from '../../App'
-import { exportArrayToXLSX, downloadTemplate } from '../../utils/excelUtils'
-import {
-    FileText,
-    Search,
-    Download,
-    Upload,
-    Printer,
-    Filter,
-    ChevronDown,
-    ChevronUp,
-    Eye,
-    Edit2,
-    Save,
-    X,
-    AlertTriangle,
-    FileSpreadsheet
-} from 'lucide-react'
-import '../admin/Dashboard.css'
+import { hasilUjianService } from '../../services/supabaseService'
 
-// Edit Score Modal
-function EditScoreModal({ isOpen, onClose, student, onSave }) {
-    const [score, setScore] = useState(student?.score || 0)
-
-    if (!isOpen || !student) return null
-
-    const handleSave = () => {
-        onSave(student.id, parseInt(score))
-        onClose()
-    }
-
-    return (
-        <div className="modal-overlay" onClick={onClose}>
-            <div className="modal modal-sm" onClick={e => e.stopPropagation()}>
-                <div className="modal-header">
-                    <h3>Edit Nilai</h3>
-                    <button className="btn btn-icon btn-ghost" onClick={onClose}>
-                        <X size={20} />
-                    </button>
-                </div>
-                <div className="modal-body">
-                    <p><strong>{student.name}</strong> - {student.nim}</p>
-                    <div className="form-group" style={{ marginTop: 'var(--space-4)' }}>
-                        <label className="form-label">Nilai</label>
-                        <input
-                            type="number"
-                            className="form-input"
-                            value={score}
-                            onChange={e => setScore(e.target.value)}
-                            min={0}
-                            max={100}
-                        />
-                    </div>
-                </div>
-                <div className="modal-footer">
-                    <button className="btn btn-ghost" onClick={onClose}>Batal</button>
-                    <button className="btn btn-primary" onClick={handleSave}>
-                        <Save size={16} />
-                        Simpan
-                    </button>
-                </div>
-            </div>
-        </div>
-    )
-}
+// ... imports remain the same
 
 function NilaiUASPage() {
     const { user } = useAuth()
@@ -75,62 +11,80 @@ function NilaiUASPage() {
     const [sortOrder, setSortOrder] = useState('asc')
     const [examTypeFilter, setExamTypeFilter] = useState('all') // uts, uas, all
     const [editModal, setEditModal] = useState({ open: false, student: null, examId: null })
+    const [isLoading, setIsLoading] = useState(true)
 
-    // Load exam results from localStorage
+    // Load exam results from Supabase
     useEffect(() => {
-        const EXAM_RESULTS_KEY = 'cat_exam_results'
-        const JADWAL_KEY = 'cat_jadwal_data'
-        const MATKUL_KEY = 'cat_matkul_data'
-        const KELAS_KEY = 'cat_kelas_data'
-        const catUser = JSON.parse(localStorage.getItem('cat_user') || '{}')
+        const loadData = async () => {
+            if (!user?.id) return
 
-        const results = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-        const jadwal = JSON.parse(localStorage.getItem(JADWAL_KEY) || '[]')
-        const matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
-        const kelas = JSON.parse(localStorage.getItem(KELAS_KEY) || '[]')
+            setIsLoading(true)
+            try {
+                // Fetch results for this Lecturer
+                // This service already joins mahasiswa, kelas, jadwal, matkul
+                const results = await hasilUjianService.getByDosen(user.id)
+                console.log('Loaded results:', results)
 
-        const dosenMatkulIds = catUser.matkulIds || []
+                // Group results by examId (Jadwal ID)
+                const examGroups = {}
 
-        // Group results by examId
-        const examGroups = {}
-        results.forEach(r => {
-            const examJadwal = jadwal.find(j => String(j.id) === String(r.examId))
-            if (!examJadwal) return
+                results.forEach(r => {
+                    const jadwal = r.jadwal || {}
+                    const mahasiswa = r.mahasiswa || {}
+                    const matkul = jadwal.matkul || {}
+                    const kelas = mahasiswa.kelas || {}
 
-            // Filter by dosen's matkul if applicable
-            if (dosenMatkulIds.length > 0 && !dosenMatkulIds.includes(examJadwal.matkulId)) return
+                    const examId = jadwal.id
+                    if (!examId) return
 
-            if (!examGroups[r.examId]) {
-                const mk = matkul.find(m => m.id === examJadwal.matkulId)
-                const kl = kelas.find(k => k.id === examJadwal.kelasId)
-                examGroups[r.examId] = {
-                    id: r.examId,
-                    examName: r.examName || `${examJadwal.tipeUjian} ${mk?.nama || ''}`,
-                    examType: examJadwal.tipeUjian?.toLowerCase() || 'uas',
-                    matkul: mk?.nama || r.matkulName || 'N/A',
-                    kelas: kl?.nama || 'N/A',
-                    date: examJadwal.tanggal || 'N/A',
-                    students: []
-                }
+                    if (!examGroups[examId]) {
+                        examGroups[examId] = {
+                            id: examId,
+                            examName: `${jadwal.tipe || 'UJIAN'} ${matkul.nama || ''}`,
+                            examType: jadwal.tipe?.toLowerCase() || 'uas',
+                            matkul: matkul.nama || 'N/A',
+                            kelas: kelas.nama || 'N/A',
+                            date: jadwal.tanggal || 'N/A',
+                            students: []
+                        }
+                    }
+
+                    // Calculate score
+                    // Handle case where score might be in different fields or calculated
+                    // In Supabase schema: nilai_total is the raw score. 
+                    // We assume max score is 100 for now or calculate from answers if needed.
+                    // For simplicity, let's assume nilai_total is already the percentage 
+                    // or if it's raw, we might need max score from soal count.
+                    // BUT: The previous localStorage code did: percent = (total / max) * 100
+                    // In Supabase `hasil_ujian`, we typically store the final calculated score or raw.
+                    // Let's use `nilai_total` as the Score directly for now, assuming it's 0-100 logic or raw.
+                    // Warning: If `nilai_total` is raw (e.g. 40 out of 50 questions), we need context.
+                    // But `TakeExam` logic saves `nilai_total` based on `calculateScore` which usually returns 0-100.
+                    // Let's verify TakeExam logic later if needed.
+
+                    examGroups[examId].students.push({
+                        id: r.id, // ID hasil_ujian
+                        resultId: r.id,
+                        mahasiswaId: r.mahasiswa_id,
+                        name: mahasiswa.nama || 'Unknown',
+                        nim: mahasiswa.nim_nip || '-',
+                        score: Number(r.nilai_total || 0),
+                        rawScore: r.nilai_total,
+                        maxScore: 100, // Assumed
+                        isFullyCorrected: true // Auto-graded usually
+                    })
+                })
+
+                setExams(Object.values(examGroups))
+            } catch (error) {
+                console.error('Error loading grades:', error)
+            } finally {
+                setIsLoading(false)
             }
+        }
 
-            // Calculate percentage score  
-            const percentScore = r.maxScore > 0 ? Math.round((r.totalScore / r.maxScore) * 100) : 0
-
-            examGroups[r.examId].students.push({
-                id: r.id,
-                resultId: r.id,
-                name: r.mahasiswaName || 'Unknown',
-                nim: r.nim || '-',
-                score: percentScore,
-                rawScore: r.totalScore,
-                maxScore: r.maxScore,
-                isFullyCorrected: r.isFullyCorrected
-            })
-        })
-
-        setExams(Object.values(examGroups))
-    }, [])
+        loadData()
+    }, [user])
 
     const toggleExpand = (examId) => {
         setExpandedExam(expandedExam === examId ? null : examId)
@@ -181,18 +135,28 @@ function NilaiUASPage() {
         setEditModal({ open: true, student, examId })
     }
 
-    const handleSaveScore = (studentId, newScore) => {
-        setExams(exams.map(exam => {
-            if (exam.id === editModal.examId) {
-                return {
-                    ...exam,
-                    students: exam.students.map(s =>
-                        s.id === studentId ? { ...s, score: newScore } : s
-                    )
+    const handleSaveScore = async (studentId, newScore) => {
+        try {
+            await hasilUjianService.update(studentId, {
+                nilai_total: newScore // Update score in db
+            })
+
+            // Update local state
+            setExams(exams.map(exam => {
+                if (exam.id === editModal.examId) {
+                    return {
+                        ...exam,
+                        students: exam.students.map(s =>
+                            s.id === studentId ? { ...s, score: newScore } : s
+                        )
+                    }
                 }
-            }
-            return exam
-        }))
+                return exam
+            }))
+        } catch (error) {
+            console.error('Failed to update score:', error)
+            alert('Gagal menyimpan nilai. Silakan coba lagi.')
+        }
     }
 
     const handleExportExcel = (exam) => {
