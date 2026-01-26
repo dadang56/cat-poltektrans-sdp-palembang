@@ -319,10 +319,63 @@ function DosenDashboard() {
                             </div>
                         </div>
                     </div>
+                    </div>
+
+                    {/* Student Checker */}
+                    <div className="card">
+                        <div className="card-header">
+                            <div className="flex items-center gap-3">
+                                <Users size={20} className="text-secondary" />
+                                <h3 className="font-semibold">Cek Status Mahasiswa</h3>
+                            </div>
+                        </div>
+                        <div className="card-body">
+                            <div className="flex gap-2">
+                                <input 
+                                    type="text" 
+                                    id="checkNim"
+                                    placeholder="Masukkan NIM/Username (ex: DILA)" 
+                                    className="form-input"
+                                    style={{ flex: 1 }}
+                                />
+                                <button
+                                    className="btn btn-primary btn-sm"
+                                    onClick={async () => {
+                                        const nim = document.getElementById('checkNim').value;
+                                        if(!nim) return alert('Masukkan NIM!');
+                                        
+                                        try {
+                                            const { data, error } = await import('../../lib/supabase').then(m => m.supabase)
+                                                .from('users')
+                                                .select('*')
+                                                .ilike('nim_nip', nim.trim())
+                                                .maybeSingle(); 
+                                            
+                                            if(error) {
+                                               alert('ERROR DB: ' + error.message);
+                                            } else if(!data) {
+                                               alert(`❌ User '${nim}' TIDAK DITEMUKAN di Database.\nPastikan siswa sudah mendaftar/didaftarkan.`);
+                                            } else {
+                                               alert(`✅ DITEMUKAN!\nNama: ${data.nama}\nNIM: ${data.nim_nip}\nStatus: ${data.status}\nRole: ${data.role}\n\nLogin harusnya AMAN (Case Insensitive).`);
+                                            }
+                                        } catch(e) {
+                                            alert('Error: ' + e.message);
+                                        }
+                                    }}
+                                >
+                                    Cek
+                                </button>
+                            </div>
+                             <p style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
+                                Gunakan ini untuk memastikan akun siswa sudah terdaftar di database.
+                            </p>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <style>{`
+
                 .deadline-list {
                     display: flex;
                     flex-direction: column;
@@ -418,7 +471,7 @@ function DosenDashboard() {
                     color: var(--text-muted);
                 }
             `}</style>
-        </DashboardLayout>
+        </DashboardLayout >
     )
 }
 
