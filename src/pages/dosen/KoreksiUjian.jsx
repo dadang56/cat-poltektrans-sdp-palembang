@@ -388,8 +388,8 @@ function KoreksiUjianPage() {
             // 1. Update in Supabase
             if (isSupabaseConfigured()) {
                 await hasilUjianService.update(updatedStudent.resultId, {
-                    nilai_total: updatedStudent.totalScore,
-                    answers_detail: JSON.stringify(updatedStudent.answers),
+                    nilai_total: Number(updatedStudent.totalScore),
+                    answers_detail: updatedStudent.answers, // Send object directly (Supabase handles JSON)
                     status: 'graded'
                 })
                 console.log('Saved correction to Supabase')
