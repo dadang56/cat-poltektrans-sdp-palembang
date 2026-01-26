@@ -96,7 +96,7 @@ function AttendancePage() {
                 const active = jadwalData.filter(j => j.tanggal === today).map(j => {
                     const matkulId = getField(j, 'matkul_id', 'matkulId')
                     const mk = matkulData.find(m => m.id === matkulId)
-                    const tipeUjian = getField(j, 'tipe_ujian', 'tipeUjian')
+                    const tipeUjian = getField(j, 'tipe_ujian', 'tipeUjian') || 'Ujian'
                     const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
                     const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
                     const kelasId = getField(j, 'kelas_id', 'kelasId')
@@ -120,7 +120,7 @@ function AttendancePage() {
 
     // Get mahasiswa for selected exam's kelas
     const mahasiswaForExam = selectedExam
-        ? usersList.filter(u => u.role === 'mahasiswa' && (getField(u, 'kelas_id', 'kelasId') === selectedExam.kelasId))
+        ? usersList.filter(u => u.role === 'mahasiswa' && (String(getField(u, 'kelas_id', 'kelasId')) === String(selectedExam.kelasId)))
         : []
 
     // Filter by search
@@ -131,19 +131,19 @@ function AttendancePage() {
 
     // Initialize attendance when exam selected - pre-fill from exam results
     const handleExamSelect = (examId) => {
-        const exam = activeExams.find(e => e.id === Number(examId) || String(e.id) === examId)
+        const exam = activeExams.find(e => String(e.id) === String(examId))
         setSelectedExam(exam || null)
         if (exam) {
-            const students = usersList.filter(u => u.role === 'mahasiswa' && (getField(u, 'kelas_id', 'kelasId') === exam.kelasId))
+            const students = usersList.filter(u => u.role === 'mahasiswa' && (String(getField(u, 'kelas_id', 'kelasId')) === String(exam.kelasId)))
             // Get students who submitted this exam
             const submittedIds = examResults
                 .filter(r => String(r.examId) === String(exam.id))
-                .map(r => r.mahasiswaId)
+                .map(r => String(r.mahasiswaId))
 
             const initialData = {}
             students.forEach(s => {
                 // Mark as hadir if they submitted the exam
-                const hasSubmitted = submittedIds.includes(s.id)
+                const hasSubmitted = submittedIds.includes(String(s.id))
                 initialData[s.id] = {
                     status: hasSubmitted ? 'hadir' : 'tidak_hadir',
                     reason: hasSubmitted ? '' : 'alpha'
