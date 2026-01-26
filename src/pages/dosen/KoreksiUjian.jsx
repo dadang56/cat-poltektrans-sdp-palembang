@@ -383,35 +383,51 @@ function KoreksiUjianPage() {
         setCorrectionModal({ open: true, student })
     }
 
-    const handleSaveCorrection = (updatedStudent) => {
-        // Update student in state
-        const updatedStudents = selectedExam.students.map(s =>
-            s.id === updatedStudent.id ? updatedStudent : s
-        )
-        setSelectedExam({ ...selectedExam, students: updatedStudents })
-
-        // Update in examResults
-        setExamResults(prev => prev.map(exam =>
-            exam.id === selectedExam.id
-                ? { ...exam, students: updatedStudents, corrected: updatedStudents.filter(s => s.totalScore !== null).length }
-                : exam
-        ))
-
-        // Save back to localStorage
-        const EXAM_RESULTS_KEY = 'cat_exam_results'
-        const existingResults = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-        const updatedResults = existingResults.map(r => {
-            if (r.id === updatedStudent.resultId) {
-                return {
-                    ...r,
-                    answers: updatedStudent.answers,
-                    totalScore: updatedStudent.totalScore,
-                    isFullyCorrected: true
-                }
+    const handleSaveCorrection = async (updatedStudent) => {
+        try {
+            // 1. Update in Supabase
+            if (isSupabaseConfigured()) {
+                await hasilUjianService.update(updatedStudent.resultId, {
+                    nilai_total: updatedStudent.totalScore,
+                    answers_detail: JSON.stringify(updatedStudent.answers),
+                    status: 'graded'
+                })
+                console.log('Saved correction to Supabase')
             }
-            return r
-        })
-        localStorage.setItem(EXAM_RESULTS_KEY, JSON.stringify(updatedResults))
+
+            // 2. Update student in state
+            const updatedStudents = selectedExam.students.map(s =>
+                s.id === updatedStudent.id ? updatedStudent : s
+            )
+            setSelectedExam({ ...selectedExam, students: updatedStudents })
+
+            // 3. Update in examResults
+            setExamResults(prev => prev.map(exam =>
+                exam.id === selectedExam.id
+                    ? { ...exam, students: updatedStudents, corrected: updatedStudents.filter(s => s.totalScore !== null).length }
+                    : exam
+            ))
+
+            // 4. Save back to localStorage (Backup/Sync)
+            const EXAM_RESULTS_KEY = 'cat_exam_results'
+            const existingResults = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
+            const updatedResults = existingResults.map(r => {
+                if (r.id === updatedStudent.resultId) {
+                    return {
+                        ...r,
+                        answers: updatedStudent.answers,
+                        totalScore: updatedStudent.totalScore,
+                        isFullyCorrected: true
+                    }
+                }
+                return r
+            })
+            localStorage.setItem(EXAM_RESULTS_KEY, JSON.stringify(updatedResults))
+
+        } catch (error) {
+            console.error('Failed to save correction:', error)
+            alert('Gagal menyimpan nilai ke database. Periksa koneksi internet Anda.')
+        }
     }
 
     const getDaysRemaining = (deadline) => {
