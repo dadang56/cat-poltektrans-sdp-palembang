@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
-import { jadwalService, matkulService, prodiService, userService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, prodiService, userService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardCheck,
     Users,
@@ -53,32 +53,42 @@ function AttendancePage() {
                 let matkulData = []
 
                 if (isSupabaseConfigured()) {
-                    const [jadwal, matkul, prodi, users] = await Promise.all([
+                    const [jadwal, matkul, prodi, users, hasil] = await Promise.all([
                         jadwalService.getAll(),
                         matkulService.getAll(),
                         prodiService.getAll(),
-                        userService.getAll()
+                        userService.getAll(),
+                        hasilUjianService.getAll()
                     ])
                     jadwalData = jadwal
                     matkulData = matkul
                     setMatkulList(matkul)
                     setProdiList(prodi)
                     setUsersList(users)
+
+                    // Map Supabase results to expected format
+                    const mappedResults = hasil.map(h => ({
+                        examId: h.jadwal_id,
+                        mahasiswaId: h.mahasiswa_id,
+                        submitted: true
+                    }))
+                    setExamResults(mappedResults)
                 } else {
                     const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
                     const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
                     const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
                     const users = localStorage.getItem(USERS_STORAGE_KEY)
+
                     jadwalData = jadwal ? JSON.parse(jadwal) : []
                     matkulData = matkul ? JSON.parse(matkul) : []
                     setMatkulList(matkulData)
                     if (prodi) setProdiList(JSON.parse(prodi))
                     if (users) setUsersList(JSON.parse(users))
-                }
 
-                // Exam results always from localStorage for now
-                const results = localStorage.getItem(EXAM_RESULTS_KEY)
-                if (results) setExamResults(JSON.parse(results))
+                    // Fallback to localStorage results
+                    const results = localStorage.getItem(EXAM_RESULTS_KEY)
+                    if (results) setExamResults(JSON.parse(results))
+                }
 
                 // Get active exams (today)
                 const now = new Date()
