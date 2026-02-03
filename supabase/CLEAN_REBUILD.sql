@@ -60,13 +60,20 @@ CREATE TABLE users (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     auth_id UUID UNIQUE,
     nim_nip VARCHAR(50) UNIQUE NOT NULL,
+    username VARCHAR(100),
+    nip VARCHAR(50), -- For dosen NIP
     nama VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     password VARCHAR(255), -- For legacy login
     role VARCHAR(20) NOT NULL CHECK (role IN ('superadmin', 'admin', 'admin_prodi', 'dosen', 'mahasiswa', 'pengawas')),
     prodi_id UUID REFERENCES prodi(id) ON DELETE SET NULL,
     kelas_id UUID REFERENCES kelas(id) ON DELETE SET NULL,
+    -- Dosen specific fields (arrays stored as JSON strings)
+    prodi_ids TEXT, -- JSON array of prodi IDs for dosen
+    kelas_ids TEXT, -- JSON array of kelas IDs for dosen
+    matkul_ids TEXT, -- JSON array of matkul IDs for dosen
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),
+    photo TEXT, -- Profile photo URL or base64
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
