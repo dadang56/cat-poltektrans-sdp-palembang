@@ -747,12 +747,19 @@ function BuatSoalPage() {
             } : data
 
             // Map tipe_soal to Supabase schema values
+            // Allowed: 'pilihan_ganda', 'pilihan_ganda_kompleks', 'benar_salah', 'menjodohkan', 'uraian'
             const mapTipeSoal = (type) => {
                 const mapping = {
                     'pilihan_ganda': 'pilihan_ganda',
-                    'essay': 'essay',
+                    'multiple_choice': 'pilihan_ganda',
+                    'pilihan_ganda_kompleks': 'pilihan_ganda_kompleks',
+                    'essay': 'uraian',
+                    'uraian': 'uraian',
                     'benar_salah': 'benar_salah',
-                    'mencocokan': 'pilihan_ganda'
+                    'true_false': 'benar_salah',
+                    'mencocokan': 'menjodohkan',
+                    'menjodohkan': 'menjodohkan',
+                    'matching': 'menjodohkan'
                 }
                 return mapping[type] || 'pilihan_ganda'
             }
@@ -839,12 +846,19 @@ function BuatSoalPage() {
             const targetExamType = selectedPackage?.examType || 'UTS'
 
             // Map tipe_soal to Supabase schema values
+            // Allowed: 'pilihan_ganda', 'pilihan_ganda_kompleks', 'benar_salah', 'menjodohkan', 'uraian'
             const mapTipeSoal = (type) => {
                 const mapping = {
                     'pilihan_ganda': 'pilihan_ganda',
-                    'essay': 'essay',
+                    'multiple_choice': 'pilihan_ganda',
+                    'pilihan_ganda_kompleks': 'pilihan_ganda_kompleks',
+                    'essay': 'uraian',
+                    'uraian': 'uraian',
                     'benar_salah': 'benar_salah',
-                    'mencocokan': 'pilihan_ganda'
+                    'true_false': 'benar_salah',
+                    'mencocokan': 'menjodohkan',
+                    'menjodohkan': 'menjodohkan',
+                    'matching': 'menjodohkan'
                 }
                 return mapping[type] || 'pilihan_ganda'
             }
