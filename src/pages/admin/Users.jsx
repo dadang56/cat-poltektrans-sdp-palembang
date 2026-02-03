@@ -700,7 +700,7 @@ function UsersPage() {
                         ...userData,
                         id: editingUser.id,
                         nim: supabaseData.nim_nip,
-                        username: supabaseData.nim_nip
+                        username: supabaseData.username || userData.username
                     } : u))
                 } else {
                     // Create new user - include password in data object
@@ -712,7 +712,7 @@ function UsersPage() {
                     const newUser = {
                         id: created.id,
                         name: created.nama,
-                        username: created.nim_nip,
+                        username: created.username || userData.username,
                         nim: created.nim_nip,
                         email: created.email,
                         role: created.role,
