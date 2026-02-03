@@ -27,6 +27,10 @@ ADD COLUMN IF NOT EXISTS nilai_tugas DECIMAL(5,2);
 ALTER TABLE hasil_ujian 
 ADD COLUMN IF NOT EXISTS nilai_praktek DECIMAL(5,2);
 
+-- Add gambar column to soal table (untuk menyimpan gambar soal sebagai base64 atau URL)
+ALTER TABLE soal 
+ADD COLUMN IF NOT EXISTS gambar TEXT;
+
 -- Add kicked status to hasil_ujian if not exists
 DO $$
 BEGIN

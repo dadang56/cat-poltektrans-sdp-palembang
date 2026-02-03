@@ -1,6 +1,22 @@
+import { useState, useEffect } from 'react'
+import DashboardLayout from '../../components/DashboardLayout'
+import { useAuth } from '../../App'
+import { exportArrayToXLSX } from '../../utils/excelUtils'
 import { hasilUjianService } from '../../services/supabaseService'
-
-// ... imports remain the same
+import {
+    Award,
+    Search,
+    Download,
+    ChevronDown,
+    ChevronUp,
+    Edit2,
+    Check,
+    X,
+    Printer,
+    Filter,
+    RefreshCw
+} from 'lucide-react'
+import '../admin/Dashboard.css'
 
 function NilaiUASPage() {
     const { user } = useAuth()

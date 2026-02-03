@@ -307,14 +307,28 @@ function MonitorUjian() {
     setIsRefreshing(false)
   }
 
-  const handleKickStudent = (studentId) => {
+  const handleKickStudent = async (studentId) => {
     showConfirm({
       title: 'Konfirmasi Keluarkan Peserta',
       message: 'Apakah Anda yakin ingin mengeluarkan peserta ini dari ujian?',
-      onConfirm: () => {
+      onConfirm: async () => {
+        // Update local state first for immediate UI feedback
         setParticipants(prev => prev.map(p =>
           p.id === studentId ? { ...p, status: 'kicked' } : p
         ))
+
+        // Persist to Supabase
+        try {
+          await hasilUjianService.update(studentId, { status: 'kicked' })
+          console.log('[MonitorUjian] Student kicked and saved to DB:', studentId)
+        } catch (error) {
+          console.error('[MonitorUjian] Error saving kick status:', error)
+          // Revert local state on error
+          setParticipants(prev => prev.map(p =>
+            p.id === studentId ? { ...p, status: 'active' } : p
+          ))
+        }
+
         setAlerts(prev => [{
           id: Date.now(),
           studentId,

@@ -276,6 +276,33 @@ function TakeExamPage() {
         return () => clearInterval(timer)
     }, [submitted, timeLeft, loading])
 
+    // Check for kicked status (pengawas can kick students during exam)
+    useEffect(() => {
+        if (submitted || !isSupabaseConfigured() || !user?.id || !id) return
+
+        const checkKickedStatus = async () => {
+            try {
+                const results = await hasilUjianService.getByMahasiswa(user.id)
+                const currentResult = results.find(r => String(r.jadwal_id) === String(id))
+
+                if (currentResult?.status === 'kicked') {
+                    alert('Anda telah dikeluarkan dari ujian oleh pengawas.')
+                    navigate('/mahasiswa/dashboard')
+                }
+            } catch (error) {
+                console.error('[TakeExam] Error checking kicked status:', error)
+            }
+        }
+
+        // Check immediately
+        checkKickedStatus()
+
+        // Then check every 10 seconds
+        const kickCheckInterval = setInterval(checkKickedStatus, 10000)
+
+        return () => clearInterval(kickCheckInterval)
+    }, [submitted, user, id, navigate])
+
     // Format time
     const formatTime = (seconds) => {
         const hrs = Math.floor(seconds / 3600)

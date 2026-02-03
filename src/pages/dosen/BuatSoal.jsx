@@ -767,7 +767,8 @@ function BuatSoalPage() {
                 pilihan: questionData.options || [],
                 jawaban_benar: questionData.correctAnswer,
                 dosen_id: user?.id,
-                kelas_ids: questionData.kelasIds || []
+                kelas_ids: questionData.kelasIds || [],
+                gambar: questionData.image || null  // Save question image
             }
 
             if (editingQuestion) {
