@@ -649,6 +649,7 @@ function BuatSoalPage() {
                         correctAnswer: s.jawaban_benar,
                         dosenId: s.dosen_id,
                         kelasIds: s.kelas_ids || [],
+                        image: s.gambar || null, // Load question image
                         matkul: s.matkul // Include joined matkul data
                     }))
                     setQuestions(mappedSoal)
