@@ -3,21 +3,32 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
 import {
+    jadwalService,
+    hasilUjianService,
+    userService,
+    beritaAcaraService,
+    isSupabaseConfigured
+} from '../../services/supabaseService'
+import {
     FileText,
     Printer,
     Clock,
     Users,
     AlertCircle,
     CheckCircle,
-    Calendar
+    Calendar,
+    Save
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// localStorage keys
+// localStorage keys (fallback)
 const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
 const MATKUL_STORAGE_KEY = 'cat_matkul_data'
 const USERS_STORAGE_KEY = 'cat_users_data'
 const EXAM_RESULTS_KEY = 'cat_exam_results'
+
+// Helper for field compatibility
+const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] ?? obj?.[camelCase]
 
 function BeritaAcaraPage() {
     const { settings } = useSettings()
@@ -30,40 +41,97 @@ function BeritaAcaraPage() {
         incidents: '',
         notes: ''
     })
+    const [saving, setSaving] = useState(false)
+    const [loading, setLoading] = useState(true)
     const printRef = useRef(null)
 
-    // Load data from localStorage
+    // Load data from Supabase or localStorage
     useEffect(() => {
-        const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-        const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-        const users = localStorage.getItem(USERS_STORAGE_KEY)
-        const results = localStorage.getItem(EXAM_RESULTS_KEY)
+        const loadData = async () => {
+            try {
+                if (isSupabaseConfigured()) {
+                    // Load from Supabase
+                    const [jadwalData, usersData, hasilData] = await Promise.all([
+                        jadwalService.getAll(),
+                        userService.getAll(),
+                        hasilUjianService.getAll()
+                    ])
 
-        if (users) setUsersList(JSON.parse(users))
-        if (results) setExamResults(JSON.parse(results))
+                    setUsersList(usersData)
 
-        if (jadwal) {
-            const jadwalList = JSON.parse(jadwal)
-            const now = new Date()
-            const today = now.toISOString().split('T')[0]
+                    // Map hasil to expected format
+                    const mappedResults = hasilData.map(h => ({
+                        examId: h.jadwal_id,
+                        mahasiswaId: h.mahasiswa_id,
+                        submitted: true
+                    }))
+                    setExamResults(mappedResults)
 
-            // Get today's exams
-            const active = jadwalList.filter(j => j.tanggal === today).map(j => {
-                const mk = matkul ? JSON.parse(matkul).find(m => m.id === j.matkulId) : null
-                return {
-                    ...j,
-                    examName: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                    matkulName: mk?.nama || 'Mata Kuliah'
+                    const now = new Date()
+                    const today = now.toISOString().split('T')[0]
+
+                    // Get today's exams with proper field mapping
+                    const active = jadwalData.filter(j => j.tanggal === today).map(j => {
+                        const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
+                        const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
+                        const kelasId = getField(j, 'kelas_id', 'kelasId')
+                        const ruanganId = getField(j, 'ruangan_id', 'ruanganId')
+                        const matkulName = j.matkul?.nama || 'Mata Kuliah'
+                        const tipe = j.tipe || getField(j, 'tipe_ujian', 'tipeUjian') || 'Ujian'
+
+                        return {
+                            ...j,
+                            kelasId,
+                            ruanganId,
+                            waktuMulai,
+                            waktuSelesai,
+                            ruang: j.ruangan?.nama || '-',
+                            examName: `${tipe} ${matkulName}`,
+                            matkulName
+                        }
+                    })
+
+                    setActiveExams(active)
+                } else {
+                    // Fallback to localStorage
+                    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
+                    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
+                    const users = localStorage.getItem(USERS_STORAGE_KEY)
+                    const results = localStorage.getItem(EXAM_RESULTS_KEY)
+
+                    if (users) setUsersList(JSON.parse(users))
+                    if (results) setExamResults(JSON.parse(results))
+
+                    if (jadwal) {
+                        const jadwalList = JSON.parse(jadwal)
+                        const now = new Date()
+                        const today = now.toISOString().split('T')[0]
+
+                        const active = jadwalList.filter(j => j.tanggal === today).map(j => {
+                            const mk = matkul ? JSON.parse(matkul).find(m => m.id === j.matkulId) : null
+                            return {
+                                ...j,
+                                examName: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
+                                matkulName: mk?.nama || 'Mata Kuliah'
+                            }
+                        })
+
+                        setActiveExams(active)
+                    }
                 }
-            })
-
-            setActiveExams(active)
+            } catch (error) {
+                console.error('[BeritaAcara] Error loading data:', error)
+            }
+            setLoading(false)
         }
+
+        loadData()
     }, [])
 
     // Get mahasiswa count for selected exam's kelas
     const mahasiswaCount = selectedExam
-        ? usersList.filter(u => u.role === 'mahasiswa' && u.kelasId === selectedExam.kelasId).length
+        ? usersList.filter(u => u.role === 'mahasiswa' &&
+            String(getField(u, 'kelas_id', 'kelasId')) === String(selectedExam.kelasId)).length
         : 0
 
     // Calculate actual attendance from exam results
@@ -72,12 +140,34 @@ function BeritaAcaraPage() {
         : 0
 
     const handleExamSelect = (examId) => {
-        const exam = activeExams.find(e => e.id === Number(examId))
+        // Handle both UUID strings and numeric IDs
+        const exam = activeExams.find(e => String(e.id) === String(examId))
         setSelectedExam(exam || null)
     }
 
     const handleInputChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }))
+    }
+
+    // Save berita acara to Supabase
+    const handleSaveBeritaAcara = async () => {
+        if (!selectedExam || !isSupabaseConfigured()) return
+
+        setSaving(true)
+        try {
+            await beritaAcaraService.upsert({
+                jadwal_id: selectedExam.id,
+                pengawas_id: user?.id,
+                jumlah_hadir: hadirCount,
+                jumlah_tidak_hadir: mahasiswaCount - hadirCount,
+                catatan: `${formData.incidents}\n\n${formData.notes}`.trim()
+            })
+            alert('Berita acara berhasil disimpan!')
+        } catch (error) {
+            console.error('[BeritaAcara] Save error:', error)
+            alert('Gagal menyimpan berita acara. Silakan coba lagi.')
+        }
+        setSaving(false)
     }
 
     const handlePrint = () => {
@@ -108,10 +198,20 @@ function BeritaAcaraPage() {
                     </div>
                     <div className="page-actions">
                         {selectedExam && (
-                            <button className="btn btn-primary" onClick={handlePrint}>
-                                <Printer size={18} />
-                                Print Berita Acara
-                            </button>
+                            <>
+                                <button
+                                    className="btn btn-success"
+                                    onClick={handleSaveBeritaAcara}
+                                    disabled={saving}
+                                >
+                                    <Save size={18} />
+                                    {saving ? 'Menyimpan...' : 'Simpan'}
+                                </button>
+                                <button className="btn btn-primary" onClick={handlePrint}>
+                                    <Printer size={18} />
+                                    Print Berita Acara
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>

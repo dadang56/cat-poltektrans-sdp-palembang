@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
-import { hasilUjianService } from '../../services/supabaseService'
+import { hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -73,6 +73,7 @@ function NilaiAkhirPage() {
     const [search, setSearch] = useState('')
     const [editingStudent, setEditingStudent] = useState(null)
     const [editValues, setEditValues] = useState({})
+    const [saving, setSaving] = useState(false)
 
     // Storage key for manual grades
     const GRADES_STORAGE_KEY = 'cat_nilai_akhir'
@@ -125,15 +126,19 @@ function NilaiAkhirPage() {
                         const savedGrade = manualGrades[matkulId]?.[mahasiswaId] || {}
                         gradesByMatkul[matkulId][mahasiswaId] = {
                             id: mahasiswaId,
+                            resultId: r.id, // Store hasil_ujian ID for updates
                             nim: r.mahasiswa?.nim_nip || '-',
                             name: r.mahasiswa?.nama || 'Unknown',
-                            nt: savedGrade.nt ?? null,
+                            nt: r.nilai_tugas ?? savedGrade.nt ?? null, // Use DB value first
                             nuts: savedGrade.nuts ?? null, // Will override with DB if exists
-                            np: savedGrade.np ?? null,
+                            np: r.nilai_praktek ?? savedGrade.np ?? null, // Use DB value first
                             uas: savedGrade.uas ?? null, // Will override with DB if exists
                             nak: null,
                             nh: null
                         }
+                    } else {
+                        // Update resultId if we have newer data
+                        gradesByMatkul[matkulId][mahasiswaId].resultId = r.id
                     }
 
                     // Update UTS or UAS score from DB
@@ -189,11 +194,27 @@ function NilaiAkhirPage() {
         })
     }
 
-    const handleSaveEdit = (student) => {
+    const handleSaveEdit = async (student) => {
         const nt = editValues.nt === '' ? null : Number(editValues.nt)
         const nuts = editValues.nuts === '' ? null : Number(editValues.nuts)
         const np = editValues.np === '' ? null : Number(editValues.np)
         const uas = editValues.uas === '' ? null : Number(editValues.uas)
+
+        setSaving(true)
+
+        // Save to Supabase if available
+        if (isSupabaseConfigured() && student.resultId) {
+            try {
+                await hasilUjianService.update(student.resultId, {
+                    nilai_tugas: nt,
+                    nilai_praktek: np
+                })
+                console.log('[NilaiAkhir] Saved to Supabase:', student.resultId)
+            } catch (error) {
+                console.error('[NilaiAkhir] Save to Supabase failed:', error)
+                alert('Gagal menyimpan ke database. Nilai disimpan lokal saja.')
+            }
+        }
 
         // Update in state
         const updatedGrades = { ...grades }
@@ -202,8 +223,9 @@ function NilaiAkhirPage() {
         )
         setGrades(updatedGrades)
         setEditingStudent(null)
+        setSaving(false)
 
-        // Save to localStorage
+        // Save to localStorage as backup
         const savedGrades = JSON.parse(localStorage.getItem(GRADES_STORAGE_KEY) || '{}')
         if (!savedGrades[selectedMatkul.id]) savedGrades[selectedMatkul.id] = {}
         savedGrades[selectedMatkul.id][String(student.id)] = { nt, nuts, np, uas }

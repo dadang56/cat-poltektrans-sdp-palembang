@@ -319,7 +319,6 @@ function DosenDashboard() {
                             </div>
                         </div>
                     </div>
-                    </div>
 
                     {/* Student Checker */}
                     <div className="card">
@@ -331,10 +330,10 @@ function DosenDashboard() {
                         </div>
                         <div className="card-body">
                             <div className="flex gap-2">
-                                <input 
-                                    type="text" 
+                                <input
+                                    type="text"
                                     id="checkNim"
-                                    placeholder="Masukkan NIM/Username (ex: DILA)" 
+                                    placeholder="Masukkan NIM/Username (ex: DILA)"
                                     className="form-input"
                                     style={{ flex: 1 }}
                                 />
@@ -342,23 +341,23 @@ function DosenDashboard() {
                                     className="btn btn-primary btn-sm"
                                     onClick={async () => {
                                         const nim = document.getElementById('checkNim').value;
-                                        if(!nim) return alert('Masukkan NIM!');
-                                        
+                                        if (!nim) return alert('Masukkan NIM!');
+
                                         try {
                                             const { data, error } = await import('../../lib/supabase').then(m => m.supabase)
                                                 .from('users')
                                                 .select('*')
                                                 .ilike('nim_nip', nim.trim())
-                                                .maybeSingle(); 
-                                            
-                                            if(error) {
-                                               alert('ERROR DB: ' + error.message);
-                                            } else if(!data) {
-                                               alert(`❌ User '${nim}' TIDAK DITEMUKAN di Database.\nPastikan siswa sudah mendaftar/didaftarkan.`);
+                                                .maybeSingle();
+
+                                            if (error) {
+                                                alert('ERROR DB: ' + error.message);
+                                            } else if (!data) {
+                                                alert(`❌ User '${nim}' TIDAK DITEMUKAN di Database.\nPastikan siswa sudah mendaftar/didaftarkan.`);
                                             } else {
-                                               alert(`✅ DITEMUKAN!\nNama: ${data.nama}\nNIM: ${data.nim_nip}\nStatus: ${data.status}\nRole: ${data.role}\n\nLogin harusnya AMAN (Case Insensitive).`);
+                                                alert(`✅ DITEMUKAN!\nNama: ${data.nama}\nNIM: ${data.nim_nip}\nStatus: ${data.status}\nRole: ${data.role}\n\nLogin harusnya AMAN (Case Insensitive).`);
                                             }
-                                        } catch(e) {
+                                        } catch (e) {
                                             alert('Error: ' + e.message);
                                         }
                                     }}
@@ -366,7 +365,7 @@ function DosenDashboard() {
                                     Cek
                                 </button>
                             </div>
-                             <p style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
+                            <p style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
                                 Gunakan ini untuk memastikan akun siswa sudah terdaftar di database.
                             </p>
                         </div>
