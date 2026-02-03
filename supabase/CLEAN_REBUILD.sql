@@ -83,8 +83,10 @@ CREATE TABLE mata_kuliah (
     id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
     kode VARCHAR(20) UNIQUE NOT NULL,
     nama VARCHAR(255) NOT NULL,
-    sks INTEGER DEFAULT 3,
-    sks_praktek INTEGER DEFAULT 0,
+    semester INTEGER DEFAULT 1, -- Semester 1-8
+    sks_teori INTEGER DEFAULT 2, -- SKS Teori
+    sks_praktek INTEGER DEFAULT 0, -- SKS Praktek
+    sks INTEGER DEFAULT 2, -- Total SKS (computed)
     prodi_id UUID REFERENCES prodi(id) ON DELETE CASCADE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -247,11 +249,11 @@ SELECT '2024002', 'Siti Nurhaliza', 'siti@student.poltektrans.ac.id', 'mahasiswa
 FROM prodi p, kelas k WHERE p.kode = 'TI' AND k.nama = 'TI-1A';
 
 -- Insert sample mata kuliah
-INSERT INTO mata_kuliah (kode, nama, sks, prodi_id)
-SELECT 'TI101', 'Pemrograman Dasar', 3, id FROM prodi WHERE kode = 'TI';
+INSERT INTO mata_kuliah (kode, nama, semester, sks_teori, sks_praktek, sks, prodi_id)
+SELECT 'TI101', 'Pemrograman Dasar', 1, 2, 1, 3, id FROM prodi WHERE kode = 'TI';
 
-INSERT INTO mata_kuliah (kode, nama, sks, prodi_id)
-SELECT 'TI102', 'Basis Data', 3, id FROM prodi WHERE kode = 'TI';
+INSERT INTO mata_kuliah (kode, nama, semester, sks_teori, sks_praktek, sks, prodi_id)
+SELECT 'TI102', 'Basis Data', 2, 2, 1, 3, id FROM prodi WHERE kode = 'TI';
 
 -- Insert sample ruang ujian
 INSERT INTO ruang_ujian (nama, kapasitas, lokasi) VALUES
