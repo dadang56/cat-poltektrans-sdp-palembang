@@ -50,15 +50,18 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
     const currentTotal = answers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
     const maxTotal = answers.reduce((sum, a) => sum + (a.maxPoints || 0), 0)
 
+    // Helper to check if type is essay (stored as 'uraian' in DB)
+    const isEssayType = (type) => type === 'essay' || type === 'uraian'
+
     // Get essay questions that need grading
     const essayAnswers = answers
         .map((a, idx) => ({ ...a, originalIndex: idx }))
-        .filter(a => a.type === 'essay')
+        .filter(a => isEssayType(a.type))
 
     // Get all auto-graded answers
     const autoGradedAnswers = answers
         .map((a, idx) => ({ ...a, originalIndex: idx }))
-        .filter(a => a.type !== 'essay')
+        .filter(a => !isEssayType(a.type))
 
     return (
         <div className="modal-overlay" onClick={onClose}>
@@ -298,7 +301,7 @@ function KoreksiUjianPage() {
                             answers: answers,
                             totalScore: hasil.nilai_total,
                             maxScore: answers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
-                            hasEssay: answers.some(a => a.type === 'essay'),
+                            hasEssay: answers.some(a => a.type === 'essay' || a.type === 'uraian'),
                             isFullyCorrected
                         })
 
@@ -574,7 +577,7 @@ function KoreksiUjianPage() {
                                         </thead>
                                         <tbody>
                                             {selectedExam.students.map((student, index) => {
-                                                const hasEssayPending = student.answers.some(a => a.type === 'essay' && a.earnedPoints === null)
+                                                const hasEssayPending = student.answers.some(a => (a.type === 'essay' || a.type === 'uraian') && a.earnedPoints === null)
                                                 return (
                                                     <tr key={student.id}>
                                                         <td>{index + 1}</td>
