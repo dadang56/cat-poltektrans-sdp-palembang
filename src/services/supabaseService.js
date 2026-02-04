@@ -614,7 +614,7 @@ export const hasilUjianService = {
                     tanggal,
                     tipe,
                     matkul_id,
-                    matkul:matkul_id(id, nama, kode),
+                    matkul:matkul_id(id, nama, kode, sks_praktek, sks_teori),
                     dosen:dosen_id(id, nama)
                 )
             `)

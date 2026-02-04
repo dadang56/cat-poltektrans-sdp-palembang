@@ -169,7 +169,7 @@ function NilaiAkhirPage() {
     }, [user])
 
     // Check if current matkul has praktek
-    const hasPraktek = selectedMatkul?.sksPraktek > 0
+    const hasPraktek = (selectedMatkul?.sks_praktek > 0) || (selectedMatkul?.sksPraktek > 0)
 
     const currentGrades = selectedMatkul ? (grades[selectedMatkul.id] || []) : []
 
