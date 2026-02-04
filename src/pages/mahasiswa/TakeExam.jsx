@@ -144,7 +144,8 @@ function TakeExamPage() {
                         text: s.pertanyaan || s.text,
                         points: s.bobot || s.points || 10,
                         options: (s.pilihan || s.options || []).map(o => typeof o === 'string' ? o : o.text),
-                        correctAnswer: s.jawaban_benar || s.correctAnswer
+                        correctAnswer: s.jawaban_benar || s.correctAnswer,
+                        image: s.gambar || null // Include question image
                     }))
 
                     console.log('TakeExam: Processed', examSoal.length, 'questions')
