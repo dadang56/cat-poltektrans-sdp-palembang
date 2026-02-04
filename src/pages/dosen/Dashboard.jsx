@@ -50,10 +50,15 @@ function DosenDashboard() {
 
                 if (isSupabaseConfigured()) {
                     // Load from Supabase
-                    const [allMatkul, allSoal] = await Promise.all([
+                    const [allMatkul, allSoal, allJadwal] = await Promise.all([
                         matkulService.getAll(),
-                        soalService.getAll({ dosen_id: catUser.id })
+                        soalService.getAll({ dosen_id: catUser.id }),
+                        jadwalService.getAll()
                     ])
+
+                    // Import hasilUjianService dynamically
+                    const { hasilUjianService } = await import('../../services/supabaseService')
+                    const allHasil = await hasilUjianService.getByDosen(catUser.id)
 
                     // Filter mata kuliah by dosen's matkulIds
                     const filteredMatkul = dosenMatkulIds.length > 0
@@ -69,6 +74,48 @@ function DosenDashboard() {
                         (String(s.dosen_id) === String(catUser.id))
                     )
                     setQuestionCount(dosenSoal.length)
+
+                    // Group results by jadwal_id (examId) from Supabase hasil ujian
+                    const examGroups = {}
+                    allHasil.forEach(r => {
+                        const jadwal = r.jadwal || {}
+                        const matkul = jadwal.matkul || {}
+                        const jadwalMatkulId = String(matkul.id || jadwal.matkul_id)
+
+                        // Filter by dosen's matkul
+                        if (dosenMatkulIds.length > 0 && !dosenMatkulIds.includes(jadwalMatkulId)) return
+
+                        const examId = jadwal.id
+                        if (!examId) return
+
+                        if (!examGroups[examId]) {
+                            // Calculate deadline: 7 days after exam date
+                            const examDate = new Date(jadwal.tanggal)
+                            const deadline = jadwal.deadline_koreksi || new Date(examDate.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+
+                            examGroups[examId] = {
+                                id: examId,
+                                name: `${jadwal.tipe || 'UAS'} ${matkul.nama || 'Unknown'}`,
+                                matkul: matkul.nama || 'Unknown',
+                                deadline: deadline,
+                                totalStudents: 0,
+                                corrected: 0
+                            }
+                        }
+                        examGroups[examId].totalStudents++
+                        if (r.status === 'graded') examGroups[examId].corrected++
+                    })
+
+                    // Calculate stats
+                    const examsWithResults = Object.values(examGroups)
+                    const needsCorrection = examsWithResults.filter(e => e.corrected < e.totalStudents)
+                    const fullyGraded = examsWithResults.filter(e => e.corrected === e.totalStudents && e.totalStudents > 0)
+
+                    setPerluKoreksi(needsCorrection.length)
+                    setUjianSelesai(fullyGraded.length)
+                    setExamDeadlines(needsCorrection.slice(0, 5))
+
+                    console.log('[DosenDashboard] Deadlines from Supabase:', needsCorrection.length)
                 } else {
                     // Fallback to localStorage
                     const savedMatkul = localStorage.getItem('cat_matkul_data')
@@ -90,50 +137,6 @@ function DosenDashboard() {
                         )
                         setQuestionCount(dosenSoal.length)
                     }
-                }
-
-                // Load exam results and calculate deadlines (from localStorage for now)
-                const savedResults = localStorage.getItem('cat_exam_results')
-                const savedJadwal = localStorage.getItem('cat_jadwal_data')
-                const savedMatkul = localStorage.getItem('cat_matkul_data')
-
-                if (savedResults && savedJadwal && savedMatkul) {
-                    const results = JSON.parse(savedResults)
-                    const jadwal = JSON.parse(savedJadwal)
-                    const matkul = JSON.parse(savedMatkul)
-
-                    // Group results by examId
-                    const examGroups = {}
-                    results.forEach(r => {
-                        const examJadwal = jadwal.find(j => j.id === r.examId)
-                        if (!examJadwal) return
-
-                        // Filter by dosen's matkul
-                        if (dosenMatkulIds.length > 0 && !dosenMatkulIds.includes(String(examJadwal.matkulId))) return
-
-                        if (!examGroups[r.examId]) {
-                            const mk = matkul.find(m => m.id === examJadwal.matkulId)
-                            examGroups[r.examId] = {
-                                id: r.examId,
-                                name: r.examName,
-                                matkul: mk?.nama || r.matkulName,
-                                deadline: examJadwal.deadlineKoreksi || new Date(new Date(examJadwal.tanggal).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
-                                totalStudents: 0,
-                                corrected: 0
-                            }
-                        }
-                        examGroups[r.examId].totalStudents++
-                        if (r.isFullyCorrected) examGroups[r.examId].corrected++
-                    })
-
-                    // Calculate stats
-                    const examsWithResults = Object.values(examGroups)
-                    const needsCorrection = examsWithResults.filter(e => e.corrected < e.totalStudents)
-                    const fullyGraded = examsWithResults.filter(e => e.corrected === e.totalStudents && e.totalStudents > 0)
-
-                    setPerluKoreksi(needsCorrection.length)
-                    setUjianSelesai(fullyGraded.length)
-                    setExamDeadlines(needsCorrection.slice(0, 5))
                 }
             } catch (err) {
                 console.error('[DosenDashboard] Error loading data:', err)
