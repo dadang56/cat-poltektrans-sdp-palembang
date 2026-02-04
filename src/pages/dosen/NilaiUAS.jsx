@@ -14,7 +14,8 @@ import {
     X,
     Printer,
     Filter,
-    RefreshCw
+    RefreshCw,
+    FileText
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
