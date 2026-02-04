@@ -19,6 +19,61 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
+// Modal for editing student scores
+function EditScoreModal({ isOpen, onClose, student, onSave }) {
+    const [score, setScore] = useState(student?.score || 0)
+
+    useEffect(() => {
+        if (student) {
+            setScore(student.score || 0)
+        }
+    }, [student])
+
+    if (!isOpen || !student) return null
+
+    const handleSave = () => {
+        onSave(student.id || student.mahasiswaId, Number(score))
+        onClose()
+    }
+
+    return (
+        <div className="modal-overlay" onClick={onClose}>
+            <div className="modal" onClick={e => e.stopPropagation()}>
+                <div className="modal-header">
+                    <h3>Edit Nilai</h3>
+                    <button className="btn btn-icon btn-ghost" onClick={onClose}>
+                        <X size={20} />
+                    </button>
+                </div>
+                <div className="modal-body">
+                    <div className="form-group">
+                        <label>Mahasiswa</label>
+                        <p><strong>{student.name}</strong> ({student.nim})</p>
+                    </div>
+                    <div className="form-group">
+                        <label>Nilai (0-100)</label>
+                        <input
+                            type="number"
+                            className="form-input"
+                            value={score}
+                            onChange={e => setScore(e.target.value)}
+                            min={0}
+                            max={100}
+                        />
+                    </div>
+                </div>
+                <div className="modal-footer">
+                    <button className="btn btn-outline" onClick={onClose}>Batal</button>
+                    <button className="btn btn-primary" onClick={handleSave}>
+                        <Check size={16} />
+                        Simpan
+                    </button>
+                </div>
+            </div>
+        </div>
+    )
+}
+
 function NilaiUASPage() {
     const { user } = useAuth()
     const [exams, setExams] = useState([])
