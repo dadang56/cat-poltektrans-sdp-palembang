@@ -549,19 +549,52 @@ export const hasilUjianService = {
 
     // Get results for a specific Dosen's classes
     async getByDosen(dosenId) {
-        // 1. First get schedule IDs (jadwal) for this dosen
-        const { data: jadwalData, error: jadwalError } = await supabase
+        // Method 1: Get jadwal where dosen_id is set directly
+        const { data: jadwalDirect, error: jadwalError1 } = await supabase
             .from('jadwal_ujian')
             .select('id')
             .eq('dosen_id', dosenId)
 
-        if (jadwalError) throw jadwalError
+        if (jadwalError1) console.error('Error fetching jadwal by dosen_id:', jadwalError1)
 
-        if (!jadwalData || jadwalData.length === 0) return []
+        // Method 2: Get jadwal via matkul_id from soal created by this dosen
+        const { data: soalData, error: soalError } = await supabase
+            .from('soal')
+            .select('matkul_id')
+            .eq('dosen_id', dosenId)
 
-        const jadwalIds = jadwalData.map(j => j.id)
+        if (soalError) console.error('Error fetching soal by dosen_id:', soalError)
 
-        // 2. Fetch results only for those schedules
+        let jadwalFromSoal = []
+        if (soalData && soalData.length > 0) {
+            const matkulIds = [...new Set(soalData.map(s => s.matkul_id).filter(Boolean))]
+            if (matkulIds.length > 0) {
+                const { data: jadwalData2, error: jadwalError2 } = await supabase
+                    .from('jadwal_ujian')
+                    .select('id')
+                    .in('matkul_id', matkulIds)
+
+                if (!jadwalError2 && jadwalData2) {
+                    jadwalFromSoal = jadwalData2
+                }
+            }
+        }
+
+        // Combine jadwal IDs from both methods
+        const allJadwalIds = [
+            ...(jadwalDirect || []).map(j => j.id),
+            ...jadwalFromSoal.map(j => j.id)
+        ]
+        const uniqueJadwalIds = [...new Set(allJadwalIds)]
+
+        if (uniqueJadwalIds.length === 0) {
+            console.log('[getByDosen] No jadwal found for dosen:', dosenId)
+            return []
+        }
+
+        console.log('[getByDosen] Found', uniqueJadwalIds.length, 'jadwal for dosen')
+
+        // Fetch results for those schedules
         const { data, error } = await supabase
             .from('hasil_ujian')
             .select(`
@@ -580,15 +613,17 @@ export const hasilUjianService = {
                     id,
                     tanggal,
                     tipe,
+                    matkul_id,
                     matkul:matkul_id(id, nama, kode),
                     dosen:dosen_id(id, nama)
                 )
             `)
-            .in('jadwal_id', jadwalIds)
+            .in('jadwal_id', uniqueJadwalIds)
             .order('created_at', { ascending: false })
 
         if (error) throw error
-        return data
+        console.log('[getByDosen] Returning', data?.length || 0, 'results')
+        return data || []
     },
 
     async upsert(hasilData) {
