@@ -755,10 +755,11 @@ function TakeExamPage() {
                             <div className="question-meta">
                                 <span className="question-number">Soal {currentQuestion + 1} dari {totalQuestions}</span>
                                 <span className={`badge badge-${question.type === 'pilihan_ganda' ? 'primary' :
-                                    question.type === 'essay' ? 'accent' : 'success'
+                                    (question.type === 'essay' || question.type === 'uraian') ? 'accent' : 'success'
                                     }`}>
                                     {question.type === 'pilihan_ganda' ? 'Pilihan Ganda' :
-                                        question.type === 'essay' ? 'Essay' : 'Benar/Salah'}
+                                        (question.type === 'essay' || question.type === 'uraian') ? 'Essay' :
+                                            question.type === 'benar_salah' ? 'Benar/Salah' : 'Menjodohkan'}
                                 </span>
                                 <span className="question-points">{question.points} poin</span>
                             </div>
@@ -827,7 +828,7 @@ function TakeExamPage() {
                                 </div>
                             )}
 
-                            {question.type === 'essay' && (
+                            {(question.type === 'essay' || question.type === 'uraian') && (
                                 <div className="essay-area">
                                     <textarea
                                         className="essay-input"

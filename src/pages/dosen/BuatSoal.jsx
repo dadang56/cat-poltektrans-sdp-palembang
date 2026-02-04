@@ -638,10 +638,21 @@ function BuatSoalPage() {
                 if (dosenId) {
                     const allSoal = await soalService.getAll({ dosen_id: dosenId })
                     // Map Supabase fields to local format
+                    // Reverse mapping: database values -> UI values
+                    const reverseTipeSoal = (dbType) => {
+                        const mapping = {
+                            'uraian': 'essay',
+                            'menjodohkan': 'mencocokan',
+                            'pilihan_ganda': 'pilihan_ganda',
+                            'pilihan_ganda_kompleks': 'pilihan_ganda_kompleks',
+                            'benar_salah': 'benar_salah'
+                        }
+                        return mapping[dbType] || dbType
+                    }
                     const mappedSoal = allSoal.map(s => ({
                         id: s.id,
                         text: s.pertanyaan,
-                        type: s.tipe_soal,
+                        type: reverseTipeSoal(s.tipe_soal),
                         matkulId: s.matkul_id,
                         examType: s.tipe_ujian?.toUpperCase() || 'UTS',
                         points: s.bobot || 10,
