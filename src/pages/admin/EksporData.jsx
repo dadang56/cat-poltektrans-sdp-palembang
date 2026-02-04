@@ -95,23 +95,56 @@ function EksporDataPage() {
             let prodi = []
 
             if (isSupabaseConfigured()) {
-                // Load from Supabase
-                const [jadwalRes] = await Promise.all([
-                    jadwalService.getAll()
+                // Load from Supabase with full joins
+                const [jadwalRes, hasilRes] = await Promise.all([
+                    jadwalService.getAll(),
+                    hasilUjianService.getAll()
                 ])
-                jadwal = jadwalRes || []
-                // Note: hasil and kehadiran would be loaded from their services
-                // For now, fallback to localStorage
-            }
 
-            // Fallback to localStorage
-            jadwal = JSON.parse(localStorage.getItem(JADWAL_STORAGE_KEY) || '[]')
-            hasil = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-            kehadiran = JSON.parse(localStorage.getItem(KEHADIRAN_KEY) || '[]')
-            matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
-            kelas = JSON.parse(localStorage.getItem(KELAS_KEY) || '[]')
-            users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-            prodi = JSON.parse(localStorage.getItem(PRODI_KEY) || '[]')
+                jadwal = jadwalRes || []
+                hasil = hasilRes || []
+
+                // Extract related data from jadwal joins
+                matkul = [...new Map(jadwal.map(j => [j.matkul?.id, j.matkul]).filter(([id, m]) => id && m)).values()]
+                kelas = [...new Map(jadwal.map(j => [j.kelas?.id, j.kelas]).filter(([id, k]) => id && k)).values()]
+                prodi = [...new Map(matkul.map(m => [m?.prodi_id, m?.prodi]).filter(([id, p]) => id && p)).values()]
+
+                // Extract users/mahasiswa from hasil
+                users = [...new Map(hasil.map(h => [h.mahasiswa?.id, h.mahasiswa]).filter(([id, u]) => id && u)).values()]
+
+                // Transform jadwal to expected format
+                jadwal = jadwal.map(j => ({
+                    ...j,
+                    matkulId: j.matkul_id,
+                    kelasId: j.kelas_id,
+                    waktuMulai: j.waktu_mulai,
+                    waktuSelesai: j.waktu_selesai,
+                    tipeUjian: j.tipe,
+                    tahunAkademik: j.tahun_akademik || tahunAkademik
+                }))
+
+                // Transform hasil to expected format
+                hasil = hasil.map(h => ({
+                    ...h,
+                    examId: h.jadwal_id,
+                    mahasiswaId: h.mahasiswa_id,
+                    mahasiswaName: h.mahasiswa?.nama,
+                    nim: h.mahasiswa?.nim_nip,
+                    totalScore: h.nilai_total || 0,
+                    maxScore: 100
+                }))
+
+                console.log('[EksporData] Loaded from Supabase:', { jadwal: jadwal.length, hasil: hasil.length })
+            } else {
+                // Fallback to localStorage only if Supabase not configured
+                jadwal = JSON.parse(localStorage.getItem(JADWAL_STORAGE_KEY) || '[]')
+                hasil = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
+                kehadiran = JSON.parse(localStorage.getItem(KEHADIRAN_KEY) || '[]')
+                matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
+                kelas = JSON.parse(localStorage.getItem(KELAS_KEY) || '[]')
+                users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
+                prodi = JSON.parse(localStorage.getItem(PRODI_KEY) || '[]')
+            }
 
             setMatkulList(matkul)
             setKelasList(kelas)
@@ -124,8 +157,8 @@ function EksporDataPage() {
                 const matchesTahun = !jTahun || jTahun === tahunAkademik
                 const matchesTipe = tipeUjian === 'all' || (j.tipe || j.tipeUjian) === tipeUjian
                 // Filter by prodi for admin_prodi
-                const jProdiId = j.prodi_id || j.prodiId
-                const matchesProdi = user?.role === 'superadmin' || !jProdiId || jProdiId === user?.prodiId
+                const jProdiId = j.matkul?.prodi_id || j.prodi_id || j.prodiId
+                const matchesProdi = user?.role === 'superadmin' || !jProdiId || jProdiId === user?.prodi_id
 
                 return matchesTahun && matchesTipe && matchesProdi
             })

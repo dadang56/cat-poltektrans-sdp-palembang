@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { exportToXLSX } from '../../utils/excelUtils'
+import { hasilUjianService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Download,
@@ -11,81 +12,95 @@ import {
     Eye,
     ChevronDown,
     ChevronUp,
-    FileSpreadsheet
+    FileSpreadsheet,
+    RefreshCw
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
 function RekapNilaiPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
-    const [prodiFilter, setProdiFilter] = useState(user?.prodiId || 'all')
+    const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [examTypeFilter, setExamTypeFilter] = useState('all')
+    const [tahunAkademik, setTahunAkademik] = useState('2024/2025')
     const [expandedRow, setExpandedRow] = useState(null)
     const [viewMode, setViewMode] = useState('matkul') // 'matkul', 'kelas', 'mahasiswa'
     const printRef = useRef()
     const [nilaiData, setNilaiData] = useState([])
     const [prodiList, setProdiList] = useState([])
+    const [loading, setLoading] = useState(true)
 
-    // Get Ka. Prodi info from localStorage (set in Admin Prodi Settings)
-    const kaprodiInfo = JSON.parse(localStorage.getItem(`kaprodiInfo_${user?.prodiId || 'default'}`) || '{"nama":"","nip":""}')
+    // Get Ka. Prodi info from localStorage (kept for signature)
+    const kaprodiInfo = JSON.parse(localStorage.getItem(`kaprodiInfo_${user?.prodi_id || 'default'}`) || '{"nama":"","nip":""}')
 
-    // Load data from localStorage
+    // Load data from Supabase
     useEffect(() => {
-        const EXAM_RESULTS_KEY = 'cat_exam_results'
-        const JADWAL_KEY = 'cat_jadwal_data'
-        const MATKUL_KEY = 'cat_matkul_data'
-        const KELAS_KEY = 'cat_kelas_data'
-        const PRODI_KEY = 'cat_prodi_data'
-        const USERS_KEY = 'cat_users_data'
-
-        const results = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-        const jadwal = JSON.parse(localStorage.getItem(JADWAL_KEY) || '[]')
-        const matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
-        const kelas = JSON.parse(localStorage.getItem(KELAS_KEY) || '[]')
-        const prodi = JSON.parse(localStorage.getItem(PRODI_KEY) || '[]')
-        const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-
-        setProdiList(prodi)
-
-        // Group results by examId
-        const examGroups = {}
-        results.forEach(r => {
-            const examJadwal = jadwal.find(j => String(j.id) === String(r.examId))
-            if (!examJadwal) return
-
-            const matkulItem = matkul.find(m => m.id === examJadwal.matkulId)
-            const kelasItem = kelas.find(k => k.id === examJadwal.kelasId)
-            const dosenItem = users.find(u => u.id === examJadwal.dosenId)
-
-            const examKey = `${r.examId}`
-            if (!examGroups[examKey]) {
-                examGroups[examKey] = {
-                    id: r.examId,
-                    matkul: matkulItem?.nama || 'N/A',
-                    matkulKode: matkulItem?.kode || '',
-                    kelas: kelasItem?.nama || 'N/A',
-                    dosen: dosenItem?.nama || dosenItem?.name || 'Dosen',
-                    examType: examJadwal.tipeUjian || 'UAS',
-                    prodiId: matkulItem?.prodiId,
-                    date: examJadwal.tanggal,
-                    students: []
-                }
+        const loadData = async () => {
+            if (!isSupabaseConfigured()) {
+                console.log('Supabase not configured')
+                setLoading(false)
+                return
             }
 
-            // Calculate percentage score
-            const percentScore = r.maxScore > 0 ? Math.round((r.totalScore / r.maxScore) * 100) : 0
+            setLoading(true)
+            try {
+                // Get prodi list for filters
+                const prodiData = await prodiService.getAll()
+                setProdiList(prodiData || [])
 
-            examGroups[examKey].students.push({
-                nim: r.nim || '-',
-                name: r.mahasiswaName || 'Unknown',
-                nilai: percentScore,
-                status: percentScore >= 70 ? 'lulus' : 'mengulang',
-                isFullyCorrected: r.isFullyCorrected
-            })
-        })
+                // Get all hasil ujian with related data
+                const results = await hasilUjianService.getAll()
+                console.log('[RekapNilai] Loaded results:', results?.length)
 
-        setNilaiData(Object.values(examGroups))
-    }, [])
+                // Group results by jadwal (exam)
+                const examGroups = {}
+                results?.forEach(r => {
+                    const jadwal = r.jadwal || {}
+                    const matkul = jadwal.matkul || {}
+                    const kelas = jadwal.kelas || {}
+                    const dosen = jadwal.dosen || {}
+                    const mahasiswa = r.mahasiswa || {}
+
+                    const examKey = jadwal.id
+                    if (!examKey) return
+
+                    if (!examGroups[examKey]) {
+                        examGroups[examKey] = {
+                            id: jadwal.id,
+                            matkul: matkul.nama || 'N/A',
+                            matkulKode: matkul.kode || '',
+                            kelas: kelas.nama || mahasiswa.kelas?.nama || 'N/A',
+                            dosen: dosen.nama || 'Dosen',
+                            examType: jadwal.tipe || 'UAS',
+                            prodiId: matkul.prodi_id,
+                            date: jadwal.tanggal,
+                            tahunAkademik: jadwal.tahun_akademik || '2024/2025',
+                            students: []
+                        }
+                    }
+
+                    // Calculate percentage score
+                    const percentScore = r.nilai_total || 0
+
+                    examGroups[examKey].students.push({
+                        nim: mahasiswa.nim_nip || '-',
+                        name: mahasiswa.nama || 'Unknown',
+                        nilai: Math.round(percentScore),
+                        status: percentScore >= 70 ? 'lulus' : 'mengulang',
+                        isFullyCorrected: r.status === 'graded'
+                    })
+                })
+
+                setNilaiData(Object.values(examGroups))
+            } catch (error) {
+                console.error('[RekapNilai] Error loading data:', error)
+            } finally {
+                setLoading(false)
+            }
+        }
+
+        loadData()
+    }, [user])
 
     // Filter based on admin prodi or show all for superadmin
     const filteredData = nilaiData.filter(item => {

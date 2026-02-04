@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { exportToXLSX } from '../../utils/excelUtils'
+import { hasilUjianService, jadwalService, prodiService, userService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardCheck,
     Search,
@@ -13,7 +14,8 @@ import {
     Users,
     CheckCircle,
     FileSpreadsheet,
-    User
+    User,
+    RefreshCw
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -22,86 +24,110 @@ function RekapKehadiranPage() {
     const { settings } = useSettings()
     const [viewMode, setViewMode] = useState('per-ujian') // per-ujian | per-mahasiswa
     const [search, setSearch] = useState('')
-    const [prodiFilter, setProdiFilter] = useState(user?.prodiId || 'all')
+    const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [dateFilter, setDateFilter] = useState('')
+    const [tahunAkademik, setTahunAkademik] = useState('2024/2025')
     const [kehadiranData, setKehadiranData] = useState([])
     const [kehadiranPerMahasiswa, setKehadiranPerMahasiswa] = useState([])
     const [prodiList, setProdiList] = useState([])
+    const [loading, setLoading] = useState(true)
 
-    // Load data from localStorage
+    // Load data from Supabase
     useEffect(() => {
-        const EXAM_RESULTS_KEY = 'cat_exam_results'
-        const JADWAL_KEY = 'cat_jadwal_data'
-        const MATKUL_KEY = 'cat_matkul_data'
-        const USERS_KEY = 'cat_users_data'
-        const PRODI_KEY = 'cat_prodi_data'
-        const KELAS_KEY = 'cat_kelas_data'
-
-        const results = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-        const jadwal = JSON.parse(localStorage.getItem(JADWAL_KEY) || '[]')
-        const matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
-        const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-        const prodi = JSON.parse(localStorage.getItem(PRODI_KEY) || '[]')
-        const kelas = JSON.parse(localStorage.getItem(KELAS_KEY) || '[]')
-
-        setProdiList(prodi)
-
-        // Group by exam - per ujian view
-        const examGroups = {}
-        jadwal.forEach(j => {
-            const mk = matkul.find(m => m.id === j.matkulId)
-            const kelasItem = kelas.find(k => k.id === j.kelasId)
-            const studentsInKelas = users.filter(u => u.role === 'mahasiswa' && u.kelasId === j.kelasId)
-            const submittedStudents = results.filter(r => String(r.examId) === String(j.id))
-
-            examGroups[j.id] = {
-                id: j.id,
-                examName: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                room: j.ruang || '-',
-                date: j.tanggal,
-                time: `${j.waktuMulai} - ${j.waktuSelesai}`,
-                pengawas: j.pengawas || 'Pengawas',
-                prodiId: mk?.prodiId,
-                summary: {
-                    total: studentsInKelas.length,
-                    hadir: submittedStudents.length,
-                    sakit: 0,
-                    izin: 0,
-                    alpha: studentsInKelas.length - submittedStudents.length
-                }
+        const loadData = async () => {
+            if (!isSupabaseConfigured()) {
+                console.log('Supabase not configured, using empty data')
+                setLoading(false)
+                return
             }
-        })
-        setKehadiranData(Object.values(examGroups))
 
-        // Per mahasiswa view
-        const mahasiswaAttendance = {}
-        users.filter(u => u.role === 'mahasiswa').forEach(m => {
-            const kelasItem = kelas.find(k => k.id === m.kelasId)
-            const mk = matkul.find(mat => mat.prodiId === m.prodiId)
-            const examsForKelas = jadwal.filter(j => j.kelasId === m.kelasId)
-            const attendedExams = results.filter(r => String(r.mahasiswaId) === String(m.id))
+            setLoading(true)
+            try {
+                // Get prodi list for filters
+                const prodiData = await prodiService.getAll()
+                setProdiList(prodiData || [])
 
-            // Get ruangan from attended exams
-            const lastAttendedExam = examsForKelas.find(j =>
-                attendedExams.some(r => String(r.examId) === String(j.id))
-            )
+                // Get all jadwal with related data
+                const jadwalData = await jadwalService.getAll()
+                console.log('[RekapKehadiran] Jadwal loaded:', jadwalData?.length)
 
-            mahasiswaAttendance[m.id] = {
-                id: m.id,
-                nim: m.nim,
-                nama: m.nama,
-                kelas: kelasItem?.nama || '-',
-                ruangan: lastAttendedExam?.ruang || examsForKelas[0]?.ruang || '-',
-                prodiId: m.prodiId,
-                total: examsForKelas.length,
-                hadir: attendedExams.length,
-                sakit: 0,
-                izin: 0,
-                alpha: examsForKelas.length - attendedExams.length
+                // Get all hasil ujian (exam results = attendance)
+                const hasilData = await hasilUjianService.getAll()
+                console.log('[RekapKehadiran] Hasil ujian loaded:', hasilData?.length)
+
+                // Get all mahasiswa
+                const mahasiswaData = await userService.getAll({ role: 'mahasiswa' })
+                console.log('[RekapKehadiran] Mahasiswa loaded:', mahasiswaData?.length)
+
+                // Group by exam - per ujian view
+                const examGroups = {}
+                jadwalData?.forEach(j => {
+                    const matkul = j.matkul || {}
+                    const ruangan = j.ruang_ujian || {}
+                    const pengawas = j.pengawas || {}
+                    const kelas = j.kelas || {}
+
+                    // Get students in this kelas
+                    const studentsInKelas = mahasiswaData?.filter(m => m.kelas_id === j.kelas_id) || []
+
+                    // Get submitted results for this jadwal
+                    const submittedResults = hasilData?.filter(r => r.jadwal_id === j.id) || []
+
+                    examGroups[j.id] = {
+                        id: j.id,
+                        examName: `${j.tipe || 'UJIAN'} ${matkul.nama || 'Ujian'}`,
+                        room: ruangan.nama || j.ruangan || '-',
+                        date: j.tanggal,
+                        time: `${j.waktu_mulai || '08:00'} - ${j.waktu_selesai || '10:00'}`,
+                        pengawas: pengawas.nama || 'Pengawas',
+                        prodiId: matkul.prodi_id,
+                        tahunAkademik: j.tahun_akademik || '2024/2025',
+                        kelas: kelas.nama || '-',
+                        summary: {
+                            total: studentsInKelas.length,
+                            hadir: submittedResults.length,
+                            sakit: 0,
+                            izin: 0,
+                            alpha: Math.max(0, studentsInKelas.length - submittedResults.length)
+                        }
+                    }
+                })
+                setKehadiranData(Object.values(examGroups))
+
+                // Per mahasiswa view
+                const mahasiswaAttendance = {}
+                mahasiswaData?.forEach(m => {
+                    const kelas = m.kelas || {}
+                    // Get all exams for this student's class
+                    const examsForKelas = jadwalData?.filter(j => j.kelas_id === m.kelas_id) || []
+                    // Get results where this student attended
+                    const attendedExams = hasilData?.filter(r => r.mahasiswa_id === m.id) || []
+
+                    mahasiswaAttendance[m.id] = {
+                        id: m.id,
+                        nim: m.nim_nip,
+                        nama: m.nama,
+                        kelas: kelas.nama || '-',
+                        ruangan: '-',
+                        prodiId: m.prodi_id,
+                        total: examsForKelas.length,
+                        hadir: attendedExams.length,
+                        sakit: 0,
+                        izin: 0,
+                        alpha: Math.max(0, examsForKelas.length - attendedExams.length)
+                    }
+                })
+                setKehadiranPerMahasiswa(Object.values(mahasiswaAttendance))
+
+            } catch (error) {
+                console.error('[RekapKehadiran] Error loading data:', error)
+            } finally {
+                setLoading(false)
             }
-        })
-        setKehadiranPerMahasiswa(Object.values(mahasiswaAttendance))
-    }, [])
+        }
+
+        loadData()
+    }, [user])
 
     // Filter based on admin prodi or show all for superadmin
     const filteredData = kehadiranData.filter(item => {
