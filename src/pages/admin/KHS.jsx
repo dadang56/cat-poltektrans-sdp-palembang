@@ -84,21 +84,36 @@ function KHSPage() {
                         matkulService.getAll(),
                         userService.getAll({ role: 'mahasiswa' })
                     ])
+
+                    console.log('[KHS] Prodi loaded:', prodi?.length)
+                    console.log('[KHS] Kelas loaded:', kelas?.length)
+                    console.log('[KHS] Matkul loaded:', matkul?.length)
+                    console.log('[KHS] Mahasiswa loaded:', mahasiswa?.length)
+                    console.log('[KHS] User prodi_id:', user?.prodi_id, 'Role:', user?.role)
+
                     setProdiList(prodi || [])
                     setKelasList(kelas || [])
                     setMatkulList(matkul || [])
 
                     // Filter mahasiswa by prodi for admin_prodi
-                    const filtered = user?.role === 'admin_prodi'
-                        ? mahasiswa.filter(m => String(m.prodi_id) === String(user.prodi_id))
-                        : mahasiswa
-                    setMahasiswaList(filtered || [])
+                    let filtered = mahasiswa || []
+                    if (user?.role === 'admin_prodi' && user?.prodi_id) {
+                        filtered = mahasiswa.filter(m => String(m.prodi_id) === String(user.prodi_id))
+                        console.log('[KHS] Filtered mahasiswa for prodi:', filtered?.length)
+                    }
+                    setMahasiswaList(filtered)
+
+                    // Set prodi filter based on user role
+                    if (user?.role === 'admin_prodi' && user?.prodi_id) {
+                        setProdiFilter(user.prodi_id)
+                    }
                 }
 
                 // Load nilai akhir from localStorage (saved by Dosen)
                 const savedNilai = localStorage.getItem('cat_nilai_akhir')
                 if (savedNilai) {
                     setNilaiAkhirData(JSON.parse(savedNilai))
+                    console.log('[KHS] Nilai akhir loaded:', Object.keys(JSON.parse(savedNilai)).length, 'records')
                 }
             } catch (error) {
                 console.error('[KHS] Error loading data:', error)

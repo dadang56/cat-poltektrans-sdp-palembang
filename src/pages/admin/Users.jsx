@@ -681,6 +681,7 @@ function UsersPage() {
                     status: userData.status || 'active',
                     prodi_id: userData.prodiId || null,
                     kelas_id: userData.kelasId || null,
+                    photo: userData.photo || null,
                     // Dosen specific fields
                     nip: userData.role === 'dosen' ? (userData.nip || null) : null,
                     prodi_ids: userData.role === 'dosen' ? JSON.stringify(userData.prodiIds || []) : null,
