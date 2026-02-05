@@ -55,6 +55,20 @@ const getGradeColor = (nh) => {
     }
 }
 
+// Get predikat from nilai huruf
+const getPredikat = (nh) => {
+    switch (nh) {
+        case 'A': return 'Sangat Baik'
+        case 'AB': return 'Lebih Dari Baik'
+        case 'B': return 'Baik'
+        case 'BC': return 'Lebih Dari Cukup'
+        case 'C': return 'Cukup'
+        case 'D': return 'Kurang'
+        case 'E': return 'Sangat Kurang'
+        default: return '-'
+    }
+}
+
 function KHSPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
@@ -190,7 +204,7 @@ function KHSPage() {
                     nilaiHuruf: nh,
                     bobot: bobot,
                     bobotSks: bobot * sks,
-                    keterangan: bobot >= 2.0 ? '' : 'MENGULANG'
+                    predikat: getPredikat(nh)
                 })
             }
         })
@@ -423,7 +437,7 @@ function KHSPage() {
                             <th style="width:55px">NILAI<br/>ANGKA</th>
                             <th style="width:50px">HURUF</th>
                             <th style="width:60px">BOBOT<br/>x ANGKA</th>
-                            <th style="width:100px">KETERANGAN</th>
+                            <th style="width:100px">PREDIKAT</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -435,7 +449,7 @@ function KHSPage() {
                                 <td>${g.nilaiAngka.toFixed(0)}</td>
                                 <td>${g.nilaiHuruf}</td>
                                 <td>${g.bobotSks.toFixed(2)}</td>
-                                <td>${g.bobot >= 2.0 ? `${g.nilaiHuruf} = ${g.bobot.toFixed(1)}` : 'MENGULANG'}</td>
+                                <td>${g.predikat}</td>
                             </tr>
                         `).join('') : `
                             <tr>
@@ -457,9 +471,9 @@ function KHSPage() {
                 <!-- Summary -->
                 <div class="summary">
                     <div class="summary-row"><span class="summary-label">INDEKS PRESTASI SEMESTER (IPS)</span>: <span class="summary-value">${stats.ips.toFixed(2)}</span></div>
-                    <div class="summary-row"><span class="summary-label">NILAI KONDITE (NK)</span>: 0.00</div>
-                    <div class="summary-row"><span class="summary-label">NILAI KESAMAPTAAN (NS)</span>: 0.00</div>
-                    <div class="summary-row"><span class="summary-label">PERINGKAT AKHIR SEMESTER (PAS)</span>: </div>
+                    <div class="summary-row"><span class="summary-label">NILAI KONDITE (NK)</span>: ${(selectedMahasiswa?.nilai_kondite ?? 0).toFixed(2)}</div>
+                    <div class="summary-row"><span class="summary-label">NILAI KESAMAPTAAN (NS)</span>: ${(selectedMahasiswa?.nilai_semapta ?? 0).toFixed(2)}</div>
+                    <div class="summary-row"><span class="summary-label">PERINGKAT AKHIR SEMESTER (PAS)</span>: ${((stats.ips * 0.7) + ((selectedMahasiswa?.nilai_kondite ?? 0) * 0.2) + ((selectedMahasiswa?.nilai_semapta ?? 0) * 0.1)).toFixed(2)}</div>
                 </div>
                 
                 <!-- Signatures -->
@@ -717,7 +731,7 @@ function KHSPage() {
                                                             <th style={{ width: '80px', textAlign: 'center' }}>Nilai Angka</th>
                                                             <th style={{ width: '80px', textAlign: 'center' }}>Nilai Huruf</th>
                                                             <th style={{ width: '80px', textAlign: 'center' }}>Bobot x SKS</th>
-                                                            <th>Keterangan</th>
+                                                            <th>Predikat</th>
                                                         </tr>
                                                     </thead>
                                                     <tbody>
@@ -742,9 +756,12 @@ function KHSPage() {
                                                                 </td>
                                                                 <td style={{ textAlign: 'center' }}>{g.bobotSks.toFixed(1)}</td>
                                                                 <td>
-                                                                    {g.keterangan && (
-                                                                        <span className="badge badge-error">{g.keterangan}</span>
-                                                                    )}
+                                                                    <span style={{
+                                                                        color: getGradeColor(g.nilaiHuruf),
+                                                                        fontWeight: 500
+                                                                    }}>
+                                                                        {g.predikat}
+                                                                    </span>
                                                                 </td>
                                                             </tr>
                                                         ))}
@@ -760,34 +777,62 @@ function KHSPage() {
                                                     </tfoot>
                                                 </table>
 
-                                                {/* IPS Summary */}
+                                                {/* Summary: IPS, NK, NS, PAS */}
                                                 <div style={{
                                                     marginTop: '20px',
                                                     padding: '16px',
                                                     backgroundColor: 'var(--color-primary-light)',
                                                     borderRadius: '8px',
-                                                    display: 'flex',
-                                                    alignItems: 'center',
-                                                    justifyContent: 'space-between'
                                                 }}>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                                                        <Calculator size={24} />
-                                                        <div>
-                                                            <div style={{ fontWeight: 700, fontSize: '1.1rem' }}>
-                                                                INDEKS PRESTASI SEMESTER (IPS)
+                                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '16px' }}>
+                                                        {/* IPS */}
+                                                        <div style={{ textAlign: 'center' }}>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                                IPS (70%)
                                                             </div>
-                                                            <div style={{ fontSize: '0.9rem', color: 'var(--color-text-muted)' }}>
-                                                                Total Bobot ({ipsStats.totalBobot.toFixed(2)}) / Total SKS ({ipsStats.totalSks})
+                                                            <div style={{
+                                                                fontSize: '1.5rem',
+                                                                fontWeight: 700,
+                                                                color: ipsStats.ips >= 3.0 ? 'var(--color-success)' :
+                                                                    ipsStats.ips >= 2.5 ? 'var(--color-warning)' : 'var(--color-error)'
+                                                            }}>
+                                                                {ipsStats.ips.toFixed(2)}
+                                                            </div>
+                                                        </div>
+                                                        {/* NK */}
+                                                        <div style={{ textAlign: 'center' }}>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                                NK (20%)
+                                                            </div>
+                                                            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                                                                {(selectedMahasiswa?.nilai_kondite ?? 0).toFixed(2)}
+                                                            </div>
+                                                        </div>
+                                                        {/* NS */}
+                                                        <div style={{ textAlign: 'center' }}>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                                NS (10%)
+                                                            </div>
+                                                            <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
+                                                                {(selectedMahasiswa?.nilai_semapta ?? 0).toFixed(2)}
+                                                            </div>
+                                                        </div>
+                                                        {/* PAS */}
+                                                        <div style={{ textAlign: 'center', backgroundColor: 'var(--color-surface)', padding: '8px', borderRadius: '8px' }}>
+                                                            <div style={{ fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                                                                PAS
+                                                            </div>
+                                                            <div style={{
+                                                                fontSize: '1.5rem',
+                                                                fontWeight: 700,
+                                                                color: 'var(--color-primary)'
+                                                            }}>
+                                                                {((ipsStats.ips * 0.7) + ((selectedMahasiswa?.nilai_kondite ?? 0) * 0.2) + ((selectedMahasiswa?.nilai_semapta ?? 0) * 0.1)).toFixed(2)}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                    <div style={{
-                                                        fontSize: '2rem',
-                                                        fontWeight: 700,
-                                                        color: ipsStats.ips >= 3.0 ? 'var(--color-success)' :
-                                                            ipsStats.ips >= 2.5 ? 'var(--color-warning)' : 'var(--color-error)'
-                                                    }}>
-                                                        {ipsStats.ips.toFixed(2)}
+                                                    <div style={{ marginTop: '8px', fontSize: '0.75rem', color: 'var(--color-text-muted)', textAlign: 'center' }}>
+                                                        PAS = (IPS × 70%) + (NK × 20%) + (NS × 10%)
                                                     </div>
                                                 </div>
 

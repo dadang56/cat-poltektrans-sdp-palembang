@@ -93,6 +93,11 @@ const NAV_ITEMS = {
         { path: '/pengawas/monitor', icon: Eye, label: 'Monitor Ujian' },
         { path: '/pengawas/attendance', icon: ClipboardCheck, label: 'Kehadiran' },
         { path: '/pengawas/berita-acara', icon: FileText, label: 'Berita Acara' }
+    ],
+    pusbangkatar: [
+        { path: '/pusbangkatar', icon: Home, label: 'Dashboard', end: true },
+        { path: '/pusbangkatar/nilai-kondite', icon: ClipboardList, label: 'Nilai Kondite' },
+        { path: '/pusbangkatar/nilai-semapta', icon: Award, label: 'Nilai Semapta' }
     ]
 }
 
@@ -103,7 +108,8 @@ const ROLE_LABELS = {
     admin: 'Administrator',
     dosen: 'Dosen',
     mahasiswa: 'Mahasiswa',
-    pengawas: 'Pengawas'
+    pengawas: 'Pengawas',
+    pusbangkatar: 'Admin Pusbangkatar'
 }
 
 function DashboardLayout({ children }) {

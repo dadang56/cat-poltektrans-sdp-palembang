@@ -46,6 +46,11 @@ import MonitorUjian from './pages/pengawas/MonitorUjian'
 import PengawasAttendance from './pages/pengawas/Attendance'
 import PengawasBeritaAcara from './pages/pengawas/BeritaAcara'
 
+// Pusbangkatar Pages
+import PusbangkatarDashboard from './pages/pusbangkatar/Dashboard'
+import NilaiKondite from './pages/pusbangkatar/NilaiKondite'
+import NilaiSemapta from './pages/pusbangkatar/NilaiSemapta'
+
 // Auth Context
 export const AuthContext = createContext(null)
 
@@ -466,6 +471,23 @@ function App() {
             <Route path="/pengawas/berita-acara" element={
               <ProtectedRoute allowedRoles={['pengawas']}>
                 <PengawasBeritaAcara />
+              </ProtectedRoute>
+            } />
+
+            {/* Pusbangkatar Routes */}
+            <Route path="/pusbangkatar" element={
+              <ProtectedRoute allowedRoles={['pusbangkatar']}>
+                <PusbangkatarDashboard />
+              </ProtectedRoute>
+            } />
+            <Route path="/pusbangkatar/nilai-kondite" element={
+              <ProtectedRoute allowedRoles={['pusbangkatar']}>
+                <NilaiKondite />
+              </ProtectedRoute>
+            } />
+            <Route path="/pusbangkatar/nilai-semapta" element={
+              <ProtectedRoute allowedRoles={['pusbangkatar']}>
+                <NilaiSemapta />
               </ProtectedRoute>
             } />
 
