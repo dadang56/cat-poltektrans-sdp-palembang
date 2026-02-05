@@ -201,9 +201,234 @@ function KHSPage() {
         return kelas?.nama || '-'
     }
 
-    // Handle print
+    // Handle print with proper letterhead
     const handlePrint = () => {
-        window.print()
+        if (!selectedMahasiswa) return
+
+        const grades = getStudentGrades(selectedMahasiswa)
+        const stats = calculateIPS(grades)
+        const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
+        const prodi = prodiList.find(p => String(p.id) === String(selectedMahasiswa.prodi_id))
+
+        const printWindow = window.open('', '_blank')
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>KHS - ${selectedMahasiswa?.nama}</title>
+                <style>
+                    @page { size: A4 portrait; margin: 10mm 15mm; }
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: 'Times New Roman', serif; font-size: 11pt; padding: 10px; }
+                    
+                    /* Letterhead */
+                    .letterhead { 
+                        text-align: center; 
+                        border-bottom: 3px solid #000; 
+                        padding-bottom: 10px; 
+                        margin-bottom: 15px; 
+                    }
+                    .letterhead-logos {
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        gap: 15px;
+                        margin-bottom: 8px;
+                    }
+                    .letterhead-logos img { height: 50px; }
+                    .letterhead h4 { font-size: 11pt; font-weight: bold; margin: 2px 0; }
+                    .letterhead h3 { font-size: 12pt; font-weight: bold; margin: 2px 0; }
+                    .letterhead h2 { font-size: 13pt; font-weight: bold; margin: 3px 0; text-transform: uppercase; }
+                    .letterhead .contact { font-size: 9pt; margin-top: 5px; }
+                    
+                    /* Document Title */
+                    .doc-title { 
+                        text-align: center; 
+                        margin: 15px 0; 
+                        font-size: 13pt; 
+                        font-weight: bold; 
+                        text-decoration: underline;
+                    }
+                    
+                    /* Student Info Table */
+                    .info-table { 
+                        width: 100%; 
+                        margin-bottom: 15px; 
+                        border-collapse: collapse;
+                    }
+                    .info-table td { 
+                        padding: 3px 5px; 
+                        vertical-align: top; 
+                        font-size: 10pt;
+                    }
+                    .info-table .label { width: 120px; }
+                    .info-label-cell { width: 50%; }
+                    
+                    /* Grades Table */
+                    .grades-table { 
+                        width: 100%; 
+                        border-collapse: collapse; 
+                        margin-bottom: 10px;
+                        font-size: 10pt;
+                    }
+                    .grades-table th, .grades-table td { 
+                        border: 1px solid #000; 
+                        padding: 4px 6px; 
+                        text-align: center;
+                    }
+                    .grades-table th { 
+                        background: #f0f0f0; 
+                        font-weight: bold;
+                        font-size: 9pt;
+                    }
+                    .grades-table td.left { text-align: left; }
+                    .grades-table tfoot td { font-weight: bold; background: #f5f5f5; }
+                    
+                    /* Summary */
+                    .summary { margin: 15px 0; font-size: 10pt; }
+                    .summary-table { border-collapse: collapse; }
+                    .summary-table td { padding: 2px 5px; }
+                    .summary-table td:first-child { width: 250px; }
+                    
+                    /* Signatures */
+                    .signatures { 
+                        display: flex; 
+                        justify-content: space-between; 
+                        margin-top: 30px;
+                        font-size: 10pt;
+                    }
+                    .signature-box { 
+                        text-align: center; 
+                        width: 200px;
+                    }
+                    .signature-box .title { font-weight: bold; margin-bottom: 60px; }
+                    .signature-box .name { 
+                        font-weight: bold; 
+                        border-top: 1px solid #000; 
+                        padding-top: 3px; 
+                    }
+                    .signature-box .nip { font-size: 9pt; }
+                    .date { text-align: right; margin-bottom: 10px; font-size: 10pt; }
+                </style>
+            </head>
+            <body>
+                <!-- Letterhead -->
+                <div class="letterhead">
+                    <div class="letterhead-logos">
+                        ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Logo" />` : ''}
+                    </div>
+                    <h4>KEMENTERIAN PERHUBUNGAN</h4>
+                    <h3>BADAN PENGEMBANGAN SDM PERHUBUNGAN</h3>
+                    <h4>BADAN LAYANAN UMUM</h4>
+                    <h2>${settings?.institution || 'POLITEKNIK TRANSPORTASI SUNGAI, DANAU DAN PENYEBERANGAN PALEMBANG'}</h2>
+                    <div class="contact">
+                        ${settings?.address || 'Jl. Residen Abdul Rozak, Palembang'} | 
+                        Telp: ${settings?.phone || '(0711) 712345'} | 
+                        Email: ${settings?.email || 'info@poltektrans.ac.id'}
+                    </div>
+                </div>
+                
+                <!-- Document Title -->
+                <div class="doc-title">KARTU HASIL STUDI (KHS)</div>
+                
+                <!-- Student Info -->
+                <table class="info-table">
+                    <tr>
+                        <td class="info-label-cell"><span class="label">TAHUN AKADEMIK</span>: ${settings?.tahunAkademik || '2024/2025 Ganjil'}</td>
+                        <td><span class="label">Catatan</span>:</td>
+                    </tr>
+                    <tr>
+                        <td><span class="label">NAMA TARUNA</span>: ${selectedMahasiswa?.nama || '-'}</td>
+                        <td>Lembar 1 : Taruna Ybs</td>
+                    </tr>
+                    <tr>
+                        <td><span class="label">NOMOR TARUNA</span>: ${selectedMahasiswa?.nim_nip || '-'}</td>
+                        <td>Lembar 2 : Orang Tua Taruna Ybs</td>
+                    </tr>
+                    <tr>
+                        <td><span class="label">ANGKATAN</span>: ${selectedMahasiswa?.angkatan || '-'}</td>
+                        <td>Lembar 3 : ${prodi?.nama || 'Program Studi'}</td>
+                    </tr>
+                    <tr>
+                        <td><span class="label">TINGKAT/SEMESTER</span>: ${selectedMahasiswa?.semester || '-'}</td>
+                        <td></td>
+                    </tr>
+                    <tr>
+                        <td><span class="label">PROGRAM STUDI</span>: ${prodi?.nama || '-'}</td>
+                        <td></td>
+                    </tr>
+                </table>
+                
+                <!-- Grades Table -->
+                <table class="grades-table">
+                    <thead>
+                        <tr>
+                            <th style="width:30px">No</th>
+                            <th class="left">MATA KULIAH</th>
+                            <th style="width:50px">BOBOT SKS</th>
+                            <th style="width:50px">NILAI ANGKA</th>
+                            <th style="width:50px">HURUF</th>
+                            <th style="width:60px">BOBOT x ANGKA</th>
+                            <th>KETERANGAN</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${grades.length > 0 ? grades.map((g, idx) => `
+                            <tr>
+                                <td>${idx + 1}</td>
+                                <td class="left">${g.matkulNama}</td>
+                                <td>${g.sks}</td>
+                                <td>${g.nilaiAngka.toFixed(0)}</td>
+                                <td>${g.nilaiHuruf}</td>
+                                <td>${g.bobotSks.toFixed(2)}</td>
+                                <td>${g.bobot >= 2.0 ? `${g.nilaiHuruf} = ${g.bobot.toFixed(1)}` : 'MENGULANG'}</td>
+                            </tr>
+                        `).join('') : `
+                            <tr>
+                                <td colspan="7" style="text-align:center; padding:20px;">Belum ada nilai</td>
+                            </tr>
+                        `}
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2" style="text-align:right">Jumlah</td>
+                            <td>${stats.totalSks}</td>
+                            <td colspan="2"></td>
+                            <td>${stats.totalBobot.toFixed(2)}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+                
+                <!-- Summary -->
+                <div class="summary">
+                    <table class="summary-table">
+                        <tr><td>INDEKS PRESTASI SEMESTER (IPS)</td><td>:</td><td><strong>${stats.ips.toFixed(2)}</strong></td></tr>
+                        <tr><td>NILAI KONDITE (NK)</td><td>:</td><td>0.00</td></tr>
+                        <tr><td>NILAI KESAMAPTAAN (NS)</td><td>:</td><td>0.00</td></tr>
+                        <tr><td>PERINGKAT AKHIR SEMESTER (PAS)</td><td>:</td><td></td></tr>
+                    </table>
+                </div>
+                
+                <!-- Signatures -->
+                <div class="date">Palembang, ${today}</div>
+                <div class="signatures">
+                    <div class="signature-box">
+                        <div class="title">Mengetahui,<br/>KEPALA BAGIAN ADMINISTRASI AKADEMIK<br/>DAN KETARUNAAN</div>
+                        <div class="name">................................</div>
+                        <div class="nip">NIP. ..............................
+                    </div>
+                    <div class="signature-box">
+                        <div class="title">KETUA PROGRAM STUDI<br/>${prodi?.nama || ''}</div>
+                        <div class="name">................................</div>
+                        <div class="nip">NIP. ..............................</div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `)
+        printWindow.document.close()
+        printWindow.print()
     }
 
     // Handle export
