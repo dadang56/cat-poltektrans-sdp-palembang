@@ -106,7 +106,7 @@ function RekapNilaiPage() {
     const filteredData = nilaiData.filter(item => {
         const matchesProdi = user?.role === 'superadmin'
             ? (prodiFilter === 'all' || item.prodiId === prodiFilter)
-            : item.prodiId === user?.prodiId
+            : item.prodiId === user?.prodi_id  // Fixed: was user?.prodiId
         const matchesExamType = examTypeFilter === 'all' || item.examType === examTypeFilter
         return matchesProdi && matchesExamType
     })
@@ -293,7 +293,7 @@ function RekapNilaiPage() {
             <div className="dashboard-page animate-fadeIn">
                 <div className="page-header">
                     <div>
-                        <h1 className="page-title">Rekap Nilai</h1>
+                        <h1 className="page-title">Rekap Nilai Ujian</h1>
                         <p className="page-subtitle">Data nilai dari seluruh dosen yang tersinkronisasi</p>
                     </div>
                     <div className="header-actions">

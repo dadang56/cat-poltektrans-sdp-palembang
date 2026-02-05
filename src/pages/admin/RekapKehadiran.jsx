@@ -133,7 +133,7 @@ function RekapKehadiranPage() {
     const filteredData = kehadiranData.filter(item => {
         const matchesProdi = user?.role === 'superadmin'
             ? (prodiFilter === 'all' || String(item.prodiId) === String(prodiFilter))
-            : String(item.prodiId) === String(user?.prodiId)
+            : String(item.prodiId) === String(user?.prodi_id)  // Fixed: was user?.prodiId
         const matchesSearch = (item.examName || '').toLowerCase().includes(search.toLowerCase()) ||
             (item.pengawas || '').toLowerCase().includes(search.toLowerCase())
         const matchesDate = !dateFilter || item.date === dateFilter
@@ -156,7 +156,7 @@ function RekapKehadiranPage() {
     const filteredMahasiswa = kehadiranPerMahasiswa.filter(item => {
         const matchesProdi = user?.role === 'superadmin'
             ? (prodiFilter === 'all' || String(item.prodiId) === String(prodiFilter))
-            : String(item.prodiId) === String(user?.prodiId)
+            : String(item.prodiId) === String(user?.prodi_id)  // Fixed: was user?.prodiId
         const matchesSearch = (item.nama || '').toLowerCase().includes(search.toLowerCase()) ||
             (item.nim || '').includes(search)
         return matchesProdi && matchesSearch

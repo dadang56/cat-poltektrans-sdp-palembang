@@ -23,7 +23,7 @@ const PRODI_KEY = 'cat_prodi_data'
 function RekapBeritaAcaraPage() {
     const { user } = useAuth()
     const [search, setSearch] = useState('')
-    const [prodiFilter, setProdiFilter] = useState(user?.prodiId || 'all')
+    const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [dateFilter, setDateFilter] = useState('')
     const [viewModal, setViewModal] = useState(null)
     const [loading, setLoading] = useState(true)
@@ -100,7 +100,7 @@ function RekapBeritaAcaraPage() {
     const filteredData = beritaAcaraData.filter(item => {
         const matchesProdi = user?.role === 'superadmin'
             ? (prodiFilter === 'all' || item.prodiId === prodiFilter)
-            : item.prodiId === user?.prodiId
+            : item.prodiId === user?.prodi_id  // Fixed: was user?.prodiId
         const matchesSearch = item.examName.toLowerCase().includes(search.toLowerCase()) ||
             item.pengawas.toLowerCase().includes(search.toLowerCase())
         const matchesDate = !dateFilter || item.date === dateFilter
