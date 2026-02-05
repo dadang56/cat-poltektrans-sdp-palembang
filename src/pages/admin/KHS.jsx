@@ -134,6 +134,24 @@ function KHSPage() {
         return matchesProdi && matchesKelas && matchesSearch
     })
 
+    // Calculate NAK (Nilai Akhir Kumulatif) from component scores
+    const calculateNAK = (gradeData, matkul) => {
+        const nt = gradeData.nt ?? 0
+        const nuts = gradeData.nuts ?? 0
+        const np = gradeData.np ?? 0
+        const uas = gradeData.uas ?? 0
+
+        const hasPraktek = (matkul?.sks_praktek || 0) > 0
+
+        if (hasPraktek) {
+            // NT 10% + NUTS 20% + NP 20% + UAS 50%
+            return (nt * 0.1) + (nuts * 0.2) + (np * 0.2) + (uas * 0.5)
+        } else {
+            // NT 10% + NUTS 30% + UAS 60%
+            return (nt * 0.1) + (nuts * 0.3) + (uas * 0.6)
+        }
+    }
+
     // Get student's grades for KHS
     const getStudentGrades = (mahasiswa) => {
         if (!mahasiswa) return []
@@ -146,16 +164,22 @@ function KHSPage() {
             String(m.prodi_id) === String(studentProdiId)
         )
 
-        prodiMatkul.forEach(matkul => {
-            // Check if there's a saved grade for this student and matkul
-            const gradeKey = `${mahasiswa.id}_${matkul.id}`
-            const savedGrade = nilaiAkhirData[gradeKey]
+        console.log('[KHS] Getting grades for student:', mahasiswa.id, mahasiswa.nama)
+        console.log('[KHS] Prodi matkul count:', prodiMatkul.length)
+        console.log('[KHS] NilaiAkhirData keys:', Object.keys(nilaiAkhirData))
 
-            if (savedGrade) {
+        prodiMatkul.forEach(matkul => {
+            // NilaiAkhir stores as: savedGrades[matkulId][studentId] = { nt, nuts, np, uas }
+            const matkulGrades = nilaiAkhirData[matkul.id] || nilaiAkhirData[String(matkul.id)]
+            const savedGrade = matkulGrades?.[mahasiswa.id] || matkulGrades?.[String(mahasiswa.id)]
+
+            if (savedGrade && (savedGrade.nt || savedGrade.nuts || savedGrade.uas)) {
                 const sks = (matkul.sks_teori || 0) + (matkul.sks_praktek || 0)
-                const nak = savedGrade.nak || 0
+                const nak = calculateNAK(savedGrade, matkul)
                 const nh = getNilaiHuruf(nak)
                 const bobot = getScoreAkhir(nak)
+
+                console.log('[KHS] Found grade for', matkul.nama, ':', savedGrade, '-> NAK:', nak)
 
                 grades.push({
                     matkulId: matkul.id,
@@ -171,6 +195,7 @@ function KHSPage() {
             }
         })
 
+        console.log('[KHS] Total grades found:', grades.length)
         return grades
     }
 
@@ -217,114 +242,153 @@ function KHSPage() {
             <head>
                 <title>KHS - ${selectedMahasiswa?.nama}</title>
                 <style>
-                    @page { size: A4 portrait; margin: 10mm 15mm; }
+                    @page { size: A4 portrait; margin: 15mm; }
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: 'Times New Roman', serif; font-size: 11pt; padding: 10px; }
+                    body { font-family: 'Times New Roman', serif; font-size: 11pt; padding: 15px; }
                     
-                    /* Letterhead */
+                    /* Letterhead - Logo on Left */
                     .letterhead { 
-                        text-align: center; 
-                        border-bottom: 3px solid #000; 
-                        padding-bottom: 10px; 
-                        margin-bottom: 15px; 
-                    }
-                    .letterhead-logos {
                         display: flex;
-                        justify-content: center;
                         align-items: center;
                         gap: 15px;
-                        margin-bottom: 8px;
+                        border-bottom: 3px solid #000; 
+                        padding-bottom: 12px; 
+                        margin-bottom: 15px; 
                     }
-                    .letterhead-logos img { height: 50px; }
-                    .letterhead h4 { font-size: 11pt; font-weight: bold; margin: 2px 0; }
-                    .letterhead h3 { font-size: 12pt; font-weight: bold; margin: 2px 0; }
-                    .letterhead h2 { font-size: 13pt; font-weight: bold; margin: 3px 0; text-transform: uppercase; }
-                    .letterhead .contact { font-size: 9pt; margin-top: 5px; }
+                    .letterhead-logo {
+                        flex-shrink: 0;
+                    }
+                    .letterhead-logo img { 
+                        height: 70px; 
+                        width: auto;
+                    }
+                    .letterhead-text {
+                        flex: 1;
+                        text-align: center;
+                    }
+                    .letterhead-text h2 { 
+                        font-size: 14pt; 
+                        font-weight: bold; 
+                        margin: 3px 0; 
+                        text-transform: uppercase; 
+                    }
+                    .letterhead-text .contact { 
+                        font-size: 9pt; 
+                        margin-top: 3px; 
+                    }
                     
                     /* Document Title */
                     .doc-title { 
                         text-align: center; 
-                        margin: 15px 0; 
-                        font-size: 13pt; 
+                        margin: 20px 0; 
+                        font-size: 14pt; 
                         font-weight: bold; 
                         text-decoration: underline;
                     }
                     
-                    /* Student Info Table */
-                    .info-table { 
-                        width: 100%; 
-                        margin-bottom: 15px; 
-                        border-collapse: collapse;
-                    }
-                    .info-table td { 
-                        padding: 3px 5px; 
-                        vertical-align: top; 
+                    /* Student Info */
+                    .info-section {
+                        display: flex;
+                        justify-content: space-between;
+                        margin-bottom: 15px;
                         font-size: 10pt;
                     }
-                    .info-table .label { width: 120px; }
-                    .info-label-cell { width: 50%; }
+                    .info-left, .info-right {
+                        width: 48%;
+                    }
+                    .info-row {
+                        display: flex;
+                        margin-bottom: 3px;
+                    }
+                    .info-label {
+                        width: 140px;
+                        font-weight: normal;
+                    }
+                    .info-value {
+                        flex: 1;
+                    }
                     
                     /* Grades Table */
                     .grades-table { 
                         width: 100%; 
                         border-collapse: collapse; 
-                        margin-bottom: 10px;
+                        margin-bottom: 15px;
                         font-size: 10pt;
                     }
                     .grades-table th, .grades-table td { 
                         border: 1px solid #000; 
-                        padding: 4px 6px; 
+                        padding: 5px 8px; 
                         text-align: center;
                     }
                     .grades-table th { 
                         background: #f0f0f0; 
                         font-weight: bold;
-                        font-size: 9pt;
                     }
                     .grades-table td.left { text-align: left; }
                     .grades-table tfoot td { font-weight: bold; background: #f5f5f5; }
                     
                     /* Summary */
-                    .summary { margin: 15px 0; font-size: 10pt; }
-                    .summary-table { border-collapse: collapse; }
-                    .summary-table td { padding: 2px 5px; }
-                    .summary-table td:first-child { width: 250px; }
+                    .summary { 
+                        margin: 15px 0; 
+                        font-size: 10pt;
+                        border: 1px solid #000;
+                        padding: 10px;
+                        display: inline-block;
+                    }
+                    .summary-row {
+                        display: flex;
+                        margin-bottom: 3px;
+                    }
+                    .summary-label { width: 250px; }
+                    .summary-value { font-weight: bold; }
                     
                     /* Signatures */
-                    .signatures { 
-                        display: flex; 
-                        justify-content: space-between; 
+                    .signature-section {
                         margin-top: 30px;
                         font-size: 10pt;
                     }
+                    .date-line {
+                        text-align: right;
+                        margin-bottom: 10px;
+                    }
+                    .signatures { 
+                        display: flex; 
+                        justify-content: space-between;
+                    }
                     .signature-box { 
                         text-align: center; 
-                        width: 200px;
+                        width: 220px;
                     }
-                    .signature-box .title { font-weight: bold; margin-bottom: 60px; }
+                    .signature-box .title { 
+                        font-weight: normal; 
+                        margin-bottom: 5px;
+                        line-height: 1.4;
+                    }
+                    .signature-box .space { 
+                        height: 60px;
+                    }
                     .signature-box .name { 
                         font-weight: bold; 
-                        border-top: 1px solid #000; 
-                        padding-top: 3px; 
+                        text-decoration: underline;
                     }
-                    .signature-box .nip { font-size: 9pt; }
-                    .date { text-align: right; margin-bottom: 10px; font-size: 10pt; }
+                    .signature-box .nip { 
+                        font-size: 9pt;
+                    }
                 </style>
             </head>
             <body>
-                <!-- Letterhead -->
+                <!-- Letterhead - Logo on Left -->
                 <div class="letterhead">
-                    <div class="letterhead-logos">
-                        ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Logo" />` : ''}
+                    <div class="letterhead-logo">
+                        ${settings?.logoUrl ? `<img src="${settings.logoUrl}" alt="Logo" />` : '<div style="width:70px;height:70px;border:1px solid #ccc;display:flex;align-items:center;justify-content:center;font-size:8pt;color:#999;">LOGO</div>'}
                     </div>
-                    <h4>KEMENTERIAN PERHUBUNGAN</h4>
-                    <h3>BADAN PENGEMBANGAN SDM PERHUBUNGAN</h3>
-                    <h4>BADAN LAYANAN UMUM</h4>
-                    <h2>${settings?.institution || 'POLITEKNIK TRANSPORTASI SUNGAI, DANAU DAN PENYEBERANGAN PALEMBANG'}</h2>
-                    <div class="contact">
-                        ${settings?.address || 'Jl. Residen Abdul Rozak, Palembang'} | 
-                        Telp: ${settings?.phone || '(0711) 712345'} | 
-                        Email: ${settings?.email || 'info@poltektrans.ac.id'}
+                    <div class="letterhead-text">
+                        <h2>${settings?.institution || 'POLITEKNIK TRANSPORTASI SUNGAI, DANAU DAN PENYEBERANGAN PALEMBANG'}</h2>
+                        <div class="contact">
+                            ${settings?.address || 'Jl. Residen Abdul Rozak, Palembang'} | 
+                            Telp: ${settings?.phone || '(0711) 712345'} | 
+                            Email: ${settings?.email || 'info@poltektrans.ac.id'}
+                        </div>
                     </div>
                 </div>
                 
@@ -332,44 +396,34 @@ function KHSPage() {
                 <div class="doc-title">KARTU HASIL STUDI (KHS)</div>
                 
                 <!-- Student Info -->
-                <table class="info-table">
-                    <tr>
-                        <td class="info-label-cell"><span class="label">TAHUN AKADEMIK</span>: ${settings?.tahunAkademik || '2024/2025 Ganjil'}</td>
-                        <td><span class="label">Catatan</span>:</td>
-                    </tr>
-                    <tr>
-                        <td><span class="label">NAMA TARUNA</span>: ${selectedMahasiswa?.nama || '-'}</td>
-                        <td>Lembar 1 : Taruna Ybs</td>
-                    </tr>
-                    <tr>
-                        <td><span class="label">NOMOR TARUNA</span>: ${selectedMahasiswa?.nim_nip || '-'}</td>
-                        <td>Lembar 2 : Orang Tua Taruna Ybs</td>
-                    </tr>
-                    <tr>
-                        <td><span class="label">ANGKATAN</span>: ${selectedMahasiswa?.angkatan || '-'}</td>
-                        <td>Lembar 3 : ${prodi?.nama || 'Program Studi'}</td>
-                    </tr>
-                    <tr>
-                        <td><span class="label">TINGKAT/SEMESTER</span>: ${selectedMahasiswa?.semester || '-'}</td>
-                        <td></td>
-                    </tr>
-                    <tr>
-                        <td><span class="label">PROGRAM STUDI</span>: ${prodi?.nama || '-'}</td>
-                        <td></td>
-                    </tr>
-                </table>
+                <div class="info-section">
+                    <div class="info-left">
+                        <div class="info-row"><span class="info-label">TAHUN AKADEMIK</span>: ${settings?.tahunAkademik || '2024/2025 Ganjil'}</div>
+                        <div class="info-row"><span class="info-label">NAMA TARUNA</span>: ${selectedMahasiswa?.nama || '-'}</div>
+                        <div class="info-row"><span class="info-label">NOMOR TARUNA</span>: ${selectedMahasiswa?.nim_nip || '-'}</div>
+                        <div class="info-row"><span class="info-label">ANGKATAN</span>: ${selectedMahasiswa?.angkatan || '-'}</div>
+                        <div class="info-row"><span class="info-label">TINGKAT/SEMESTER</span>: ${selectedMahasiswa?.semester || '-'}</div>
+                        <div class="info-row"><span class="info-label">PROGRAM STUDI</span>: ${prodi?.nama || '-'}</div>
+                    </div>
+                    <div class="info-right">
+                        <div class="info-row"><strong>Catatan:</strong></div>
+                        <div class="info-row">Lembar 1 : Taruna Ybs</div>
+                        <div class="info-row">Lembar 2 : Orang Tua Taruna Ybs</div>
+                        <div class="info-row">Lembar 3 : ${prodi?.nama || 'Program Studi'}</div>
+                    </div>
+                </div>
                 
                 <!-- Grades Table -->
                 <table class="grades-table">
                     <thead>
                         <tr>
-                            <th style="width:30px">No</th>
+                            <th style="width:35px">No</th>
                             <th class="left">MATA KULIAH</th>
-                            <th style="width:50px">BOBOT SKS</th>
-                            <th style="width:50px">NILAI ANGKA</th>
+                            <th style="width:55px">BOBOT<br/>SKS</th>
+                            <th style="width:55px">NILAI<br/>ANGKA</th>
                             <th style="width:50px">HURUF</th>
-                            <th style="width:60px">BOBOT x ANGKA</th>
-                            <th>KETERANGAN</th>
+                            <th style="width:60px">BOBOT<br/>x ANGKA</th>
+                            <th style="width:100px">KETERANGAN</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -385,13 +439,13 @@ function KHSPage() {
                             </tr>
                         `).join('') : `
                             <tr>
-                                <td colspan="7" style="text-align:center; padding:20px;">Belum ada nilai</td>
+                                <td colspan="7" style="text-align:center; padding:20px; color:#666;">Belum ada nilai</td>
                             </tr>
                         `}
                     </tbody>
                     <tfoot>
                         <tr>
-                            <td colspan="2" style="text-align:right">Jumlah</td>
+                            <td colspan="2" style="text-align:right; padding-right:10px;">Jumlah</td>
                             <td>${stats.totalSks}</td>
                             <td colspan="2"></td>
                             <td>${stats.totalBobot.toFixed(2)}</td>
@@ -402,26 +456,28 @@ function KHSPage() {
                 
                 <!-- Summary -->
                 <div class="summary">
-                    <table class="summary-table">
-                        <tr><td>INDEKS PRESTASI SEMESTER (IPS)</td><td>:</td><td><strong>${stats.ips.toFixed(2)}</strong></td></tr>
-                        <tr><td>NILAI KONDITE (NK)</td><td>:</td><td>0.00</td></tr>
-                        <tr><td>NILAI KESAMAPTAAN (NS)</td><td>:</td><td>0.00</td></tr>
-                        <tr><td>PERINGKAT AKHIR SEMESTER (PAS)</td><td>:</td><td></td></tr>
-                    </table>
+                    <div class="summary-row"><span class="summary-label">INDEKS PRESTASI SEMESTER (IPS)</span>: <span class="summary-value">${stats.ips.toFixed(2)}</span></div>
+                    <div class="summary-row"><span class="summary-label">NILAI KONDITE (NK)</span>: 0.00</div>
+                    <div class="summary-row"><span class="summary-label">NILAI KESAMAPTAAN (NS)</span>: 0.00</div>
+                    <div class="summary-row"><span class="summary-label">PERINGKAT AKHIR SEMESTER (PAS)</span>: </div>
                 </div>
                 
                 <!-- Signatures -->
-                <div class="date">Palembang, ${today}</div>
-                <div class="signatures">
-                    <div class="signature-box">
-                        <div class="title">Mengetahui,<br/>KEPALA BAGIAN ADMINISTRASI AKADEMIK<br/>DAN KETARUNAAN</div>
-                        <div class="name">................................</div>
-                        <div class="nip">NIP. ..............................
-                    </div>
-                    <div class="signature-box">
-                        <div class="title">KETUA PROGRAM STUDI<br/>${prodi?.nama || ''}</div>
-                        <div class="name">................................</div>
-                        <div class="nip">NIP. ..............................</div>
+                <div class="signature-section">
+                    <div class="date-line">Palembang, ${today}</div>
+                    <div class="signatures">
+                        <div class="signature-box">
+                            <div class="title">Mengetahui,<br/>KEPALA BAGIAN ADMINISTRASI AKADEMIK<br/>DAN KETARUNAAN</div>
+                            <div class="space"></div>
+                            <div class="name">${settings?.kepalaBaaName || '................................'}</div>
+                            <div class="nip">NIP. ${settings?.kepalaBaaNip || '..............................'}</div>
+                        </div>
+                        <div class="signature-box">
+                            <div class="title"><br/>KETUA PROGRAM STUDI<br/>${prodi?.nama || ''}</div>
+                            <div class="space"></div>
+                            <div class="name">................................</div>
+                            <div class="nip">NIP. ..............................</div>
+                        </div>
                     </div>
                 </div>
             </body>

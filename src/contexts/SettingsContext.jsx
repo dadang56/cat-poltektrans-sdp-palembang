@@ -25,7 +25,10 @@ const DEFAULT_SETTINGS = {
     address: 'Jl. Residen Abdul Rozak, Palembang',
     phone: '(0711) 712345',
     email: 'info@poltektrans.ac.id',
-    tahunAkademik: '2025/2026 Ganjil' // Default tahun akademik aktif
+    tahunAkademik: '2025/2026 Ganjil', // Default tahun akademik aktif
+    // Kepala Bagian Administrasi Akademik dan Ketarunaan
+    kepalaBaaName: '',
+    kepalaBaaNip: ''
 }
 
 // Color presets

@@ -282,6 +282,39 @@ function SettingsPage() {
                         </div>
                     </div>
 
+                    {/* Kepala BAA Info */}
+                    <div className="card">
+                        <div className="card-header">
+                            <div className="flex items-center gap-3">
+                                <Building2 size={20} className="text-secondary" />
+                                <h3 className="font-semibold">Kepala Bag. Administrasi Akademik</h3>
+                            </div>
+                            <span className="text-muted text-sm">Untuk Tanda Tangan</span>
+                        </div>
+                        <div className="card-body">
+                            <div className="form-group">
+                                <label className="form-label">Nama Kepala BAA</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={localSettings.kepalaBaaName || ''}
+                                    onChange={(e) => handleInputChange('kepalaBaaName', e.target.value)}
+                                    placeholder="Contoh: IKKA SUKARNI, S.Pd., M.M.Tr"
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">NIP Kepala BAA</label>
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    value={localSettings.kepalaBaaNip || ''}
+                                    onChange={(e) => handleInputChange('kepalaBaaNip', e.target.value)}
+                                    placeholder="Contoh: 197806051999032001"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
                     {/* SEB & Anti-Cheat Settings */}
                     <div className="card">
                         <div className="card-header">
