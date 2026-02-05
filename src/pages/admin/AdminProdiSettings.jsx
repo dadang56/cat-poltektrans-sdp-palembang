@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { prodiService } from '../../services/supabaseService'
+import { isSupabaseConfigured } from '../../lib/supabase'
 import {
     Building2,
     Save,
@@ -28,23 +30,40 @@ function AdminProdiSettings() {
     const { user } = useAuth()
     const { settings: appSettings, saveSettings } = useSettings()
 
-    // Local state for Ka. Prodi info (still per-prodi in localStorage)
-    const [localSettings, setLocalSettings] = useState(() => {
-        const storageKey = `prodiSettings_${user?.prodiId || 'default'}`
-        const savedSettings = localStorage.getItem(storageKey)
-        if (savedSettings) {
-            try {
-                return { kaprodiNama: '', kaprodiNip: '', ...JSON.parse(savedSettings) }
-            } catch {
-                return { kaprodiNama: '', kaprodiNip: '' }
-            }
-        }
-        return { kaprodiNama: '', kaprodiNip: '' }
-    })
+    // Local state for Ka. Prodi info
+    const [localSettings, setLocalSettings] = useState({ kaprodiNama: '', kaprodiNip: '' })
+    const [loading, setLoading] = useState(true)
 
     // Tahun Akademik from SettingsContext (synchronized across app)
     const [selectedTahunAkademik, setSelectedTahunAkademik] = useState('')
     const [saveStatus, setSaveStatus] = useState(null)
+
+    // Load Ka.Prodi from Supabase prodi table
+    useEffect(() => {
+        const loadProdiSettings = async () => {
+            if (!user?.prodiId) {
+                setLoading(false)
+                return
+            }
+
+            try {
+                if (isSupabaseConfigured()) {
+                    const prodi = await prodiService.getById(user.prodiId)
+                    if (prodi) {
+                        setLocalSettings({
+                            kaprodiNama: prodi.ketua_prodi_nama || '',
+                            kaprodiNip: prodi.ketua_prodi_nip || ''
+                        })
+                    }
+                }
+            } catch (error) {
+                console.error('Error loading prodi settings:', error)
+            }
+            setLoading(false)
+        }
+
+        loadProdiSettings()
+    }, [user?.prodiId])
 
     // Load tahun akademik from app settings
     useEffect(() => {
@@ -63,21 +82,28 @@ function AdminProdiSettings() {
         setSelectedTahunAkademik(value)
     }
 
-    const handleSave = () => {
-        const storageKey = `prodiSettings_${user?.prodiId || 'default'}`
-        localStorage.setItem(storageKey, JSON.stringify(localSettings))
+    const handleSave = async () => {
+        setSaveStatus('saving')
 
-        // Save kaprodiInfo for printouts (keyed by prodiId)
-        localStorage.setItem(`kaprodiInfo_${user?.prodiId || 'default'}`, JSON.stringify({
-            nama: localSettings.kaprodiNama,
-            nip: localSettings.kaprodiNip
-        }))
+        try {
+            // Save Ka.Prodi to Supabase prodi table
+            if (isSupabaseConfigured() && user?.prodiId) {
+                await prodiService.update(user.prodiId, {
+                    ketua_prodi_nama: localSettings.kaprodiNama,
+                    ketua_prodi_nip: localSettings.kaprodiNip
+                })
+            }
 
-        // Save tahun akademik to SettingsContext (syncs across app)
-        saveSettings({ ...appSettings, tahunAkademik: selectedTahunAkademik })
+            // Save tahun akademik to SettingsContext (syncs across app)
+            saveSettings({ ...appSettings, tahunAkademik: selectedTahunAkademik })
 
-        setSaveStatus('success')
-        setTimeout(() => setSaveStatus(null), 3000)
+            setSaveStatus('success')
+            setTimeout(() => setSaveStatus(null), 3000)
+        } catch (error) {
+            console.error('Error saving prodi settings:', error)
+            setSaveStatus('error')
+            setTimeout(() => setSaveStatus(null), 3000)
+        }
     }
 
     return (

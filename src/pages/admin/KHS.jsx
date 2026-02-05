@@ -249,6 +249,12 @@ function KHSPage() {
         const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
         const prodi = prodiList.find(p => String(p.id) === String(selectedMahasiswa.prodi_id))
 
+        // Get Ka.Prodi info from prodi table (already loaded)
+        const kaprodiInfo = {
+            nama: prodi?.ketua_prodi_nama || '',
+            nip: prodi?.ketua_prodi_nip || ''
+        }
+
         const printWindow = window.open('', '_blank')
         printWindow.document.write(`
             <!DOCTYPE html>
@@ -489,8 +495,8 @@ function KHSPage() {
                         <div class="signature-box">
                             <div class="title"><br/>KETUA PROGRAM STUDI<br/>${prodi?.nama || ''}</div>
                             <div class="space"></div>
-                            <div class="name">................................</div>
-                            <div class="nip">NIP. ..............................</div>
+                            <div class="name">${kaprodiInfo.nama || '................................'}</div>
+                            <div class="nip">NIP. ${kaprodiInfo.nip || '..............................'}</div>
                         </div>
                     </div>
                 </div>
