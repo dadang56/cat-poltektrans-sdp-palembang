@@ -291,6 +291,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                     {currentUser?.role !== 'admin_prodi' && (
                                         <>
                                             <option value="admin_prodi">Admin Prodi</option>
+                                            <option value="pusbangkatar">Admin Pusbangkatar</option>
                                             <option value="superadmin">Super Admin</option>
                                         </>
                                     )}
@@ -1132,6 +1133,7 @@ function UsersPage() {
                                     <option value="pengawas">Pengawas</option>
                                     <option value="admin">Semua Admin</option>
                                     <option value="admin_prodi">Admin Prodi</option>
+                                    <option value="pusbangkatar">Admin Pusbangkatar</option>
                                     <option value="superadmin">Super Admin</option>
                                 </select>
                             </div>

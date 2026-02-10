@@ -151,6 +151,38 @@ function App() {
     return () => clearInterval(interval)
   }, [user])
 
+  // Inactivity auto-logout (15 minutes = 900000ms)
+  useEffect(() => {
+    if (!user) return
+
+    const INACTIVITY_TIMEOUT = 15 * 60 * 1000 // 15 minutes
+    let inactivityTimer = null
+
+    const resetTimer = () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      inactivityTimer = setTimeout(async () => {
+        setSessionMessage('Sesi Anda telah berakhir karena tidak ada aktivitas.')
+        setTimeout(async () => {
+          await authService.signOut()
+          setUser(null)
+          setSessionMessage(null)
+        }, 2000)
+      }, INACTIVITY_TIMEOUT)
+    }
+
+    // Events that count as "activity"
+    const events = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart']
+    events.forEach(event => window.addEventListener(event, resetTimer))
+
+    // Start the timer
+    resetTimer()
+
+    return () => {
+      if (inactivityTimer) clearTimeout(inactivityTimer)
+      events.forEach(event => window.removeEventListener(event, resetTimer))
+    }
+  }, [user])
+
   const login = async (nimNip, password) => {
     const { data, error } = await authService.signInWithNimNip(nimNip, password)
     if (error) {

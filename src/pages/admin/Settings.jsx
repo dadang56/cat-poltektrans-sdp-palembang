@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings, COLOR_PRESETS } from '../../contexts/SettingsContext'
 import {
@@ -16,11 +16,19 @@ import {
 } from 'lucide-react'
 
 function SettingsPage() {
-    const { settings, updateSettings, resetSettings } = useSettings()
+    const { settings, updateSettings, resetSettings, isLoaded } = useSettings()
     const [localSettings, setLocalSettings] = useState(settings)
     const [logoPreview, setLogoPreview] = useState(settings.logoUrl)
     const [saveStatus, setSaveStatus] = useState(null)
     const fileInputRef = useRef(null)
+
+    // Sync localSettings when settings are loaded from Supabase
+    useEffect(() => {
+        if (isLoaded) {
+            setLocalSettings(settings)
+            setLogoPreview(settings.logoUrl)
+        }
+    }, [isLoaded, settings])
 
     const handleInputChange = (field, value) => {
         setLocalSettings(prev => ({ ...prev, [field]: value }))

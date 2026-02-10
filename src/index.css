@@ -1086,6 +1086,49 @@ img {
     /* Prevent zoom on iOS */
     padding: var(--space-4);
   }
+
+  /* Page header wrapping */
+  .page-header {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  .page-header .header-actions {
+    width: 100%;
+  }
+
+  /* Modal responsive */
+  .modal {
+    max-width: 95vw !important;
+    max-height: 90vh;
+    margin: var(--space-3);
+  }
+
+  .modal-lg {
+    max-width: 95vw !important;
+  }
+
+  .modal-body {
+    max-height: 65vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Exam cards */
+  .exam-card {
+    padding: var(--space-3);
+  }
+
+  .exam-card-header {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+  }
+
+  /* Form rows stack on mobile */
+  .form-row {
+    flex-direction: column;
+    gap: var(--space-3);
+  }
 }
 
 /* Mobile Phones */
