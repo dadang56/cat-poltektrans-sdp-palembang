@@ -248,6 +248,7 @@ function KHSPage() {
         const stats = calculateIPS(grades)
         const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
         const prodi = prodiList.find(p => String(p.id) === String(selectedMahasiswa.prodi_id))
+        const kelas = kelasList.find(k => String(k.id) === String(selectedMahasiswa.kelas_id))
 
         // Get Ka.Prodi info from prodi table (already loaded)
         const kaprodiInfo = {
@@ -421,8 +422,8 @@ function KHSPage() {
                         <div class="info-row"><span class="info-label">TAHUN AKADEMIK</span>: ${settings?.tahunAkademik || '2024/2025 Ganjil'}</div>
                         <div class="info-row"><span class="info-label">NAMA TARUNA</span>: ${selectedMahasiswa?.nama || '-'}</div>
                         <div class="info-row"><span class="info-label">NOMOR TARUNA</span>: ${selectedMahasiswa?.nim_nip || '-'}</div>
-                        <div class="info-row"><span class="info-label">ANGKATAN</span>: ${selectedMahasiswa?.angkatan || '-'}</div>
-                        <div class="info-row"><span class="info-label">TINGKAT/SEMESTER</span>: ${selectedMahasiswa?.semester || '-'}</div>
+                        <div class="info-row"><span class="info-label">ANGKATAN</span>: ${kelas?.angkatan ? 'Angkatan ' + kelas.angkatan : selectedMahasiswa?.angkatan || '-'}</div>
+                        <div class="info-row"><span class="info-label">TINGKAT/SEMESTER</span>: ${kelas?.semester ? 'Semester ' + kelas.semester : selectedMahasiswa?.semester || '-'}</div>
                         <div class="info-row"><span class="info-label">PROGRAM STUDI</span>: ${prodi?.nama || '-'}</div>
                     </div>
                     <div class="info-right">

@@ -155,8 +155,8 @@ function MahasiswaDashboard() {
                     <div key={exam.id} className={`exam-card ${exam.status === 'active' ? 'exam-active' : ''}`}>
                       <div className="exam-card-header">
                         <span className="exam-subject">{exam.matkulName}</span>
-                        <span className={`badge badge-${exam.status === 'active' ? 'success' : 'primary'}`}>
-                          {exam.status === 'active' ? 'Aktif' : 'Mendatang'}
+                        <span className={`badge badge-${exam.status === 'active' ? 'success' : exam.status === 'expired' ? 'warning' : 'primary'}`}>
+                          {exam.status === 'active' ? 'Sedang Berlangsung' : exam.status === 'expired' ? 'Waktu Habis' : 'Mendatang'}
                         </span>
                       </div>
                       <h4 className="exam-name">{exam.tipeUjian} {exam.matkulName}</h4>

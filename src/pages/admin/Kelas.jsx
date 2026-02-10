@@ -41,14 +41,16 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList, isLoading }) {
     const [formData, setFormData] = useState(kelas || {
         nama: '',
         prodi_id: prodiList[0]?.id || '',
-        angkatan: 36 // Default to current angkatan
+        angkatan: 36,
+        semester: 1
     })
 
     useEffect(() => {
         setFormData(kelas || {
             nama: '',
             prodi_id: prodiList[0]?.id || '',
-            angkatan: 36
+            angkatan: 36,
+            semester: 1
         })
     }, [kelas, prodiList])
 
@@ -110,6 +112,19 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList, isLoading }) {
                                     ))}
                                 </select>
                             </div>
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Semester</label>
+                            <select
+                                className="form-input"
+                                value={formData.semester || 1}
+                                onChange={e => setFormData({ ...formData, semester: Number(e.target.value) })}
+                                required
+                            >
+                                {[1, 2, 3, 4, 5, 6, 7, 8].map(sem => (
+                                    <option key={sem} value={sem}>Semester {sem}</option>
+                                ))}
+                            </select>
                         </div>
                     </div>
                     <div className="modal-footer">
@@ -349,6 +364,7 @@ function KelasPage() {
                                             <th style={{ width: '120px' }}>Kelas</th>
                                             <th>Program Studi</th>
                                             <th style={{ width: '120px' }}>Angkatan</th>
+                                            <th style={{ width: '100px' }}>Semester</th>
                                             <th style={{ width: '100px' }}>Aksi</th>
                                         </tr>
                                     </thead>
@@ -367,7 +383,8 @@ function KelasPage() {
                                                         <span className="badge badge-primary">{prodi.kode}</span>
                                                         <span className="prodi-full-name">{prodi.nama}</span>
                                                     </td>
-                                                    <td className="font-medium">{kelas.tahun_angkatan}</td>
+                                                    <td className="font-medium">Angkatan {kelas.angkatan || '-'}</td>
+                                                    <td className="font-medium">Semester {kelas.semester || '-'}</td>
                                                     <td>
                                                         <div className="flex gap-2">
                                                             <button
@@ -389,7 +406,7 @@ function KelasPage() {
                                         })}
                                         {filteredKelas.length === 0 && (
                                             <tr>
-                                                <td colSpan={4} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
+                                                <td colSpan={5} className="text-center text-muted" style={{ padding: 'var(--space-8)' }}>
                                                     Tidak ada data kelas
                                                 </td>
                                             </tr>
