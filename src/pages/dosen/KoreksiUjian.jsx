@@ -94,7 +94,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                     {isCorrect ? '✓ Benar' : '✗ Salah'}
                                                 </span>
                                             </div>
-                                            <p className="answer-summary-question">{question?.text?.substring(0, 100) || 'Soal tidak ditemukan'}...</p>
+                                            <p className="answer-summary-question">{(question?.pertanyaan || question?.text)?.substring(0, 100) || 'Soal tidak ditemukan'}...</p>
                                             <div className="answer-summary-detail">
                                                 <span>Jawaban: <strong>{answer.type === 'pilihan_ganda' ? String.fromCharCode(65 + (answer.answer || 0)) : (answer.answer === true ? 'Benar' : 'Salah')}</strong></span>
                                                 <span>Nilai: <strong>{answer.earnedPoints || 0}/{answer.maxPoints}</strong></span>
@@ -121,7 +121,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                 <span className="essay-q-label">Soal Essay {idx + 1}</span>
                                                 <span className="essay-max-points">Maks: {answer.maxPoints} poin</span>
                                             </div>
-                                            <p className="essay-question-text">{question?.text || 'Soal tidak ditemukan'}</p>
+                                            <p className="essay-question-text">{question?.pertanyaan || question?.text || 'Soal tidak ditemukan'}</p>
                                             <div className="essay-answer-box">
                                                 <strong>Jawaban:</strong>
                                                 <p>{answer.answer || '(Tidak dijawab)'}</p>

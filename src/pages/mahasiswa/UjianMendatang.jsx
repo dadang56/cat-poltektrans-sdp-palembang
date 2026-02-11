@@ -307,12 +307,16 @@ function UjianPage() {
             )
 
             // Dosen Name Resolution
-            // Priority: 1. Nested relation (j.dosen.nama), 2. Lookup in usersList, 3. Fallback
-            let finalDosenName = 'Pengampu'
+            // Priority: 1. Nested relation (j.dosen.nama), 2. Lookup in usersList by id, 3. Lookup by nim_nip, 4. Fallback
+            let finalDosenName = '-'
             if (j.dosen && j.dosen.nama) {
                 finalDosenName = j.dosen.nama
             } else if (dosen && dosen.nama) {
                 finalDosenName = dosen.nama
+            } else if (dosenId) {
+                // Try finding dosen from usersList with string comparison
+                const dosenMatch = usersList.find(u => String(u.id) === String(dosenId))
+                if (dosenMatch) finalDosenName = dosenMatch.nama || dosenMatch.name || '-'
             }
 
             return {
