@@ -634,40 +634,37 @@ function BuatSoalPage() {
                     setKelasList([])
                 }
 
-                // Load soal from Supabase (filtered by dosen_id)
-                if (dosenId) {
-                    const allSoal = await soalService.getAll({ dosen_id: dosenId })
-                    // Map Supabase fields to local format
-                    // Reverse mapping: database values -> UI values
-                    const reverseTipeSoal = (dbType) => {
-                        const mapping = {
-                            'uraian': 'essay',
-                            'menjodohkan': 'mencocokan',
-                            'pilihan_ganda': 'pilihan_ganda',
-                            'pilihan_ganda_kompleks': 'pilihan_ganda_kompleks',
-                            'benar_salah': 'benar_salah'
-                        }
-                        return mapping[dbType] || dbType
+                // Load soal from Supabase (filtered by dosen_id if available)
+                const soalFilter = dosenId ? { dosen_id: dosenId } : {}
+                const allSoal = await soalService.getAll(soalFilter)
+                // Map Supabase fields to local format
+                // Reverse mapping: database values -> UI values
+                const reverseTipeSoal = (dbType) => {
+                    const mapping = {
+                        'uraian': 'essay',
+                        'menjodohkan': 'mencocokan',
+                        'pilihan_ganda': 'pilihan_ganda',
+                        'pilihan_ganda_kompleks': 'pilihan_ganda_kompleks',
+                        'benar_salah': 'benar_salah'
                     }
-                    const mappedSoal = allSoal.map(s => ({
-                        id: s.id,
-                        text: s.pertanyaan,
-                        type: reverseTipeSoal(s.tipe_soal),
-                        matkulId: s.matkul_id,
-                        examType: s.tipe_ujian?.toUpperCase() || 'UTS',
-                        points: s.bobot || 10,
-                        options: s.pilihan || [],
-                        correctAnswer: s.jawaban_benar,
-                        dosenId: s.dosen_id,
-                        kelasIds: s.kelas_ids || [],
-                        image: s.gambar || null, // Load question image
-                        matkul: s.matkul // Include joined matkul data
-                    }))
-                    setQuestions(mappedSoal)
-                    console.log('[BuatSoal] Soal loaded:', mappedSoal.length)
-                } else {
-                    setQuestions([])
+                    return mapping[dbType] || dbType
                 }
+                const mappedSoal = allSoal.map(s => ({
+                    id: s.id,
+                    text: s.pertanyaan,
+                    type: reverseTipeSoal(s.tipe_soal),
+                    matkulId: s.matkul_id,
+                    examType: s.tipe_ujian?.toUpperCase() || 'UTS',
+                    points: s.bobot || 10,
+                    options: s.pilihan || [],
+                    correctAnswer: s.jawaban_benar,
+                    dosenId: s.dosen_id,
+                    kelasIds: s.kelas_ids || [],
+                    image: s.gambar || null, // Load question image
+                    matkul: s.matkul // Include joined matkul data
+                }))
+                setQuestions(mappedSoal)
+                console.log('[BuatSoal] Soal loaded:', mappedSoal.length, dosenId ? '(filtered by dosen)' : '(all soal)')
 
                 setIsInitialized(true)
             } catch (error) {

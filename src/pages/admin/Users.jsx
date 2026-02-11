@@ -649,7 +649,7 @@ function UsersPage() {
             if (useSupabase) {
                 // Determine nim_nip based on role
                 let nimNip = ''
-                const rolesWithoutNim = ['superadmin', 'admin_prodi', 'pengawas']
+                const rolesWithoutNim = ['superadmin', 'admin_prodi', 'pengawas', 'pusbangkatar']
 
                 if (rolesWithoutNim.includes(userData.role)) {
                     // For admin roles without NIM/NIP, use username with timestamp suffix for uniqueness
