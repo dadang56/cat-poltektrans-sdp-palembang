@@ -662,10 +662,22 @@ export const hasilUjianService = {
         return data
     },
 
+    async getByJadwalAndMahasiswa(jadwalId, mahasiswaId) {
+        const { data, error } = await supabase
+            .from('hasil_ujian')
+            .select('*')
+            .eq('jadwal_id', jadwalId)
+            .eq('mahasiswa_id', mahasiswaId)
+            .maybeSingle()
+
+        if (error) throw error
+        return data
+    },
+
     async update(id, hasilData) {
         const { data, error } = await supabase
             .from('hasil_ujian')
-            .update(hasilData)
+            .update({ ...hasilData, updated_at: new Date().toISOString() })
             .eq('id', id)
             .select()
             .single()

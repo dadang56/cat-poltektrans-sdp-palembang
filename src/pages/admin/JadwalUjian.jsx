@@ -34,6 +34,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
         tanggal: '',
         waktu_mulai: '',
         waktu_selesai: '',
+        durasi: 90,
         ruangan: ''
     })
 
@@ -50,6 +51,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                     tipe_ujian: jadwal.tipe_ujian || jadwal.tipeUjian || jadwal.tipe || '',
                     waktu_mulai: jadwal.waktu_mulai || jadwal.waktuMulai || '',
                     waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '',
+                    durasi: jadwal.durasi || 90,
                     ruangan: jadwal.ruangan || jadwal.ruang || ''
                 })
             } else {
@@ -224,6 +226,22 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 />
                             </div>
                         </div>
+                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                            <label className="form-label">Durasi Ujian (menit)</label>
+                            <input
+                                type="number"
+                                className="form-input"
+                                value={formData.durasi}
+                                onChange={e => setFormData({ ...formData, durasi: parseInt(e.target.value) || 90 })}
+                                min={10}
+                                max={600}
+                                required
+                                placeholder="90"
+                            />
+                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                                Durasi personal per mahasiswa. Mahasiswa bisa mulai kapan saja dalam jendela waktu di atas.
+                            </small>
+                        </div>
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
@@ -367,7 +385,8 @@ function JadwalUjianPage() {
                 tipe: data.tipe_ujian || data.tipeUjian || data.tipe || 'UTS',
                 tanggal: data.tanggal,
                 waktu_mulai: data.waktu_mulai || data.waktuMulai,
-                waktu_selesai: data.waktu_selesai || data.waktuSelesai
+                waktu_selesai: data.waktu_selesai || data.waktuSelesai,
+                durasi: parseInt(data.durasi) || 90
             }
 
             if (useSupabase) {
@@ -652,6 +671,7 @@ function JadwalUjianPage() {
                                                         <div className="time-cell">
                                                             <Clock size={14} />
                                                             <span>{getJadwalWaktuMulai(j)} - {getJadwalWaktuSelesai(j)}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '4px' }}>({j.durasi || 90}m)</span>
                                                         </div>
                                                     </td>
                                                     <td className="font-medium">{getMatkulName(getJadwalMatkul(j))}</td>

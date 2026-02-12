@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
-import { prodiService, kelasService, userService, isSupabaseConfigured } from '../../services/supabaseService'
+import { prodiService, kelasService, userService, ruangService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Layout,
     Shuffle,
@@ -10,7 +10,12 @@ import {
     Users,
     Grid,
     User,
-    Settings2
+    Settings2,
+    Plus,
+    Edit2,
+    Trash2,
+    Save,
+    X
 } from 'lucide-react'
 
 // LocalStorage keys
@@ -38,12 +43,18 @@ function shuffleArray(array) {
 function ExamRoomPage() {
     const { settings } = useSettings()
     const { user: currentUser } = useAuth()
-    const [roomCapacity, setRoomCapacity] = useState(25)
     const [rooms, setRooms] = useState([])
     const [selectedRoom, setSelectedRoom] = useState(0)
     const [isAllocated, setIsAllocated] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const printRef = useRef(null)
+
+    // Ruangan management
+    const [ruangList, setRuangList] = useState([])
+    const [editingRuang, setEditingRuang] = useState(null)
+    const [newRuangName, setNewRuangName] = useState('')
+    const [newRuangKapasitas, setNewRuangKapasitas] = useState(30)
+    const [showAddRuang, setShowAddRuang] = useState(false)
 
     // Load from Supabase or localStorage
     const [prodiList, setProdiList] = useState([])
@@ -57,13 +68,15 @@ function ExamRoomPage() {
                 let prodiData = []
                 let kelasData = []
                 let usersData = []
+                let ruangData = []
 
                 if (isSupabaseConfigured()) {
                     console.log('[ExamRoom] Loading from Supabase...')
-                    const [prodi, kelas, users] = await Promise.all([
+                    const [prodi, kelas, users, ruang] = await Promise.all([
                         prodiService.getAll(),
                         kelasService.getAll(),
-                        userService.getAll({ role: 'mahasiswa' })
+                        userService.getAll({ role: 'mahasiswa' }),
+                        ruangService.getAll()
                     ])
                     prodiData = prodi.map((p, idx) => ({
                         ...p,
@@ -71,7 +84,8 @@ function ExamRoomPage() {
                     }))
                     kelasData = kelas
                     usersData = users
-                    console.log('[ExamRoom] Loaded from Supabase:', usersData.length, 'mahasiswa')
+                    ruangData = ruang
+                    console.log('[ExamRoom] Loaded from Supabase:', usersData.length, 'mahasiswa,', ruangData.length, 'ruangan')
                 } else {
                     console.log('[ExamRoom] Loading from localStorage...')
                     const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
@@ -89,6 +103,7 @@ function ExamRoomPage() {
 
                 setProdiList(prodiData)
                 setKelasList(kelasData)
+                setRuangList(ruangData)
 
                 // Map mahasiswa with prodi info
                 const mhs = usersData.map(u => {
@@ -114,7 +129,6 @@ function ExamRoomPage() {
                         const roomData = JSON.parse(savedRooms)
                         if (roomData.rooms && roomData.rooms.length > 0) {
                             setRooms(roomData.rooms)
-                            setRoomCapacity(roomData.roomCapacity || 25)
                             setIsAllocated(true)
                         }
                     } catch (e) {
@@ -130,9 +144,60 @@ function ExamRoomPage() {
         loadData()
     }, [currentUser])
 
+    // Ruang CRUD handlers
+    const handleAddRuang = async () => {
+        if (!newRuangName.trim()) return
+        try {
+            if (isSupabaseConfigured()) {
+                const created = await ruangService.create({ nama: newRuangName.trim(), kapasitas: newRuangKapasitas })
+                setRuangList([...ruangList, created])
+            } else {
+                setRuangList([...ruangList, { id: Date.now(), nama: newRuangName.trim(), kapasitas: newRuangKapasitas }])
+            }
+            setNewRuangName('')
+            setNewRuangKapasitas(30)
+            setShowAddRuang(false)
+        } catch (err) {
+            console.error('Error adding ruang:', err)
+            alert('Gagal menambah ruangan: ' + err.message)
+        }
+    }
+
+    const handleUpdateRuangKapasitas = async (ruangId, kapasitas) => {
+        const kap = Math.max(1, Math.min(1000, parseInt(kapasitas) || 30))
+        try {
+            if (isSupabaseConfigured()) {
+                await ruangService.update(ruangId, { kapasitas: kap })
+            }
+            setRuangList(ruangList.map(r => r.id === ruangId ? { ...r, kapasitas: kap } : r))
+            setEditingRuang(null)
+        } catch (err) {
+            console.error('Error updating ruang:', err)
+        }
+    }
+
+    const handleDeleteRuang = async (ruangId) => {
+        if (!confirm('Hapus ruangan ini?')) return
+        try {
+            if (isSupabaseConfigured()) {
+                await ruangService.delete(ruangId)
+            }
+            setRuangList(ruangList.filter(r => r.id !== ruangId))
+        } catch (err) {
+            console.error('Error deleting ruang:', err)
+            alert('Gagal menghapus ruangan: ' + err.message)
+        }
+    }
+
+    // Total capacity from all rooms
+    const totalKapasitas = ruangList.reduce((sum, r) => sum + (r.kapasitas || 30), 0)
+
     // Allocate students to rooms with interleaved prodi
     const allocateRooms = () => {
-        if (mahasiswaData.length === 0) return
+        if (mahasiswaData.length === 0 || ruangList.length === 0) {
+            alert('Tidak ada ruangan atau mahasiswa untuk dialokasikan')
+            return
+        }
 
         // Group students by prodi (use String comparison for prodiId)
         const studentsByProdi = {}
@@ -156,7 +221,6 @@ function ExamRoomPage() {
             hasMore = false
             const startIndex = prodiIndex
 
-            // Try each prodi in round-robin
             do {
                 const pid = prodiIds[prodiIndex % prodiIds.length]
                 if (studentsByProdi[pid] && studentsByProdi[pid].length > 0) {
@@ -167,21 +231,42 @@ function ExamRoomPage() {
             } while (prodiIds.length > 0 && prodiIndex % prodiIds.length !== startIndex % prodiIds.length)
         }
 
-        // Assign exam numbers and split into rooms
+        // Split into rooms based on EACH room's individual capacity
         const roomsData = []
         let examNumber = 1
+        let studentIndex = 0
 
-        for (let i = 0; i < allStudents.length; i += roomCapacity) {
-            const roomStudents = allStudents.slice(i, i + roomCapacity).map(student => ({
+        for (const ruang of ruangList) {
+            if (studentIndex >= allStudents.length) break
+            const cap = ruang.kapasitas || 30
+            const roomStudents = allStudents.slice(studentIndex, studentIndex + cap).map(student => ({
                 ...student,
                 examNumber: `UJIAN-${String(examNumber++).padStart(3, '0')}`
             }))
+            studentIndex += cap
 
             roomsData.push({
-                id: roomsData.length + 1,
-                name: `Ruang ${roomsData.length + 1}`,
+                id: ruang.id,
+                name: ruang.nama,
+                kapasitas: cap,
                 students: roomStudents,
                 rows: Math.ceil(roomStudents.length / 5),
+                cols: 5
+            })
+        }
+
+        // If there are remaining students and not enough rooms, add overflow
+        if (studentIndex < allStudents.length) {
+            const overflow = allStudents.slice(studentIndex).map(student => ({
+                ...student,
+                examNumber: `UJIAN-${String(examNumber++).padStart(3, '0')}`
+            }))
+            roomsData.push({
+                id: 'overflow',
+                name: 'Ruang Tambahan (Overflow)',
+                kapasitas: overflow.length,
+                students: overflow,
+                rows: Math.ceil(overflow.length / 5),
                 cols: 5
             })
         }
@@ -190,15 +275,14 @@ function ExamRoomPage() {
         setSelectedRoom(0)
         setIsAllocated(true)
 
-        // Save to localStorage for syncing with ALL admin accounts and pengawas (GLOBAL)
+        // Save to localStorage
         const roomAllocation = {
             rooms: roomsData,
-            roomCapacity: roomCapacity,
             allocatedAt: new Date().toISOString(),
             allocatedBy: currentUser?.username || currentUser?.nama || 'Unknown'
         }
         localStorage.setItem(EXAM_ROOMS_KEY, JSON.stringify(roomAllocation))
-        console.log('[ExamRoom] Saved GLOBAL room allocation:', roomsData.length, 'rooms')
+        console.log('[ExamRoom] Allocated:', roomsData.length, 'rooms')
     }
 
     const handlePrint = () => {
@@ -263,30 +347,125 @@ function ExamRoomPage() {
                     </div>
                 </div>
 
-                {/* Configuration */}
+                {/* Room Management */}
                 <div className="config-section card mb-4">
                     <div className="card-body">
-                        <div className="config-row">
-                            <div className="config-item">
-                                <Settings2 size={18} />
-                                <label>Kapasitas Ruangan:</label>
-                                <select
-                                    className="form-input"
-                                    value={roomCapacity}
-                                    onChange={(e) => setRoomCapacity(Number(e.target.value))}
-                                >
-                                    <option value={20}>20 Peserta</option>
-                                    <option value={25}>25 Peserta</option>
-                                </select>
-                            </div>
+                        <div className="config-row" style={{ marginBottom: '1rem' }}>
                             <div className="config-item">
                                 <Users size={18} />
                                 <span>Total Peserta: <strong>{mahasiswaData.length}</strong></span>
                             </div>
                             <div className="config-item">
                                 <Layout size={18} />
-                                <span>Estimasi Ruangan: <strong>{Math.ceil(mahasiswaData.length / roomCapacity) || 0}</strong></span>
+                                <span>Total Kapasitas: <strong>{totalKapasitas}</strong></span>
                             </div>
+                            <div className="config-item">
+                                <Grid size={18} />
+                                <span>Jumlah Ruangan: <strong>{ruangList.length}</strong></span>
+                            </div>
+                        </div>
+
+                        {/* Room list with editable capacity */}
+                        <div style={{ marginBottom: '1rem' }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
+                                <h4 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--text-primary)' }}>Daftar Ruangan</h4>
+                                <button className="btn btn-sm btn-outline" onClick={() => setShowAddRuang(!showAddRuang)}>
+                                    <Plus size={14} /> Tambah Ruangan
+                                </button>
+                            </div>
+
+                            {showAddRuang && (
+                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="Nama ruangan..."
+                                        value={newRuangName}
+                                        onChange={e => setNewRuangName(e.target.value)}
+                                        style={{ flex: 1 }}
+                                    />
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        placeholder="Kapasitas"
+                                        value={newRuangKapasitas}
+                                        onChange={e => setNewRuangKapasitas(parseInt(e.target.value) || 30)}
+                                        min={1}
+                                        max={1000}
+                                        style={{ width: '100px' }}
+                                    />
+                                    <button className="btn btn-sm btn-primary" onClick={handleAddRuang}>
+                                        <Save size={14} /> Simpan
+                                    </button>
+                                    <button className="btn btn-sm btn-ghost" onClick={() => setShowAddRuang(false)}>
+                                        <X size={14} />
+                                    </button>
+                                </div>
+                            )}
+
+                            {ruangList.length === 0 ? (
+                                <p style={{ color: 'var(--text-muted)', textAlign: 'center', padding: '1rem' }}>Belum ada ruangan. Tambahkan ruangan terlebih dahulu.</p>
+                            ) : (
+                                <div className="table-container">
+                                    <table className="table" style={{ fontSize: '0.875rem' }}>
+                                        <thead>
+                                            <tr>
+                                                <th>No</th>
+                                                <th>Nama Ruangan</th>
+                                                <th>Kapasitas</th>
+                                                <th style={{ width: '100px' }}>Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {ruangList.map((ruang, idx) => (
+                                                <tr key={ruang.id}>
+                                                    <td>{idx + 1}</td>
+                                                    <td>{ruang.nama}</td>
+                                                    <td>
+                                                        {editingRuang === ruang.id ? (
+                                                            <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>
+                                                                <input
+                                                                    type="number"
+                                                                    className="form-input"
+                                                                    defaultValue={ruang.kapasitas}
+                                                                    min={1}
+                                                                    max={1000}
+                                                                    style={{ width: '80px', padding: '0.25rem 0.5rem' }}
+                                                                    onKeyDown={e => {
+                                                                        if (e.key === 'Enter') handleUpdateRuangKapasitas(ruang.id, e.target.value)
+                                                                        if (e.key === 'Escape') setEditingRuang(null)
+                                                                    }}
+                                                                    onBlur={e => handleUpdateRuangKapasitas(ruang.id, e.target.value)}
+                                                                    autoFocus
+                                                                />
+                                                                <span style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>peserta</span>
+                                                            </div>
+                                                        ) : (
+                                                            <span
+                                                                style={{ cursor: 'pointer', color: 'var(--primary-600)', fontWeight: 600 }}
+                                                                onClick={() => setEditingRuang(ruang.id)}
+                                                                title="Klik untuk edit kapasitas"
+                                                            >
+                                                                {ruang.kapasitas || 30} peserta
+                                                            </span>
+                                                        )}
+                                                    </td>
+                                                    <td>
+                                                        <div style={{ display: 'flex', gap: '0.25rem' }}>
+                                                            <button className="btn btn-icon btn-ghost btn-sm" onClick={() => setEditingRuang(ruang.id)} title="Edit kapasitas">
+                                                                <Edit2 size={14} />
+                                                            </button>
+                                                            <button className="btn btn-icon btn-ghost btn-sm" onClick={() => handleDeleteRuang(ruang.id)} title="Hapus" style={{ color: 'var(--danger-500)' }}>
+                                                                <Trash2 size={14} />
+                                                            </button>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            )}
                         </div>
 
                         {/* Prodi Legend */}

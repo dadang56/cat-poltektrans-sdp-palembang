@@ -332,7 +332,7 @@ function UjianPage() {
                 endTime: waktuSelesai,
                 completed: alreadySubmitted, // Check from exam results
                 // Durasi dan jumlah soal
-                durasi: durasiMenit,
+                durasi: j.durasi || durasiMenit,
                 jumlahSoal: examSoal.length
             }
         })

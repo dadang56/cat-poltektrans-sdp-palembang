@@ -55,6 +55,8 @@ function TakeExamPage() {
     const [submitted, setSubmitted] = useState(false)
     const [showConfirmSubmit, setShowConfirmSubmit] = useState(false)
     const [showNavigator, setShowNavigator] = useState(false)
+    const [examStartTime, setExamStartTime] = useState(null) // actual waktu_mulai
+    const [existingHasilId, setExistingHasilId] = useState(null) // for resume
 
     // SEB & Anti-Cheat state
     const [sebDetected, setSebDetected] = useState(false)
@@ -84,16 +86,12 @@ function TakeExamPage() {
                     matkulList = matkulData
 
                     if (jadwal) {
-                        // Get the mata kuliah ID for this jadwal
                         const matkulId = jadwal.matkul_id || jadwal.matkulId
                         const examType = (jadwal.tipe || jadwal.tipe_ujian || jadwal.tipeUjian || '').toUpperCase()
 
-                        // Fetch soal from Supabase filtered by matkul_id and tipe_ujian
                         allSoal = await soalService.getAll({ matkul_id: matkulId })
-
-                        // Filter by exam type
                         allSoal = allSoal.filter(s => {
-                            if (!s.tipe_ujian) return true // Include soal without examType
+                            if (!s.tipe_ujian) return true
                             return s.tipe_ujian.toUpperCase() === examType
                         })
 
@@ -112,7 +110,6 @@ function TakeExamPage() {
                     matkulList = matkulData ? JSON.parse(matkulData) : []
                     allSoal = soalData ? JSON.parse(soalData) : []
 
-                    // Filter soal for localStorage data
                     if (jadwal) {
                         const examType = jadwal.tipeUjian?.toUpperCase()
                         allSoal = allSoal.filter(s => {
@@ -131,11 +128,7 @@ function TakeExamPage() {
                     const waktuMulai = jadwal.waktu_mulai || jadwal.waktuMulai
                     const waktuSelesai = jadwal.waktu_selesai || jadwal.waktuSelesai
                     const tipeUjian = jadwal.tipe || jadwal.tipe_ujian || jadwal.tipeUjian || 'UTS'
-
-                    // Calculate duration
-                    const startTime = new Date(`${jadwal.tanggal}T${waktuMulai}`)
-                    const endTime = new Date(`${jadwal.tanggal}T${waktuSelesai}`)
-                    const durationMinutes = Math.round((endTime - startTime) / 60000)
+                    const durasiMenit = jadwal.durasi || 90 // personal duration in minutes
 
                     // Map soal to questions format
                     const examSoal = allSoal.map(s => ({
@@ -145,46 +138,127 @@ function TakeExamPage() {
                         points: s.bobot || s.points || 10,
                         options: (s.pilihan || s.options || []).map(o => typeof o === 'string' ? o : o.text),
                         correctAnswer: s.jawaban_benar || s.correctAnswer,
-                        image: s.gambar || null // Include question image
+                        image: s.gambar || null
                     }))
 
                     console.log('TakeExam: Processed', examSoal.length, 'questions')
 
-                    setExamData({
-                        id: jadwal.id,
-                        name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
-                        duration: durationMinutes,
-                        matkulName: matkul?.nama || 'N/A'
-                    })
+                    // ========================================
+                    // RESUME LOGIC: Check for existing session
+                    // ========================================
+                    let resumedAnswers = {}
+                    let personalStartTime = null
+                    let hasilId = null
 
-                    setQuestions(examSoal)
-
-                    // Record exam start to Supabase for pengawas monitoring
                     if (isSupabaseConfigured() && user?.id) {
                         try {
-                            await hasilUjianService.upsert({
-                                jadwal_id: jadwal.id,
-                                mahasiswa_id: user.id,
-                                status: 'in_progress',
-                                waktu_mulai: new Date().toISOString()
-                            })
-                            console.log('[TakeExam] Exam start recorded to Supabase')
+                            const existingHasil = await hasilUjianService.getByJadwalAndMahasiswa(jadwal.id, user.id)
+
+                            if (existingHasil) {
+                                hasilId = existingHasil.id
+                                setExistingHasilId(existingHasil.id)
+
+                                if (existingHasil.status === 'submitted' || existingHasil.status === 'graded') {
+                                    // Exam already completed — block re-entry
+                                    console.log('[TakeExam] Exam already submitted, blocking re-entry')
+                                    setExamData({
+                                        id: jadwal.id,
+                                        name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
+                                        duration: durasiMenit,
+                                        matkulName: matkul?.nama || 'N/A',
+                                        dosenName: jadwal.dosen?.nama || '-'
+                                    })
+                                    setSubmitted(true)
+                                    setQuestions(examSoal)
+                                    setLoading(false)
+                                    return
+                                }
+
+                                if (existingHasil.status === 'in_progress') {
+                                    // RESUME: load saved answers and calculate remaining time
+                                    personalStartTime = new Date(existingHasil.waktu_mulai)
+                                    console.log('[TakeExam] Resuming exam, started at:', personalStartTime)
+
+                                    // Load saved answers
+                                    if (existingHasil.answers_detail) {
+                                        try {
+                                            const savedDetails = typeof existingHasil.answers_detail === 'string'
+                                                ? JSON.parse(existingHasil.answers_detail)
+                                                : existingHasil.answers_detail
+                                            if (Array.isArray(savedDetails)) {
+                                                savedDetails.forEach(a => {
+                                                    if (a.answer !== null && a.answer !== undefined) {
+                                                        resumedAnswers[a.questionId] = a.answer
+                                                    }
+                                                })
+                                                console.log('[TakeExam] Resumed', Object.keys(resumedAnswers).length, 'answers')
+                                            }
+                                        } catch (e) {
+                                            console.error('[TakeExam] Error parsing saved answers:', e)
+                                        }
+                                    }
+                                }
+                            }
                         } catch (err) {
-                            console.error('[TakeExam] Error recording exam start:', err)
+                            console.error('[TakeExam] Error checking existing session:', err)
                         }
                     }
 
-                    // Set timer
-                    const now = new Date()
-                    const remainingMs = endTime - now
-                    const remainingSeconds = Math.max(0, Math.floor(remainingMs / 1000))
+                    // Set exam data
+                    setExamData({
+                        id: jadwal.id,
+                        name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
+                        duration: durasiMenit,
+                        matkulName: matkul?.nama || 'N/A',
+                        dosenName: jadwal.dosen?.nama || '-'
+                    })
+                    setQuestions(examSoal)
 
-                    if (now < startTime) {
-                        setTimeLeft(durationMinutes * 60)
-                    } else if (now > endTime) {
-                        setTimeLeft(0)
-                    } else {
+                    // Set resumed answers if any
+                    if (Object.keys(resumedAnswers).length > 0) {
+                        setAnswers(resumedAnswers)
+                    }
+
+                    // ===========================
+                    // TIMER: Personal duration
+                    // ===========================
+                    const now = new Date()
+                    const windowStart = new Date(`${jadwal.tanggal}T${waktuMulai}`)
+                    const windowEnd = new Date(`${jadwal.tanggal}T${waktuSelesai}`)
+
+                    if (personalStartTime) {
+                        // RESUME: calculate remaining from personal start
+                        const elapsedSeconds = Math.floor((now - personalStartTime) / 1000)
+                        const totalDurationSeconds = durasiMenit * 60
+                        const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds)
+                        setExamStartTime(personalStartTime)
                         setTimeLeft(remainingSeconds)
+
+                        if (remainingSeconds <= 0) {
+                            // Duration expired while away — auto-submit
+                            console.log('[TakeExam] Duration expired during absence, auto-submitting')
+                            setSubmitted(true)
+                        }
+                    } else {
+                        // NEW session: record start time
+                        const startNow = new Date()
+                        setExamStartTime(startNow)
+                        setTimeLeft(durasiMenit * 60)
+
+                        if (isSupabaseConfigured() && user?.id) {
+                            try {
+                                const result = await hasilUjianService.upsert({
+                                    jadwal_id: jadwal.id,
+                                    mahasiswa_id: user.id,
+                                    status: 'in_progress',
+                                    waktu_mulai: startNow.toISOString()
+                                })
+                                if (result?.id) setExistingHasilId(result.id)
+                                console.log('[TakeExam] New exam session recorded')
+                            } catch (err) {
+                                console.error('[TakeExam] Error recording exam start:', err)
+                            }
+                        }
                     }
                 } else {
                     console.log('TakeExam: No jadwal found for id:', id)
@@ -276,6 +350,34 @@ function TakeExamPage() {
 
         return () => clearInterval(timer)
     }, [submitted, timeLeft, loading])
+
+    // Auto-save answers to Supabase every 30 seconds
+    useEffect(() => {
+        if (submitted || loading || !examData?.id || !user?.id || questions.length === 0) return
+        if (!isSupabaseConfigured()) return
+
+        const autoSaveInterval = setInterval(async () => {
+            try {
+                const answerSnapshot = questions.map(q => ({
+                    questionId: q.id,
+                    type: q.type,
+                    answer: answers[q.id] ?? null
+                }))
+
+                await hasilUjianService.upsert({
+                    jadwal_id: examData.id,
+                    mahasiswa_id: user.id,
+                    status: 'in_progress',
+                    answers_detail: JSON.stringify(answerSnapshot)
+                })
+                console.log('[TakeExam] Auto-saved', Object.keys(answers).length, 'answers')
+            } catch (err) {
+                console.error('[TakeExam] Auto-save failed:', err)
+            }
+        }, 30000)
+
+        return () => clearInterval(autoSaveInterval)
+    }, [submitted, loading, examData, user, questions, answers])
 
     // Check for kicked status (pengawas can kick students during exam)
     useEffect(() => {
@@ -435,7 +537,7 @@ function TakeExamPage() {
                         jumlah_benar: jumlahBenar,
                         jumlah_salah: jumlahSalah,
                         jumlah_kosong: jumlahKosong,
-                        waktu_mulai: new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
+                        waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
                         waktu_selesai: new Date().toISOString(),
                         status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
                         // Store detailed answers as JSON
