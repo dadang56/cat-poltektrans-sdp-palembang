@@ -56,10 +56,6 @@ function DosenDashboard() {
                         jadwalService.getAll()
                     ])
 
-                    // Import hasilUjianService dynamically
-                    const { hasilUjianService } = await import('../../services/supabaseService')
-                    const allHasil = await hasilUjianService.getByDosen(catUser.id)
-
                     // Filter mata kuliah by dosen's matkulIds
                     const filteredMatkul = dosenMatkulIds.length > 0
                         ? allMatkul.filter(m => dosenMatkulIds.includes(String(m.id)))
@@ -75,7 +71,50 @@ function DosenDashboard() {
                     )
                     setQuestionCount(dosenSoal.length)
 
-                    // Group results by jadwal_id (examId) from Supabase hasil ujian
+                    // Try getByDosen first (uses dosen_id + soal matching)
+                    let allHasil = []
+                    try {
+                        const { hasilUjianService } = await import('../../services/supabaseService')
+                        allHasil = await hasilUjianService.getByDosen(catUser.id)
+                    } catch (e) {
+                        console.error('[DosenDashboard] getByDosen error:', e)
+                    }
+
+                    // Fallback: if no results and dosen has matkulIds, query jadwal by matkul_ids directly
+                    if (allHasil.length === 0 && dosenMatkulIds.length > 0) {
+                        console.log('[DosenDashboard] Fallback: querying by matkul_ids')
+                        // Find jadwal that match dosen's matkul_ids
+                        const matchingJadwalIds = allJadwal
+                            .filter(j => dosenMatkulIds.includes(String(j.matkul_id)))
+                            .map(j => j.id)
+
+                        if (matchingJadwalIds.length > 0) {
+                            try {
+                                const { default: supabaseClient } = await import('../../lib/supabase')
+                                const { data: hasilData } = await supabaseClient
+                                    .from('hasil_ujian')
+                                    .select(`
+                                        *,
+                                        mahasiswa:mahasiswa_id(id, nama, nim_nip),
+                                        jadwal:jadwal_id(
+                                            id, tanggal, tipe, deadline_koreksi,
+                                            matkul:matkul_id(id, nama)
+                                        )
+                                    `)
+                                    .in('jadwal_id', matchingJadwalIds)
+                                    .order('created_at', { ascending: false })
+
+                                if (hasilData && hasilData.length > 0) {
+                                    allHasil = hasilData
+                                    console.log('[DosenDashboard] Fallback found', hasilData.length, 'results')
+                                }
+                            } catch (e) {
+                                console.error('[DosenDashboard] Fallback query error:', e)
+                            }
+                        }
+                    }
+
+                    // Group results by jadwal_id (examId)
                     const examGroups = {}
                     allHasil.forEach(r => {
                         const jadwal = r.jadwal || {}
@@ -85,7 +124,7 @@ function DosenDashboard() {
                         // Filter by dosen's matkul
                         if (dosenMatkulIds.length > 0 && !dosenMatkulIds.includes(jadwalMatkulId)) return
 
-                        const examId = jadwal.id
+                        const examId = jadwal.id || r.jadwal_id
                         if (!examId) return
 
                         if (!examGroups[examId]) {
@@ -103,19 +142,21 @@ function DosenDashboard() {
                             }
                         }
                         examGroups[examId].totalStudents++
+                        // 'graded' means already corrected
                         if (r.status === 'graded') examGroups[examId].corrected++
                     })
 
                     // Calculate stats
                     const examsWithResults = Object.values(examGroups)
+                    // Needs correction = has students whose status is not 'graded' yet
                     const needsCorrection = examsWithResults.filter(e => e.corrected < e.totalStudents)
                     const fullyGraded = examsWithResults.filter(e => e.corrected === e.totalStudents && e.totalStudents > 0)
 
                     setPerluKoreksi(needsCorrection.length)
-                    setUjianSelesai(fullyGraded.length)
+                    setUjianSelesai(fullyGraded.length + needsCorrection.length) // total exams that have results
                     setExamDeadlines(needsCorrection.slice(0, 5))
 
-                    console.log('[DosenDashboard] Deadlines from Supabase:', needsCorrection.length)
+                    console.log('[DosenDashboard] Perlu koreksi:', needsCorrection.length, 'Selesai:', fullyGraded.length)
                 } else {
                     // Fallback to localStorage
                     const savedMatkul = localStorage.getItem('cat_matkul_data')

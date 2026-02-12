@@ -307,16 +307,28 @@ function UjianPage() {
             )
 
             // Dosen Name Resolution
-            // Priority: 1. Nested relation (j.dosen.nama), 2. Lookup in usersList by id, 3. Lookup by nim_nip, 4. Fallback
+            // Priority: 1. Nested relation, 2. Lookup by id, 3. Match by matkul_ids
             let finalDosenName = '-'
             if (j.dosen && j.dosen.nama) {
                 finalDosenName = j.dosen.nama
             } else if (dosen && dosen.nama) {
                 finalDosenName = dosen.nama
             } else if (dosenId) {
-                // Try finding dosen from usersList with string comparison
                 const dosenMatch = usersList.find(u => String(u.id) === String(dosenId))
                 if (dosenMatch) finalDosenName = dosenMatch.nama || dosenMatch.name || '-'
+            }
+
+            // Fallback: find dosen whose matkul_ids includes this exam's matkul_id
+            if (finalDosenName === '-' && matkulId) {
+                const dosenByMatkul = usersList.find(u => {
+                    if (u.role !== 'dosen') return false
+                    let ids = u.matkul_ids || []
+                    if (typeof ids === 'string') {
+                        try { ids = JSON.parse(ids) } catch { ids = [] }
+                    }
+                    return Array.isArray(ids) && ids.map(String).includes(String(matkulId))
+                })
+                if (dosenByMatkul) finalDosenName = dosenByMatkul.nama || dosenByMatkul.name || '-'
             }
 
             return {

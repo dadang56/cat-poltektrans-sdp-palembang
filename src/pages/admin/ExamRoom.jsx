@@ -52,6 +52,7 @@ function ExamRoomPage() {
     // Ruangan management
     const [ruangList, setRuangList] = useState([])
     const [editingRuang, setEditingRuang] = useState(null)
+    const [editingRuangName, setEditingRuangName] = useState(null)
     const [newRuangName, setNewRuangName] = useState('')
     const [newRuangKapasitas, setNewRuangKapasitas] = useState(30)
     const [showAddRuang, setShowAddRuang] = useState(false)
@@ -173,6 +174,20 @@ function ExamRoomPage() {
             setEditingRuang(null)
         } catch (err) {
             console.error('Error updating ruang:', err)
+        }
+    }
+
+    const handleUpdateRuangName = async (ruangId, nama) => {
+        const trimmed = (nama || '').trim()
+        if (!trimmed) { setEditingRuangName(null); return }
+        try {
+            if (isSupabaseConfigured()) {
+                await ruangService.update(ruangId, { nama: trimmed })
+            }
+            setRuangList(ruangList.map(r => r.id === ruangId ? { ...r, nama: trimmed } : r))
+            setEditingRuangName(null)
+        } catch (err) {
+            console.error('Error updating ruang name:', err)
         }
     }
 
@@ -420,7 +435,30 @@ function ExamRoomPage() {
                                             {ruangList.map((ruang, idx) => (
                                                 <tr key={ruang.id}>
                                                     <td>{idx + 1}</td>
-                                                    <td>{ruang.nama}</td>
+                                                    <td>
+                                                        {editingRuangName === ruang.id ? (
+                                                            <input
+                                                                type="text"
+                                                                className="form-input"
+                                                                defaultValue={ruang.nama}
+                                                                style={{ padding: '0.25rem 0.5rem', fontSize: '0.875rem' }}
+                                                                onKeyDown={e => {
+                                                                    if (e.key === 'Enter') handleUpdateRuangName(ruang.id, e.target.value)
+                                                                    if (e.key === 'Escape') setEditingRuangName(null)
+                                                                }}
+                                                                onBlur={e => handleUpdateRuangName(ruang.id, e.target.value)}
+                                                                autoFocus
+                                                            />
+                                                        ) : (
+                                                            <span
+                                                                style={{ cursor: 'pointer' }}
+                                                                onClick={() => setEditingRuangName(ruang.id)}
+                                                                title="Klik untuk edit nama ruangan"
+                                                            >
+                                                                {ruang.nama}
+                                                            </span>
+                                                        )}
+                                                    </td>
                                                     <td>
                                                         {editingRuang === ruang.id ? (
                                                             <div style={{ display: 'flex', gap: '0.25rem', alignItems: 'center' }}>

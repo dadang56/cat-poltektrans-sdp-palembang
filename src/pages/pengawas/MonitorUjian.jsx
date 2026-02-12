@@ -74,9 +74,17 @@ function MonitorUjian() {
 
       try {
         if (isSupabaseConfigured()) {
-          // Load jadwal from Supabase
-          const allJadwal = await jadwalService.getAll()
+          // Load jadwal and ruang_ujian from Supabase
+          const { ruangService } = await import('../../services/supabaseService')
+          const [allJadwal, allRuang] = await Promise.all([
+            jadwalService.getAll(),
+            ruangService.getAll()
+          ])
           setJadwalList(allJadwal)
+
+          // Build ruang lookup
+          const ruangLookup = {}
+          allRuang.forEach(r => { ruangLookup[r.id] = r })
 
           // Filter for active/upcoming exams (30 mins before to end time)
           const activeExams = allJadwal.filter(j => {
@@ -92,21 +100,24 @@ function MonitorUjian() {
 
           console.log('[MonitorUjian] Active exams from Supabase:', activeExams.length)
 
-          // Group by ruangan or create rooms from jadwal
+          // Group by ruangan — each room can have multiple exams
           const roomMap = {}
           activeExams.forEach(j => {
             const roomId = j.ruangan_id || j.ruanganId || 'default'
-            const roomName = j.ruangan?.nama || 'Ruang Ujian'
+            const ruang = ruangLookup[roomId] || j.ruangan || {}
+            const roomName = ruang.nama || j.ruangan?.nama || 'Ruang Ujian'
             const waktuMulai = j.waktu_mulai || j.waktuMulai
             const waktuSelesai = j.waktu_selesai || j.waktuSelesai
             const matkulName = j.matkul?.nama || 'Ujian'
             const tipe = j.tipe || j.tipe_ujian || 'UTS'
+            const examLabel = `${tipe} - ${matkulName}`
 
             if (!roomMap[roomId]) {
               roomMap[roomId] = {
                 id: roomId,
                 name: roomName,
-                exam: `${tipe} - ${matkulName}`,
+                exam: examLabel,
+                exams: [examLabel],
                 startTime: waktuMulai,
                 endTime: waktuSelesai,
                 participants: 0,
@@ -114,8 +125,16 @@ function MonitorUjian() {
                 status: 'available',
                 pengawas: null,
                 pengawasName: null,
-                jadwalId: j.id
+                jadwalId: j.id,
+                jadwalIds: [j.id]
               }
+            } else {
+              // Multiple exams in same room
+              if (!roomMap[roomId].exams.includes(examLabel)) {
+                roomMap[roomId].exams.push(examLabel)
+                roomMap[roomId].exam = roomMap[roomId].exams.join(', ')
+              }
+              roomMap[roomId].jadwalIds.push(j.id)
             }
           })
 
@@ -427,10 +446,13 @@ function MonitorUjian() {
                   >
                     <div className="room-header">
                       <MapPin size={20} />
-                      <h3>{room.name}</h3>
+                      <div>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ruang Ujian</span>
+                        <h3 style={{ margin: 0 }}>{room.name}</h3>
+                      </div>
                       {room.status === 'occupied' && <Lock size={16} className="lock-icon" />}
                     </div>
-                    <div className="room-exam">{room.exam}</div>
+                    <div className="room-exam" style={{ fontSize: '0.85rem' }}>{room.exam}</div>
                     <div className="room-time">
                       <Clock size={14} />
                       {room.startTime} - {room.endTime}
