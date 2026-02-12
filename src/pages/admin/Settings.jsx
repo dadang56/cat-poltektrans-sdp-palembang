@@ -375,7 +375,7 @@ function SettingsPage() {
                                 >
                                     <option value="low">Rendah - Hanya deteksi tab switch</option>
                                     <option value="medium">Sedang - Blokir copy/paste & shortcuts</option>
-                                    <option value="high">Tinggi - Fullscreen wajib + semua fitur</option>
+                                    <option value="high">Tinggi - Fullscreen wajib + lockdown mode (mirip SEB)</option>
                                 </select>
                             </div>
                         </div>

@@ -1002,3 +1002,81 @@
 [data-theme="dark"] .security-status.insecure {
     background: rgba(245, 158, 11, 0.15);
 }
+
+/* ============================================
+   Lockdown Overlay (High-level anti-cheat)
+   ============================================ */
+.lockdown-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.97);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 99999;
+    backdrop-filter: blur(20px);
+}
+
+.lockdown-content {
+    text-align: center;
+    color: white;
+    max-width: 440px;
+    padding: var(--space-8);
+}
+
+.lockdown-icon {
+    color: #ef4444;
+    margin-bottom: var(--space-4);
+    animation: pulse 2s infinite;
+}
+
+.lockdown-content h2 {
+    font-size: var(--font-size-2xl);
+    font-weight: var(--font-bold);
+    margin-bottom: var(--space-4);
+    color: white;
+}
+
+.lockdown-content p {
+    color: rgba(255, 255, 255, 0.8);
+    margin-bottom: var(--space-2);
+    font-size: var(--font-size-base);
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.6; transform: scale(1.05); }
+}
+
+/* ============================================
+   Security Badge in Header
+   ============================================ */
+.security-badge {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 4px 10px;
+    border-radius: var(--radius-full);
+    font-size: 0.7rem;
+    font-weight: var(--font-semibold);
+    white-space: nowrap;
+    transition: all var(--transition-fast);
+}
+
+.security-badge.secure {
+    background: rgba(16, 185, 129, 0.15);
+    color: #10b981;
+    border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.security-badge.has-warnings {
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    animation: badgePulse 2s infinite;
+}
+
+@keyframes badgePulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}

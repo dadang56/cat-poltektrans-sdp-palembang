@@ -63,6 +63,7 @@ function TakeExamPage() {
     const [platformInfo, setPlatformInfo] = useState(null)
     const [sebRequired, setSebRequired] = useState(false)
     const [showSEBWarning, setShowSEBWarning] = useState(false)
+    const [lockdownActive, setLockdownActive] = useState(false)
     const [violations, setViolations] = useState([])
     const [antiCheatSettings, setAntiCheatSettings] = useState(DEFAULT_ANTICHEAT_SETTINGS)
 
@@ -309,6 +310,7 @@ function TakeExamPage() {
         if (!submitted) {
             AntiCheat.init({
                 maxWarnings: antiCheatSettings.maxWarnings,
+                level: antiCheatSettings.antiCheatLevel || 'medium',
                 onViolation: (violation, count) => {
                     setViolations(prev => [...prev, violation])
                     setWarningCount(count)
@@ -319,13 +321,19 @@ function TakeExamPage() {
                         console.warn('[TakeExam] Max warnings reached, auto-submitting')
                         handleSubmit()
                     }
+                },
+                onLockdownChange: (locked) => {
+                    setLockdownActive(locked)
                 }
             })
         }
 
-        // Try to enter fullscreen on exam start
-        if (antiCheatSettings.antiCheatLevel === 'high') {
-            AntiCheat.requestFullscreen()
+        // Try to enter fullscreen on exam start (medium = optional, high = enforced)
+        if (antiCheatSettings.antiCheatLevel === 'high' || antiCheatSettings.antiCheatLevel === 'medium') {
+            // Small delay to ensure DOM is ready
+            setTimeout(() => {
+                AntiCheat.requestFullscreen()
+            }, 500)
         }
 
         // Cleanup on unmount
@@ -698,6 +706,29 @@ function TakeExamPage() {
                 </div>
             )}
 
+            {/* Lockdown Overlay — shown when student exits fullscreen in high mode */}
+            {lockdownActive && (
+                <div className="lockdown-overlay">
+                    <div className="lockdown-content animate-scaleIn">
+                        <ShieldAlert size={80} className="lockdown-icon" />
+                        <h2>⚠️ Mode Ujian Terkunci</h2>
+                        <p>Anda keluar dari mode fullscreen.</p>
+                        <p>Soal ujian tersembunyi untuk keamanan.</p>
+                        <p style={{ fontSize: '0.85rem', color: 'rgba(255,255,255,0.6)', marginTop: '0.5rem' }}>
+                            Peringatan ke-{warningCount} dari {antiCheatSettings.maxWarnings}
+                        </p>
+                        <button
+                            className="btn btn-primary btn-lg"
+                            onClick={() => AntiCheat.requestFullscreen()}
+                            style={{ marginTop: '1.5rem', fontSize: '1.1rem', padding: '0.75rem 2rem' }}
+                        >
+                            <Maximize size={20} />
+                            Kembali ke Ujian (Fullscreen)
+                        </button>
+                    </div>
+                </div>
+            )}
+
             {/* Warning Modal */}
             {showWarning && (
                 <div className="warning-overlay">
@@ -775,6 +806,13 @@ function TakeExamPage() {
                     <span className="exam-student">{user?.name} • {user?.nim}</span>
                 </div>
                 <div className="exam-timer-container">
+                    {/* Security Status Badge */}
+                    <div className={`security-badge ${warningCount > 0 ? 'has-warnings' : 'secure'}`}
+                        title={`Anti-Cheat: ${antiCheatSettings.antiCheatLevel?.toUpperCase()} | Peringatan: ${warningCount}/${antiCheatSettings.maxWarnings}`}
+                    >
+                        <Shield size={14} />
+                        <span>{warningCount > 0 ? `${warningCount}⚠` : '✓'}</span>
+                    </div>
                     <div className={`exam-timer ${timeLeft < 300 ? 'warning' : ''} ${timeLeft < 60 ? 'danger' : ''}`}>
                         <Clock size={20} />
                         <span>{formatTime(timeLeft)}</span>
