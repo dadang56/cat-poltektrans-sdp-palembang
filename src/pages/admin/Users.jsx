@@ -652,24 +652,27 @@ function UsersPage() {
                 const rolesWithoutNim = ['superadmin', 'admin_prodi', 'pengawas', 'pusbangkatar']
 
                 if (rolesWithoutNim.includes(userData.role)) {
-                    // For admin roles without NIM/NIP, use username with timestamp suffix for uniqueness
-                    nimNip = userData.username || ''
+                    // For admin roles: use provided NIM/NIP, or fallback to username, or auto-generate
+                    nimNip = (userData.nim || '').trim() || (userData.username || '').trim()
                     if (!nimNip) {
                         throw new Error('Username harus diisi')
                     }
+                    // Add unique suffix to avoid duplicate nim_nip when username matches existing records
+                    if (!userData.nim || !userData.nim.trim()) {
+                        nimNip = `${userData.role.toUpperCase()}-${nimNip}-${Date.now().toString(36)}`
+                    }
                 } else if (userData.role === 'dosen') {
                     // For dosen, use NIP if available, otherwise username
-                    nimNip = userData.nim || userData.nip || userData.username || ''
+                    nimNip = (userData.nim || userData.nip || '').trim() || (userData.username || '').trim()
+                    if (!nimNip) {
+                        nimNip = `DOSEN-${(userData.username || 'user').trim()}-${Date.now().toString(36)}`
+                    }
                 } else {
                     // For mahasiswa, NIM is required
-                    nimNip = userData.nim || ''
+                    nimNip = (userData.nim || '').trim()
                     if (!nimNip) {
                         throw new Error('NIM harus diisi untuk mahasiswa')
                     }
-                }
-
-                if (!nimNip) {
-                    throw new Error('Username atau NIM/NIP harus diisi')
                 }
 
                 // Map form data to Supabase format
