@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS users (
     nim_nip VARCHAR(50) UNIQUE NOT NULL,
     nama VARCHAR(255) NOT NULL,
     email VARCHAR(255),
-    role VARCHAR(20) NOT NULL CHECK (role IN ('superadmin', 'admin', 'admin_prodi', 'dosen', 'mahasiswa', 'pengawas')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('superadmin', 'admin', 'admin_prodi', 'dosen', 'mahasiswa', 'pengawas', 'pusbangkatar')),
     prodi_id UUID REFERENCES prodi(id) ON DELETE SET NULL,
     kelas_id UUID REFERENCES kelas(id) ON DELETE SET NULL,
     status VARCHAR(20) DEFAULT 'active' CHECK (status IN ('active', 'inactive')),

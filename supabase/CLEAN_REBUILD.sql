@@ -65,7 +65,7 @@ CREATE TABLE users (
     nama VARCHAR(255) NOT NULL,
     email VARCHAR(255),
     password VARCHAR(255), -- For legacy login
-    role VARCHAR(20) NOT NULL CHECK (role IN ('superadmin', 'admin', 'admin_prodi', 'dosen', 'mahasiswa', 'pengawas')),
+    role VARCHAR(20) NOT NULL CHECK (role IN ('superadmin', 'admin', 'admin_prodi', 'dosen', 'mahasiswa', 'pengawas', 'pusbangkatar')),
     prodi_id UUID REFERENCES prodi(id) ON DELETE SET NULL,
     kelas_id UUID REFERENCES kelas(id) ON DELETE SET NULL,
     -- Dosen specific fields (arrays stored as JSON strings)

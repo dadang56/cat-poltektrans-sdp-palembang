@@ -739,11 +739,13 @@ function UsersPage() {
         } catch (err) {
             console.error('Error saving user:', err)
             // Show user-friendly error messages
-            let errorMessage = err.message
+            let errorMessage = err.message || 'Unknown error'
             if (err.message?.includes('duplicate') || err.message?.includes('unique') || err.code === '23505') {
                 errorMessage = 'Username atau NIM/NIP sudah digunakan. Gunakan username yang berbeda.'
+            } else if (err.message?.includes('users_role_check') || err.message?.includes('role')) {
+                errorMessage = `Role "${err.message.match(/'([^']+)'/)?.[1] || 'unknown'}" belum didukung di database. Jalankan migration SQL untuk menambahkan role ini.`
             } else if (err.message?.includes('violates')) {
-                errorMessage = 'Data tidak valid. Pastikan semua field terisi dengan benar.'
+                errorMessage = `Constraint error: ${err.message}`
             }
             setError(`Gagal menyimpan user: ${errorMessage}`)
         } finally {
