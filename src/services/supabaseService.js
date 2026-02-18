@@ -99,6 +99,22 @@ export const userService = {
         return true
     },
 
+    // Get users by role
+    async getByRole(role) {
+        const { data, error } = await supabase
+            .from('users')
+            .select(`
+                *,
+                prodi:prodi_id(id, nama, kode),
+                kelas:kelas_id(id, nama)
+            `)
+            .eq('role', role)
+            .order('nama')
+
+        if (error) throw error
+        return data || []
+    },
+
     // Bulk create users
     async bulkCreate(users) {
         const { data, error } = await supabase
