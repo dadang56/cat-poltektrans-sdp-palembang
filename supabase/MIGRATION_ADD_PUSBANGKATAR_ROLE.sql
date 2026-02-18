@@ -1,5 +1,5 @@
 -- ============================================
--- MIGRATION: Add 'pusbangkatar' role to users table
+-- MIGRATION: Pusbangkatar Role + Required Columns
 -- Run this in Supabase SQL Editor
 -- ============================================
 
@@ -16,12 +16,22 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS password VARCHAR(255);
 -- 4. Add username column if not exists  
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(100);
 
+-- 5. Add nilai_kondite and nilai_semapta columns for Pusbangkatar
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nilai_kondite DECIMAL(5,2) DEFAULT NULL;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS nilai_semapta DECIMAL(5,2) DEFAULT NULL;
+
 -- ============================================
 -- VERIFICATION
 -- ============================================
-SELECT 'Migration completed! pusbangkatar role is now available.' as status;
+SELECT 'Migration completed!' as status;
 
--- Show current constraint
+-- Verify columns exist
+SELECT column_name, data_type 
+FROM information_schema.columns 
+WHERE table_name = 'users' 
+AND column_name IN ('password', 'username', 'nilai_kondite', 'nilai_semapta');
+
+-- Verify role constraint
 SELECT constraint_name, check_clause 
 FROM information_schema.check_constraints 
 WHERE constraint_name = 'users_role_check';
