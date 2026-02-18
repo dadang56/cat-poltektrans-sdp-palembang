@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { exportToXLSX } from '../../utils/excelUtils'
-import { userService, prodiService, kelasService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
+import { userService, prodiService, kelasService, matkulService, nilaiPusbangkatarService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -83,6 +83,7 @@ function KHSPage() {
     const [search, setSearch] = useState('')
     const [loading, setLoading] = useState(true)
     const [nilaiAkhirData, setNilaiAkhirData] = useState({})
+    const [nilaiPusbangkatar, setNilaiPusbangkatar] = useState({}) // mahasiswaId -> {nilai_kondite, nilai_semapta}
     const printRef = useRef()
 
     // Load data
@@ -128,6 +129,23 @@ function KHSPage() {
                 if (savedNilai) {
                     setNilaiAkhirData(JSON.parse(savedNilai))
                     console.log('[KHS] Nilai akhir loaded:', Object.keys(JSON.parse(savedNilai)).length, 'records')
+                }
+
+                // Load NK/NS from nilai_pusbangkatar table
+                const currentTA = settings?.tahunAkademik || '2024/2025 Ganjil'
+                try {
+                    const npData = await nilaiPusbangkatarService.getByTA(currentTA)
+                    const npMap = {}
+                    npData.forEach(n => {
+                        npMap[n.mahasiswa_id] = {
+                            nilai_kondite: n.nilai_kondite,
+                            nilai_semapta: n.nilai_semapta
+                        }
+                    })
+                    setNilaiPusbangkatar(npMap)
+                    console.log('[KHS] NK/NS loaded for TA:', currentTA, Object.keys(npMap).length, 'records')
+                } catch (npErr) {
+                    console.warn('[KHS] Could not load NK/NS:', npErr.message)
                 }
             } catch (error) {
                 console.error('[KHS] Error loading data:', error)
@@ -812,7 +830,7 @@ function KHSPage() {
                                                                 NK (20%)
                                                             </div>
                                                             <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                                                                {(selectedMahasiswa?.nilai_kondite ?? 0).toFixed(2)}
+                                                                {(nilaiPusbangkatar[selectedMahasiswa?.id]?.nilai_kondite ?? selectedMahasiswa?.nilai_kondite ?? 0).toFixed(2)}
                                                             </div>
                                                         </div>
                                                         {/* NS */}
@@ -821,7 +839,7 @@ function KHSPage() {
                                                                 NS (10%)
                                                             </div>
                                                             <div style={{ fontSize: '1.5rem', fontWeight: 700 }}>
-                                                                {(selectedMahasiswa?.nilai_semapta ?? 0).toFixed(2)}
+                                                                {(nilaiPusbangkatar[selectedMahasiswa?.id]?.nilai_semapta ?? selectedMahasiswa?.nilai_semapta ?? 0).toFixed(2)}
                                                             </div>
                                                         </div>
                                                         {/* PAS */}
@@ -834,7 +852,11 @@ function KHSPage() {
                                                                 fontWeight: 700,
                                                                 color: 'var(--color-primary)'
                                                             }}>
-                                                                {((ipsStats.ips * 0.7) + ((selectedMahasiswa?.nilai_kondite ?? 0) * 0.2) + ((selectedMahasiswa?.nilai_semapta ?? 0) * 0.1)).toFixed(2)}
+                                                                {(() => {
+                                                                    const nk = nilaiPusbangkatar[selectedMahasiswa?.id]?.nilai_kondite ?? selectedMahasiswa?.nilai_kondite ?? 0
+                                                                    const ns = nilaiPusbangkatar[selectedMahasiswa?.id]?.nilai_semapta ?? selectedMahasiswa?.nilai_semapta ?? 0
+                                                                    return ((ipsStats.ips * 0.7) + (nk * 0.2) + (ns * 0.1)).toFixed(2)
+                                                                })()}
                                                             </div>
                                                         </div>
                                                     </div>

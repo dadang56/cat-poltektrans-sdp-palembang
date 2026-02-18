@@ -391,6 +391,7 @@ export const soalService = {
         if (filters.tipe_ujian) query = query.eq('tipe_ujian', filters.tipe_ujian)
         if (filters.tipe_soal) query = query.eq('tipe_soal', filters.tipe_soal)
         if (filters.dosen_id) query = query.eq('dosen_id', filters.dosen_id)
+        if (filters.tahun_akademik) query = query.eq('tahun_akademik', filters.tahun_akademik)
 
         const { data, error } = await query
         if (error) throw error
@@ -963,6 +964,95 @@ export const appSettingsService = {
 
         if (error) throw error
         return true
+    }
+}
+
+// ============================================
+// Nilai Pusbangkatar Service
+// Per Tahun Akademik storage for NK/NS
+// ============================================
+export const nilaiPusbangkatarService = {
+    // Get all nilai for a tahun akademik
+    async getByTA(tahunAkademik) {
+        const { data, error } = await supabase
+            .from('nilai_pusbangkatar')
+            .select(`
+                *,
+                mahasiswa:mahasiswa_id(
+                    id, nama, nim_nip,
+                    prodi:prodi_id(id, nama, kode),
+                    kelas:kelas_id(id, nama)
+                )
+            `)
+            .eq('tahun_akademik', tahunAkademik)
+            .order('created_at', { ascending: false })
+
+        if (error) throw error
+        return data || []
+    },
+
+    // Get nilai for a specific mahasiswa in a TA
+    async getByMahasiswa(mahasiswaId, tahunAkademik) {
+        const { data, error } = await supabase
+            .from('nilai_pusbangkatar')
+            .select('*')
+            .eq('mahasiswa_id', mahasiswaId)
+            .eq('tahun_akademik', tahunAkademik)
+            .maybeSingle()
+
+        if (error) throw error
+        return data
+    },
+
+    // Get all nilai for a specific mahasiswa (across all TA)
+    async getAllByMahasiswa(mahasiswaId) {
+        const { data, error } = await supabase
+            .from('nilai_pusbangkatar')
+            .select('*')
+            .eq('mahasiswa_id', mahasiswaId)
+            .order('tahun_akademik', { ascending: false })
+
+        if (error) throw error
+        return data || []
+    },
+
+    // Upsert nilai (insert or update)
+    async upsert(mahasiswaId, tahunAkademik, nilai) {
+        const { data, error } = await supabase
+            .from('nilai_pusbangkatar')
+            .upsert({
+                mahasiswa_id: mahasiswaId,
+                tahun_akademik: tahunAkademik,
+                ...nilai,
+                updated_at: new Date().toISOString()
+            }, {
+                onConflict: 'mahasiswa_id,tahun_akademik'
+            })
+            .select()
+            .single()
+
+        if (error) throw error
+        return data
+    },
+
+    // Bulk upsert
+    async bulkUpsert(records) {
+        const { data, error } = await supabase
+            .from('nilai_pusbangkatar')
+            .upsert(
+                records.map(r => ({
+                    mahasiswa_id: r.mahasiswa_id,
+                    tahun_akademik: r.tahun_akademik,
+                    nilai_kondite: r.nilai_kondite,
+                    nilai_semapta: r.nilai_semapta,
+                    updated_at: new Date().toISOString()
+                })),
+                { onConflict: 'mahasiswa_id,tahun_akademik' }
+            )
+            .select()
+
+        if (error) throw error
+        return data || []
     }
 }
 
