@@ -217,6 +217,7 @@ function KHSPage() {
                     matkulId: matkul.id,
                     matkulNama: matkul.nama,
                     matkulKode: matkul.kode,
+                    semester: matkul.semester || 1,
                     sks: sks,
                     nilaiAngka: Math.round(nak * 100) / 100,
                     nilaiHuruf: nh,
@@ -246,6 +247,46 @@ function KHSPage() {
         }
     }
 
+    // Calculate IPK (cumulative GPA across semesters)
+    const calculateIPK = (allGrades) => {
+        // Group grades by semester
+        const bySemester = {}
+        allGrades.forEach(g => {
+            const sem = g.semester || 1
+            if (!bySemester[sem]) bySemester[sem] = []
+            bySemester[sem].push(g)
+        })
+
+        // Calculate cumulative IPK for each semester (1 through 6)
+        const ipkData = []
+        let cumulativeSks = 0
+        let cumulativeBobot = 0
+
+        for (let sem = 1; sem <= 6; sem++) {
+            const semGrades = bySemester[sem] || []
+            if (semGrades.length === 0 && cumulativeSks === 0) continue
+
+            const semSks = semGrades.reduce((s, g) => s + g.sks, 0)
+            const semBobot = semGrades.reduce((s, g) => s + g.bobotSks, 0)
+
+            cumulativeSks += semSks
+            cumulativeBobot += semBobot
+
+            const ipk = cumulativeSks > 0 ? cumulativeBobot / cumulativeSks : 0
+
+            ipkData.push({
+                semester: sem,
+                semSks,
+                semBobot: Math.round(semBobot * 100) / 100,
+                cumulativeSks,
+                cumulativeBobot: Math.round(cumulativeBobot * 100) / 100,
+                ipk: Math.round(ipk * 100) / 100
+            })
+        }
+
+        return ipkData
+    }
+
     // Get prodi name
     const getProdiName = (prodiId) => {
         const prodi = prodiList.find(p => String(p.id) === String(prodiId))
@@ -264,9 +305,14 @@ function KHSPage() {
 
         const grades = getStudentGrades(selectedMahasiswa)
         const stats = calculateIPS(grades)
+        const ipkData = calculateIPK(grades)
         const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
         const prodi = prodiList.find(p => String(p.id) === String(selectedMahasiswa.prodi_id))
         const kelas = kelasList.find(k => String(k.id) === String(selectedMahasiswa.kelas_id))
+
+        // NK/NS from nilai_pusbangkatar or fallback
+        const nk = nilaiPusbangkatar[selectedMahasiswa?.id]?.nilai_kondite ?? selectedMahasiswa?.nilai_kondite ?? 0
+        const ns = nilaiPusbangkatar[selectedMahasiswa?.id]?.nilai_semapta ?? selectedMahasiswa?.nilai_semapta ?? 0
 
         // Get Ka.Prodi info from prodi table (already loaded)
         const kaprodiInfo = {
@@ -413,6 +459,31 @@ function KHSPage() {
                     .signature-box .nip { 
                         font-size: 9pt;
                     }
+
+                    /* IPK Table */
+                    .ipk-section {
+                        margin: 15px 0;
+                        font-size: 10pt;
+                    }
+                    .ipk-section p {
+                        font-weight: bold;
+                        margin-bottom: 5px;
+                        text-align: center;
+                    }
+                    .ipk-table {
+                        width: 100%;
+                        border-collapse: collapse;
+                        font-size: 9pt;
+                    }
+                    .ipk-table th, .ipk-table td {
+                        border: 1px solid #000;
+                        padding: 4px 8px;
+                        text-align: center;
+                    }
+                    .ipk-table th {
+                        background: #f0f0f0;
+                        font-weight: bold;
+                    }
                 </style>
             </head>
             <body>
@@ -496,10 +567,29 @@ function KHSPage() {
                 <!-- Summary -->
                 <div class="summary">
                     <div class="summary-row"><span class="summary-label">INDEKS PRESTASI SEMESTER (IPS)</span>: <span class="summary-value">${stats.ips.toFixed(2)}</span></div>
-                    <div class="summary-row"><span class="summary-label">NILAI KONDITE (NK)</span>: ${(selectedMahasiswa?.nilai_kondite ?? 0).toFixed(2)}</div>
-                    <div class="summary-row"><span class="summary-label">NILAI KESAMAPTAAN (NS)</span>: ${(selectedMahasiswa?.nilai_semapta ?? 0).toFixed(2)}</div>
-                    <div class="summary-row"><span class="summary-label">PERINGKAT AKHIR SEMESTER (PAS)</span>: ${((stats.ips * 0.7) + ((selectedMahasiswa?.nilai_kondite ?? 0) * 0.2) + ((selectedMahasiswa?.nilai_semapta ?? 0) * 0.1)).toFixed(2)}</div>
+                    <div class="summary-row"><span class="summary-label">NILAI KONDITE (NK)</span>: ${nk.toFixed(2)}</div>
+                    <div class="summary-row"><span class="summary-label">NILAI KESAMAPTAAN (NS)</span>: ${ns.toFixed(2)}</div>
+                    <div class="summary-row"><span class="summary-label">PERINGKAT AKHIR SEMESTER (PAS)</span>: ${((stats.ips * 0.7) + (nk * 0.2) + (ns * 0.1)).toFixed(2)}</div>
                 </div>
+
+                <!-- IPK Table -->
+                ${ipkData.length > 0 ? `
+                <div class="ipk-section">
+                    <p>INDEKS PRESTASI KUMULATIF (IPK) PADA SEMESTER</p>
+                    <table class="ipk-table">
+                        <thead>
+                            <tr>
+                                ${ipkData.map(d => `<th>Semester ${d.semester}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                ${ipkData.map(d => `<td>${d.ipk.toFixed(2)}</td>`).join('')}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                ` : ''}
                 
                 <!-- Signatures -->
                 <div class="signature-section">
@@ -576,6 +666,7 @@ function KHSPage() {
 
     const studentGrades = selectedMahasiswa ? getStudentGrades(selectedMahasiswa) : []
     const ipsStats = calculateIPS(studentGrades)
+    const ipkStats = calculateIPK(studentGrades)
 
     return (
         <DashboardLayout>
@@ -865,7 +956,42 @@ function KHSPage() {
                                                     </div>
                                                 </div>
 
-                                                {/* Grade Legend */}
+                                                {/* IPK Table */}
+                                                {ipkStats.length > 0 && (
+                                                    <div style={{
+                                                        marginTop: '16px',
+                                                        padding: '16px',
+                                                        backgroundColor: 'var(--color-bg-muted)',
+                                                        borderRadius: '8px',
+                                                    }}>
+                                                        <div style={{ fontWeight: 700, fontSize: '0.85rem', textAlign: 'center', marginBottom: '12px' }}>
+                                                            INDEKS PRESTASI KUMULATIF (IPK) PADA SEMESTER
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', justifyContent: 'center' }}>
+                                                            {ipkStats.map(d => (
+                                                                <div key={d.semester} style={{
+                                                                    textAlign: 'center',
+                                                                    padding: '8px 12px',
+                                                                    backgroundColor: 'var(--color-surface)',
+                                                                    borderRadius: '8px',
+                                                                    border: '1px solid var(--color-border)',
+                                                                    minWidth: '80px'
+                                                                }}>
+                                                                    <div style={{ fontSize: '0.7rem', color: 'var(--color-text-muted)' }}>Semester {d.semester}</div>
+                                                                    <div style={{
+                                                                        fontSize: '1.25rem',
+                                                                        fontWeight: 700,
+                                                                        color: d.ipk >= 3.0 ? 'var(--color-success)' :
+                                                                            d.ipk >= 2.5 ? 'var(--color-warning)' : 'var(--color-error)'
+                                                                    }}>
+                                                                        {d.ipk.toFixed(2)}
+                                                                    </div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </div>
+                                                )}
+
                                                 <div style={{
                                                     marginTop: '16px',
                                                     padding: '12px',
