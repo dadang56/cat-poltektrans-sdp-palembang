@@ -132,6 +132,7 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
             { text: '', image: null },
             { text: '', image: null },
             { text: '', image: null },
+            { text: '', image: null },
             { text: '', image: null }
         ],
         correctAnswer: 0,

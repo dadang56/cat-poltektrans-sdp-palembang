@@ -34,7 +34,7 @@ function QuestionModal({ isOpen, onClose, question, onSave, categories }) {
         category: categories[0] || '',
         difficulty: 'sedang',
         points: 10,
-        options: ['', '', '', ''],
+        options: ['', '', '', '', ''],
         correctAnswer: 0
     })
 
