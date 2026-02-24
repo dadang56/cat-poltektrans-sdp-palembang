@@ -63,6 +63,19 @@ export function SettingsProvider({ children }) {
                     const supabaseSettings = await appSettingsService.get('app_config')
                     if (supabaseSettings) {
                         setSettings({ ...DEFAULT_SETTINGS, ...supabaseSettings })
+                    } else {
+                        // Supabase has no settings yet, check localStorage as fallback
+                        const savedSettings = localStorage.getItem('cat_app_settings')
+                        if (savedSettings) {
+                            const parsed = JSON.parse(savedSettings)
+                            setSettings({ ...DEFAULT_SETTINGS, ...parsed })
+                            // Auto-save localStorage settings to Supabase for future loads
+                            try {
+                                await appSettingsService.set('app_config', { ...DEFAULT_SETTINGS, ...parsed })
+                            } catch (syncErr) {
+                                console.warn('Could not sync localStorage settings to Supabase:', syncErr)
+                            }
+                        }
                     }
                 } else {
                     // Fallback to localStorage

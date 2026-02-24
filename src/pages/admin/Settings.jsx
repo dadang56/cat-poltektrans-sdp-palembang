@@ -66,9 +66,14 @@ function SettingsPage() {
         }))
     }
 
-    const handleSave = () => {
-        updateSettings(localSettings)
-        setSaveStatus('success')
+    const handleSave = async () => {
+        try {
+            await updateSettings(localSettings)
+            setSaveStatus('success')
+        } catch (err) {
+            console.error('Save failed:', err)
+            setSaveStatus('error')
+        }
         setTimeout(() => setSaveStatus(null), 3000)
     }
 
