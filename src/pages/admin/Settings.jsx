@@ -401,9 +401,9 @@ function SettingsPage() {
 
                 {/* Save Status Toast */}
                 {saveStatus && (
-                    <div className={`toast toast-${saveStatus === 'success' ? 'success' : 'info'}`}>
-                        <Check size={18} />
-                        {saveStatus === 'success' ? 'Pengaturan berhasil disimpan!' : 'Pengaturan dikembalikan ke default'}
+                    <div className={`toast toast-${saveStatus === 'success' ? 'success' : saveStatus === 'error' ? 'error' : 'info'}`}>
+                        {saveStatus === 'error' ? <X size={18} /> : <Check size={18} />}
+                        {saveStatus === 'success' ? 'Pengaturan berhasil disimpan!' : saveStatus === 'error' ? 'Gagal menyimpan pengaturan. Periksa koneksi database.' : 'Pengaturan dikembalikan ke default'}
                     </div>
                 )}
             </div>

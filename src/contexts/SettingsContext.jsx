@@ -54,49 +54,20 @@ export function SettingsProvider({ children }) {
     const [isLoaded, setIsLoaded] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
 
-    // Load settings from Supabase or fallback to localStorage on mount
+    // Load settings from Supabase on mount
     useEffect(() => {
         const loadSettings = async () => {
             try {
                 if (isSupabaseConfigured()) {
-                    // Load from Supabase
                     const supabaseSettings = await appSettingsService.get('app_config')
                     if (supabaseSettings) {
                         setSettings({ ...DEFAULT_SETTINGS, ...supabaseSettings })
-                    } else {
-                        // Supabase has no settings yet, check localStorage as fallback
-                        const savedSettings = localStorage.getItem('cat_app_settings')
-                        if (savedSettings) {
-                            const parsed = JSON.parse(savedSettings)
-                            setSettings({ ...DEFAULT_SETTINGS, ...parsed })
-                            // Auto-save localStorage settings to Supabase for future loads
-                            try {
-                                await appSettingsService.set('app_config', { ...DEFAULT_SETTINGS, ...parsed })
-                            } catch (syncErr) {
-                                console.warn('Could not sync localStorage settings to Supabase:', syncErr)
-                            }
-                        }
                     }
-                } else {
-                    // Fallback to localStorage
-                    const savedSettings = localStorage.getItem('cat_app_settings')
-                    if (savedSettings) {
-                        const parsed = JSON.parse(savedSettings)
-                        setSettings({ ...DEFAULT_SETTINGS, ...parsed })
-                    }
+                    // If null, use DEFAULT_SETTINGS (already set as initial state)
                 }
             } catch (e) {
                 console.error('Failed to load settings from Supabase:', e)
-                // Fallback to localStorage on error
-                const savedSettings = localStorage.getItem('cat_app_settings')
-                if (savedSettings) {
-                    try {
-                        const parsed = JSON.parse(savedSettings)
-                        setSettings({ ...DEFAULT_SETTINGS, ...parsed })
-                    } catch (parseErr) {
-                        console.error('Failed to parse localStorage settings:', parseErr)
-                    }
-                }
+                // Use default settings on error
             }
             setIsLoaded(true)
         }
@@ -125,16 +96,17 @@ export function SettingsProvider({ children }) {
         const updated = { ...settings, ...newSettings }
         setSettings(updated)
 
-        // Always save to localStorage as backup
-        localStorage.setItem('cat_app_settings', JSON.stringify(updated))
-
-        // Try to save to Supabase if configured
+        // Save to Supabase
         if (isSupabaseConfigured()) {
             setIsSaving(true)
             try {
                 await appSettingsService.set('app_config', updated)
+                console.log('[Settings] Saved to Supabase successfully')
             } catch (e) {
                 console.error('Failed to save settings to Supabase:', e)
+                // Revert local state on save failure
+                setSettings(settings)
+                throw e
             } finally {
                 setIsSaving(false)
             }
@@ -143,14 +115,13 @@ export function SettingsProvider({ children }) {
 
     const resetSettings = async () => {
         setSettings(DEFAULT_SETTINGS)
-        localStorage.removeItem('cat_app_settings')
 
-        // Try to delete from Supabase if configured
+        // Reset in Supabase - save defaults instead of deleting
         if (isSupabaseConfigured()) {
             try {
-                await appSettingsService.delete('app_config')
+                await appSettingsService.set('app_config', DEFAULT_SETTINGS)
             } catch (e) {
-                console.error('Failed to delete settings from Supabase:', e)
+                console.error('Failed to reset settings in Supabase:', e)
             }
         }
     }
