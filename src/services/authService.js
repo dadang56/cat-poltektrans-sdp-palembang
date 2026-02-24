@@ -88,7 +88,9 @@ export async function signInWithNimNip(nimNip, password) {
             // Only now do we try to query the DB directly (as anon)
             // This might fail if RLS is strict, but that's expected for Legacy users in strict mode
             // We use 'maybeSingle' to avoid throwing immediately
-            const { data: existingUser, error: lookupError } = await supabase
+            // Try lookup by nim_nip first
+            let existingUser = null
+            const { data: byNimNip, error: lookupError } = await supabase
                 .from('users')
                 .select(`
                     *,
@@ -98,15 +100,33 @@ export async function signInWithNimNip(nimNip, password) {
                 .ilike('nim_nip', nimNip)
                 .maybeSingle()
 
-            if (lookupError) {
+            if (lookupError && lookupError.code !== 'PGRST116') {
                 console.error('[AuthService] Legacy lookup error:', lookupError)
-                // If RLS blocks us, we can't do anything for legacy users
-                if (authError) throw new Error('Username atau Password salah') // Return the original auth error
+                if (authError) throw new Error('Username atau Password salah')
                 throw new Error('Gagal mengakses data pengguna')
             }
 
+            existingUser = byNimNip
+
+            // If not found by nim_nip, try by username
             if (!existingUser) {
-                // If we also couldn't find it in DB
+                console.log('[AuthService] Not found by nim_nip, trying username...')
+                const { data: byUsername, error: usernameError } = await supabase
+                    .from('users')
+                    .select(`
+                        *,
+                        prodi:prodi_id(id, nama, kode),
+                        kelas:kelas_id(id, nama)
+                    `)
+                    .ilike('username', nimNip)
+                    .maybeSingle()
+
+                if (!usernameError || usernameError.code === 'PGRST116') {
+                    existingUser = byUsername
+                }
+            }
+
+            if (!existingUser) {
                 throw new Error('NIM/NIP tidak ditemukan dalam sistem')
             }
 
