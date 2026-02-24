@@ -324,32 +324,70 @@ function RekapKehadiranPage() {
             <head>
                 <title>Kehadiran - ${item.examName}</title>
                 <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h1 { text-align: center; margin-bottom: 20px; }
-                    .info { margin-bottom: 20px; }
-                    .info p { margin: 5px 0; }
-                    .summary { display: flex; gap: 20px; margin: 20px 0; }
-                    .summary-item { padding: 10px 20px; border: 1px solid #ccc; border-radius: 4px; text-align: center; }
-                    .summary-item .value { font-size: 24px; font-weight: bold; }
-                    .summary-item .label { font-size: 12px; color: #666; }
+                    @page { size: A4 portrait; margin: 15mm; }
+                    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif !important; }
+                    body { font-size: 11pt; padding: 20px; }
+                    .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
+                    .print-logo { width: 60px; height: 60px; object-fit: contain; }
+                    .print-institution { flex: 1; text-align: center; }
+                    .print-institution h2 { font-size: 14pt; text-transform: uppercase; }
+                    .print-institution p { font-size: 10pt; margin: 3px 0 0; }
+                    .print-title { text-align: center; margin: 20px 0; }
+                    .print-title h3 { font-size: 13pt; text-decoration: underline; }
+                    .print-info td { padding: 3px 10px 3px 0; vertical-align: top; }
+                    .print-info td:first-child { width: 120px; }
+                    .summary-table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .summary-table th, .summary-table td { border: 1px solid #000; padding: 8px; text-align: center; }
+                    .summary-table th { background: #f0f0f0; font-weight: bold; }
+                    .signature { margin-top: 50px; display: flex; justify-content: flex-end; }
+                    .signature-box { text-align: center; width: 220px; }
+                    .signature-line { border-bottom: 1px solid #000; margin-top: 60px; margin-bottom: 5px; }
                 </style>
             </head>
             <body>
-                <h1>Daftar Hadir Ujian</h1>
-                <div class="info">
-                    <p><strong>Nama Ujian:</strong> ${item.examName}</p>
-                    <p><strong>Ruang:</strong> ${item.room}</p>
-                    <p><strong>Tanggal:</strong> ${item.date}</p>
-                    <p><strong>Waktu:</strong> ${item.time}</p>
-                    <p><strong>Pengawas:</strong> ${item.pengawas}</p>
+                <div class="print-header">
+                    ${settings?.logoUrl
+                ? `<img src="${settings.logoUrl}" alt="Logo" class="print-logo" />`
+                : `<div style="width:60px;height:60px;background:#333;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold">CAT</div>`
+            }
+                    <div class="print-institution">
+                        <h2>${settings?.institution || 'Politeknik Transportasi SDP Palembang'}</h2>
+                        <p>${settings?.address || 'Jl. Residen Abdul Rozak, Palembang'}</p>
+                    </div>
                 </div>
-                <div class="summary">
-                    <div class="summary-item"><div class="value">${item.summary.total}</div><div class="label">Total</div></div>
-                    <div class="summary-item"><div class="value">${item.summary.hadir}</div><div class="label">Hadir</div></div>
-                    <div class="summary-item"><div class="value">${item.summary.sakit}</div><div class="label">Sakit</div></div>
-                    <div class="summary-item"><div class="value">${item.summary.izin}</div><div class="label">Izin</div></div>
-                    <div class="summary-item"><div class="value">${item.summary.alpha}</div><div class="label">Alpha</div></div>
-                    <div class="summary-item"><div class="value">${getAttendanceRate(item.summary)}%</div><div class="label">Rate</div></div>
+                <div class="print-title">
+                    <h3>DAFTAR HADIR PESERTA UJIAN</h3>
+                </div>
+                <table class="print-info">
+                    <tbody>
+                        <tr><td>Mata Ujian</td><td>: ${item.examName}</td></tr>
+                        <tr><td>Ruangan</td><td>: ${item.room}</td></tr>
+                        <tr><td>Hari/Tanggal</td><td>: ${new Date(item.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+                        <tr><td>Waktu</td><td>: ${item.time}</td></tr>
+                    </tbody>
+                </table>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Keterangan</th>
+                            <th>Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="text-align:left">Jumlah Peserta Terdaftar</td><td>${item.summary.total} orang</td></tr>
+                        <tr><td style="text-align:left">Hadir</td><td>${item.summary.hadir} orang</td></tr>
+                        <tr><td style="text-align:left">Sakit</td><td>${item.summary.sakit} orang</td></tr>
+                        <tr><td style="text-align:left">Izin Khusus</td><td>${item.summary.izin} orang</td></tr>
+                        <tr><td style="text-align:left">Tanpa Keterangan</td><td>${item.summary.alpha} orang</td></tr>
+                    </tbody>
+                </table>
+                <div class="signature">
+                    <div class="signature-box">
+                        <p>Palembang, ${new Date(item.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
+                        <p>Pengawas Ujian,</p>
+                        <div class="signature-line"></div>
+                        <p><strong>${item.pengawas || '________________________'}</strong></p>
+                    </div>
                 </div>
             </body>
             </html>

@@ -30,8 +30,15 @@ function RekapNilaiPage() {
     const [prodiList, setProdiList] = useState([])
     const [loading, setLoading] = useState(true)
 
-    // Get Ka. Prodi info from localStorage (kept for signature)
-    const kaprodiInfo = JSON.parse(localStorage.getItem(`kaprodiInfo_${user?.prodi_id || 'default'}`) || '{"nama":"","nip":""}')
+    // Get Ka. Prodi info from prodiList (loaded from Supabase)
+    const getKaprodiInfo = () => {
+        const prodi = prodiList.find(p => String(p.id) === String(user?.prodi_id))
+        return {
+            nama: prodi?.ketua_prodi_nama || '',
+            nip: prodi?.ketua_prodi_nip || ''
+        }
+    }
+    const kaprodiInfo = getKaprodiInfo()
 
     // Load data from Supabase
     useEffect(() => {

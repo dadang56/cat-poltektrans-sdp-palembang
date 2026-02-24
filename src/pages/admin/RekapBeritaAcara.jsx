@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
 import { exportToXLSX } from '../../utils/excelUtils'
 import { beritaAcaraService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
@@ -22,6 +23,7 @@ const PRODI_KEY = 'cat_prodi_data'
 
 function RekapBeritaAcaraPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
     const [search, setSearch] = useState('')
     const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [dateFilter, setDateFilter] = useState('')
@@ -206,55 +208,80 @@ function RekapBeritaAcaraPage() {
             <head>
                 <title>Berita Acara - ${item.examName}</title>
                 <style>
-                    body { font-family: 'Times New Roman', serif; padding: 40px; }
-                    h1 { text-align: center; margin-bottom: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
-                    .section { margin-bottom: 20px; }
-                    .section h3 { margin-bottom: 10px; color: #333; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-                    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-                    .field { margin-bottom: 8px; }
-                    .field .label { font-weight: bold; color: #666; }
-                    .summary { display: flex; gap: 20px; margin: 20px 0; }
-                    .summary-item { padding: 10px 20px; border: 1px solid #ccc; text-align: center; }
-                    .summary-item .value { font-size: 20px; font-weight: bold; }
-                    .summary-item .label { font-size: 11px; color: #666; }
+                    @page { size: A4 portrait; margin: 15mm; }
+                    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif !important; }
+                    body { font-size: 11pt; padding: 20px; }
+                    .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
+                    .print-logo { width: 60px; height: 60px; object-fit: contain; }
+                    .print-institution { flex: 1; text-align: center; }
+                    .print-institution h2 { font-size: 14pt; text-transform: uppercase; }
+                    .print-institution p { font-size: 10pt; margin: 3px 0 0; }
+                    .print-title { text-align: center; margin: 20px 0; }
+                    .print-title h3 { font-size: 13pt; text-decoration: underline; }
+                    .print-title p { font-size: 10pt; }
+                    .section-title { font-weight: bold; margin: 15px 0 8px; }
+                    .print-info td { padding: 3px 10px 3px 0; vertical-align: top; }
+                    .print-info td:first-child { width: 150px; }
+                    .summary-table { width: 100%; border-collapse: collapse; margin: 10px 0 20px; }
+                    .summary-table th, .summary-table td { border: 1px solid #000; padding: 6px 8px; text-align: center; }
+                    .summary-table th { background: #f0f0f0; font-weight: bold; }
+                    .incident-box { border: 1px solid #ccc; padding: 10px; margin: 10px 0 20px; min-height: 40px; }
+                    .closing { margin-top: 20px; font-style: italic; }
                     .signature { margin-top: 40px; display: flex; justify-content: flex-end; }
-                    .signature-box { text-align: center; width: 200px; }
-                    .signature-line { border-bottom: 1px solid #333; margin: 60px 0 10px; }
+                    .signature-box { text-align: center; width: 220px; }
+                    .signature-line { border-bottom: 1px solid #000; margin-top: 60px; margin-bottom: 5px; }
                 </style>
             </head>
             <body>
-                <h1>BERITA ACARA UJIAN</h1>
-                
-                <div class="section">
-                    <h3>Informasi Ujian</h3>
-                    <div class="grid">
-                        <div class="field"><span class="label">Nama Ujian:</span> ${item.examName}</div>
-                        <div class="field"><span class="label">Ruang:</span> ${item.room}</div>
-                        <div class="field"><span class="label">Tanggal:</span> ${item.date}</div>
-                        <div class="field"><span class="label">Waktu:</span> ${item.time}</div>
+                <div class="print-header">
+                    ${settings?.logoUrl
+                ? `<img src="${settings.logoUrl}" alt="Logo" class="print-logo" />`
+                : `<div style="width:60px;height:60px;background:#333;border-radius:8px;display:flex;align-items:center;justify-content:center;color:white;font-weight:bold">CAT</div>`
+            }
+                    <div class="print-institution">
+                        <h2>${settings?.institution || 'Politeknik Transportasi SDP Palembang'}</h2>
+                        <p>${settings?.address || 'Jl. Residen Abdul Rozak, Palembang'}</p>
                     </div>
                 </div>
-
-                <div class="section">
-                    <h3>Rekapitulasi Kehadiran</h3>
-                    <div class="summary">
-                        <div class="summary-item"><div class="value">${item.attendance?.total || 0}</div><div class="label">Total Peserta</div></div>
-                        <div class="summary-item"><div class="value">${item.attendance?.hadir || 0}</div><div class="label">Hadir</div></div>
-                        <div class="summary-item"><div class="value">${item.attendance?.sakit || 0}</div><div class="label">Sakit</div></div>
-                        <div class="summary-item"><div class="value">${item.attendance?.izin || 0}</div><div class="label">Izin</div></div>
-                        <div class="summary-item"><div class="value">${item.attendance?.alpha || 0}</div><div class="label">Tanpa Keterangan</div></div>
-                    </div>
+                <div class="print-title">
+                    <h3>BERITA ACARA PELAKSANAAN UJIAN</h3>
+                    <p>Nomor: ......../BA-UJIAN/${new Date().getFullYear()}</p>
                 </div>
 
-                <div class="section">
-                    <h3>Catatan Kejadian</h3>
-                    <p>${item.incidents || '-'}</p>
+                <p class="section-title">I. Informasi Ujian</p>
+                <table class="print-info">
+                    <tbody>
+                        <tr><td>Nama Ujian</td><td>: ${item.examName}</td></tr>
+                        <tr><td>Mata Kuliah</td><td>: ${item.matkul || item.examName}</td></tr>
+                        <tr><td>Hari/Tanggal</td><td>: ${new Date(item.date).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+                        <tr><td>Waktu Pelaksanaan</td><td>: ${item.time} WIB</td></tr>
+                        <tr><td>Ruangan</td><td>: ${item.room}</td></tr>
+                    </tbody>
+                </table>
+
+                <p class="section-title">II. Rekapitulasi Kehadiran</p>
+                <table class="summary-table">
+                    <thead>
+                        <tr>
+                            <th>Keterangan</th>
+                            <th>Jumlah</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr><td style="text-align:left">Jumlah Peserta Terdaftar</td><td>${item.attendance?.total || 0} orang</td></tr>
+                        <tr><td style="text-align:left">Hadir</td><td>${item.attendance?.hadir || 0} orang</td></tr>
+                        <tr><td style="text-align:left">Sakit</td><td>${item.attendance?.sakit || 0} orang</td></tr>
+                        <tr><td style="text-align:left">Izin Khusus</td><td>${item.attendance?.izin || 0} orang</td></tr>
+                        <tr><td style="text-align:left">Tanpa Keterangan</td><td>${item.attendance?.alpha || 0} orang</td></tr>
+                    </tbody>
+                </table>
+
+                <p class="section-title">III. Catatan Kejadian</p>
+                <div class="incident-box">
+                    ${item.incidents || 'Tidak ada kejadian khusus.'}
                 </div>
 
-                <div class="section">
-                    <h3>Catatan Tambahan</h3>
-                    <p>${item.notes || '-'}</p>
-                </div>
+                <p class="closing">Demikian berita acara ini dibuat dengan sebenarnya.</p>
 
                 <div class="signature">
                     <div class="signature-box">
@@ -262,7 +289,7 @@ function RekapBeritaAcaraPage() {
                         <p>Pengawas Ujian,</p>
                         <div class="signature-line"></div>
                         <p><strong>${item.pengawas}</strong></p>
-                        <p>NIP. ${item.nip}</p>
+                        <p>NIP. ${item.nip || '_______________'}</p>
                     </div>
                 </div>
             </body>
