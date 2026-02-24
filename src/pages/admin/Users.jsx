@@ -553,7 +553,8 @@ function UsersPage() {
                     prodiIds: u.prodi_ids ? (typeof u.prodi_ids === 'string' ? JSON.parse(u.prodi_ids) : u.prodi_ids) : [],
                     kelasIds: u.kelas_ids ? (typeof u.kelas_ids === 'string' ? JSON.parse(u.kelas_ids) : u.kelas_ids) : [],
                     matkulIds: u.matkul_ids ? (typeof u.matkul_ids === 'string' ? JSON.parse(u.matkul_ids) : u.matkul_ids) : [],
-                    photo: u.photo
+                    photo: u.photo,
+                    password: u.password || ''
                 }))
                 setUsers(mappedUsers)
                 setProdiList(prodiData)
