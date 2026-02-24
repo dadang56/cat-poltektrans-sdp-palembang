@@ -53,14 +53,18 @@ function NilaiSemapta() {
         setEditedValues({})
         try {
             if (isSupabaseConfigured()) {
-                const [mahasiswa, nilaiData] = await Promise.all([
-                    userService.getByRole('mahasiswa'),
-                    nilaiPusbangkatarService.getByTA(tahunAkademik)
-                ])
+                const mahasiswa = await userService.getByRole('mahasiswa')
                 setMahasiswaList(mahasiswa || [])
-                const map = {}
-                nilaiData.forEach(n => { map[n.mahasiswa_id] = n.nilai_semapta })
-                setNilaiMap(map)
+
+                try {
+                    const nilaiData = await nilaiPusbangkatarService.getByTA(tahunAkademik)
+                    const map = {}
+                    nilaiData.forEach(n => { map[n.mahasiswa_id] = n.nilai_semapta })
+                    setNilaiMap(map)
+                } catch (nilaiErr) {
+                    console.warn('nilai_pusbangkatar table may not exist yet:', nilaiErr.message)
+                    setNilaiMap({})
+                }
             }
         } catch (error) {
             console.error('Error loading data:', error)

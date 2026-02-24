@@ -49,12 +49,17 @@ function PusbangkatarDashboard() {
         setLoading(true)
         try {
             if (isSupabaseConfigured()) {
-                const [mahasiswa, nilaiData] = await Promise.all([
-                    userService.getByRole('mahasiswa'),
-                    nilaiPusbangkatarService.getByTA(tahunAkademik)
-                ])
-                const withNK = nilaiData.filter(n => n.nilai_kondite !== null && n.nilai_kondite !== undefined)
-                const withNS = nilaiData.filter(n => n.nilai_semapta !== null && n.nilai_semapta !== undefined)
+                const mahasiswa = await userService.getByRole('mahasiswa')
+                let withNK = [], withNS = []
+
+                try {
+                    const nilaiData = await nilaiPusbangkatarService.getByTA(tahunAkademik)
+                    withNK = nilaiData.filter(n => n.nilai_kondite !== null && n.nilai_kondite !== undefined)
+                    withNS = nilaiData.filter(n => n.nilai_semapta !== null && n.nilai_semapta !== undefined)
+                } catch (nilaiErr) {
+                    console.warn('nilai_pusbangkatar table may not exist yet:', nilaiErr.message)
+                }
+
                 setStats({
                     totalMahasiswa: mahasiswa.length,
                     nilaiKonditeCount: withNK.length,
