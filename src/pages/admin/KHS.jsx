@@ -264,7 +264,7 @@ function KHSPage() {
 
         for (let sem = 1; sem <= 6; sem++) {
             const semGrades = bySemester[sem] || []
-            if (semGrades.length === 0 && cumulativeSks === 0) continue
+            if (semGrades.length === 0) continue
 
             const semSks = semGrades.reduce((s, g) => s + g.sks, 0)
             const semBobot = semGrades.reduce((s, g) => s + g.bobotSks, 0)

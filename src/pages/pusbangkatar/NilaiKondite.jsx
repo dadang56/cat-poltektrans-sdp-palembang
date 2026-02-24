@@ -123,7 +123,20 @@ function NilaiKondite() {
             for (const id of changedIds) {
                 const value = editedValues[id]
                 const numValue = value === '' ? null : parseFloat(value)
-                await nilaiPusbangkatarService.upsert(id, tahunAkademik, { nilai_kondite: numValue })
+
+                // Save to nilai_pusbangkatar table (TA-isolated)
+                try {
+                    await nilaiPusbangkatarService.upsert(id, tahunAkademik, { nilai_kondite: numValue })
+                } catch (upsertErr) {
+                    console.warn('nilaiPusbangkatar upsert failed, saving to users table:', upsertErr.message)
+                }
+
+                // Also save to users table (for KHS fallback)
+                try {
+                    await userService.update(id, { nilai_kondite: numValue })
+                } catch (userErr) {
+                    console.warn('users table update failed:', userErr.message)
+                }
             }
             // Update local map
             setNilaiMap(prev => {

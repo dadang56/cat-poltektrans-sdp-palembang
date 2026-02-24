@@ -115,7 +115,20 @@ function NilaiSemapta() {
             for (const id of changedIds) {
                 const value = editedValues[id]
                 const numValue = value === '' ? null : parseFloat(value)
-                await nilaiPusbangkatarService.upsert(id, tahunAkademik, { nilai_semapta: numValue })
+
+                // Save to nilai_pusbangkatar table (TA-isolated)
+                try {
+                    await nilaiPusbangkatarService.upsert(id, tahunAkademik, { nilai_semapta: numValue })
+                } catch (upsertErr) {
+                    console.warn('nilaiPusbangkatar upsert failed:', upsertErr.message)
+                }
+
+                // Also save to users table (for KHS fallback)
+                try {
+                    await userService.update(id, { nilai_semapta: numValue })
+                } catch (userErr) {
+                    console.warn('users table update failed:', userErr.message)
+                }
             }
             setNilaiMap(prev => {
                 const updated = { ...prev }
