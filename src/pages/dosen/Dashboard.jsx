@@ -25,6 +25,7 @@ function DosenDashboard() {
     const [examDeadlines, setExamDeadlines] = useState([])
     const [perluKoreksi, setPerluKoreksi] = useState(0)
     const [ujianSelesai, setUjianSelesai] = useState(0)
+    const [jadwalDosen, setJadwalDosen] = useState([])
 
     // Load data from Supabase or localStorage
     useEffect(() => {
@@ -63,6 +64,12 @@ function DosenDashboard() {
 
                     console.log('[DosenDashboard] Filtered matkul:', filteredMatkul.length)
                     setMatkulList(filteredMatkul)
+
+                    // Filter jadwal for this dosen's matkul
+                    const dosenJadwal = allJadwal
+                        .filter(j => dosenMatkulIds.includes(String(j.matkul_id)))
+                        .sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal))
+                    setJadwalDosen(dosenJadwal)
 
                     // Count soal for this dosen
                     const dosenSoal = allSoal.filter(s =>
@@ -290,6 +297,60 @@ function DosenDashboard() {
                         </div>
                     </div>
 
+                    {/* Jadwal Ujian Dosen */}
+                    <div className="card card-wide">
+                        <div className="card-header">
+                            <div className="flex items-center gap-3">
+                                <Calendar size={20} className="text-secondary" />
+                                <h3 className="font-semibold">Jadwal Ujian Saya</h3>
+                            </div>
+                            <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{jadwalDosen.length} jadwal</span>
+                        </div>
+                        <div className="card-body">
+                            {jadwalDosen.length === 0 ? (
+                                <div className="text-center" style={{ padding: '24px', opacity: 0.6 }}>
+                                    <Calendar size={40} style={{ marginBottom: '12px' }} />
+                                    <p>Belum ada jadwal ujian untuk mata kuliah Anda</p>
+                                </div>
+                            ) : (
+                                <div className="jadwal-dosen-list">
+                                    {jadwalDosen.map(j => {
+                                        const examDate = new Date(j.tanggal)
+                                        const now = new Date()
+                                        const isPast = examDate < now
+                                        const isToday = examDate.toDateString() === now.toDateString()
+                                        return (
+                                            <div key={j.id} className={`jadwal-dosen-item ${isPast ? 'past' : ''} ${isToday ? 'today' : ''}`}>
+                                                <div className="jadwal-dosen-date">
+                                                    <span className="jadwal-day">{examDate.toLocaleDateString('id-ID', { day: 'numeric' })}</span>
+                                                    <span className="jadwal-month">{examDate.toLocaleDateString('id-ID', { month: 'short' })}</span>
+                                                </div>
+                                                <div className="jadwal-dosen-info">
+                                                    <strong>{j.matkul?.nama || 'Mata Kuliah'}</strong>
+                                                    <span className="jadwal-meta">
+                                                        <span className={`jadwal-tipe jadwal-tipe-${(j.tipe || '').toLowerCase()}`}>{j.tipe || '-'}</span>
+                                                        {j.kelas?.nama && <span>Kelas {j.kelas.nama}</span>}
+                                                        {j.ruang?.nama && <span>• {j.ruang.nama}</span>}
+                                                        <span>• {j.waktu_mulai || '—'} - {j.waktu_selesai || '—'}</span>
+                                                    </span>
+                                                </div>
+                                                <div className="jadwal-dosen-status">
+                                                    {isToday ? (
+                                                        <span className="jadwal-badge jadwal-badge-today">Hari Ini</span>
+                                                    ) : isPast ? (
+                                                        <span className="jadwal-badge jadwal-badge-past">Selesai</span>
+                                                    ) : (
+                                                        <span className="jadwal-badge jadwal-badge-upcoming">Mendatang</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
                     {/* Mata Kuliah yang Diampu */}
                     <div className="card">
                         <div className="card-header">
@@ -512,6 +573,32 @@ function DosenDashboard() {
                 .matkul-soal {
                     font-size: var(--font-size-xs);
                     color: var(--text-muted);
+                }
+
+                .jadwal-dosen-list { display: flex; flex-direction: column; gap: 0.625rem; }
+                .jadwal-dosen-item { display: flex; align-items: center; gap: 1rem; padding: 0.75rem; background: var(--bg-tertiary); border-radius: 0.75rem; border: 1px solid var(--border-color); transition: all 0.2s; }
+                .jadwal-dosen-item:hover { border-color: var(--primary-300); }
+                .jadwal-dosen-item.past { opacity: 0.55; }
+                .jadwal-dosen-item.today { border-color: var(--primary-500); background: var(--primary-50, rgba(59,130,246,0.05)); }
+                .jadwal-dosen-date { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 48px; height: 48px; background: var(--primary-50, #eff6ff); border-radius: 0.625rem; flex-shrink: 0; }
+                .jadwal-day { font-size: 1.125rem; font-weight: 800; color: var(--primary-600); line-height: 1; }
+                .jadwal-month { font-size: 0.625rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; }
+                .jadwal-dosen-info { flex: 1; min-width: 0; }
+                .jadwal-dosen-info strong { display: block; font-size: 0.8125rem; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                .jadwal-meta { display: flex; align-items: center; gap: 0.375rem; font-size: 0.6875rem; color: var(--text-muted); flex-wrap: wrap; margin-top: 0.125rem; }
+                .jadwal-tipe { font-weight: 700; padding: 0.0625rem 0.375rem; border-radius: 0.25rem; font-size: 0.625rem; }
+                .jadwal-tipe-uts { background: #fef3c7; color: #92400e; }
+                .jadwal-tipe-uas { background: #dbeafe; color: #1e40af; }
+                .jadwal-dosen-status { flex-shrink: 0; }
+                .jadwal-badge { padding: 0.1875rem 0.5rem; border-radius: 999px; font-size: 0.6875rem; font-weight: 600; }
+                .jadwal-badge-today { background: #dbeafe; color: #1d4ed8; }
+                .jadwal-badge-past { background: #f3f4f6; color: #6b7280; }
+                .jadwal-badge-upcoming { background: #ecfdf5; color: #059669; }
+
+                @media (max-width: 640px) {
+                    .jadwal-dosen-item { flex-wrap: wrap; gap: 0.5rem; }
+                    .jadwal-dosen-date { width: 40px; height: 40px; }
+                    .jadwal-day { font-size: 0.9375rem; }
                 }
             `}</style>
         </DashboardLayout >
