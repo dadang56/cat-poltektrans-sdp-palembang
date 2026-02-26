@@ -154,7 +154,7 @@ function EksporDataPage() {
             // Filter by tahun akademik
             const filteredJadwal = jadwal.filter(j => {
                 const jTahun = j.tahun_akademik || j.tahunAkademik
-                const matchesTahun = !jTahun || jTahun === tahunAkademik
+                const matchesTahun = jTahun === tahunAkademik
                 const matchesTipe = tipeUjian === 'all' || (j.tipe || j.tipeUjian) === tipeUjian
                 // Filter by prodi for admin_prodi
                 const jProdiId = j.matkul?.prodi_id || j.prodi_id || j.prodiId

@@ -22,6 +22,7 @@ import RekapKehadiran from './pages/admin/RekapKehadiran'
 import RekapBeritaAcara from './pages/admin/RekapBeritaAcara'
 import AdminProdiDashboard from './pages/admin/AdminProdiDashboard'
 import AdminProdiSettings from './pages/admin/AdminProdiSettings'
+import AdminNilaiAkhir from './pages/admin/AdminNilaiAkhir'
 import JadwalUjian from './pages/admin/JadwalUjian'
 import EksporData from './pages/admin/EksporData'
 import KHS from './pages/admin/KHS'
@@ -365,6 +366,11 @@ function App() {
             <Route path="/admin-prodi/ekspor-data" element={
               <ProtectedRoute allowedRoles={['admin_prodi']}>
                 <EksporData />
+              </ProtectedRoute>
+            } />
+            <Route path="/admin-prodi/nilai-akhir" element={
+              <ProtectedRoute allowedRoles={['admin_prodi']}>
+                <AdminNilaiAkhir />
               </ProtectedRoute>
             } />
 

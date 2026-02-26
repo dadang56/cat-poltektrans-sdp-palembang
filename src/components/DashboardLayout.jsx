@@ -60,6 +60,7 @@ const NAV_ITEMS = {
         { path: '/admin-prodi/rekap-nilai', icon: Award, label: 'Rekap Nilai Ujian' },
         { path: '/admin-prodi/rekap-kehadiran', icon: ClipboardCheck, label: 'Rekap Kehadiran' },
         { path: '/admin-prodi/rekap-berita-acara', icon: FileText, label: 'Rekap Berita Acara' },
+        { path: '/admin-prodi/nilai-akhir', icon: Award, label: 'Nilai Akhir' },
         { path: '/admin-prodi/rekap-nilai-mahasiswa', icon: BarChart3, label: 'Kartu Hasil Semester (KHS)' },
         { path: '/admin-prodi/ekspor-data', icon: Download, label: 'Ekspor Data' },
         { path: '/admin-prodi/settings', icon: Settings, label: 'Pengaturan' }
