@@ -521,8 +521,9 @@ export const hasilUjianService = {
                     id,
                     tanggal,
                     tipe,
-                    matkul:matkul_id(id, nama, kode),
-                    dosen:dosen_id(id, nama)
+                    tahun_akademik,
+                    matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
+                    dosen:dosen_id(id, nama, nim_nip)
                 )
             `)
             .order('created_at', { ascending: false })
