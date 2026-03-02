@@ -166,17 +166,17 @@ function AdminNilaiAkhirPage() {
                                 nim: mahasiswa.nim_nip || '-',
                                 name: mahasiswa.nama || 'Unknown',
                                 nt: r.nilai_tugas ?? null,
-                                nuts: null,
+                                nuts: r.nilai_uts ?? null,
                                 np: r.nilai_praktek ?? null,
-                                uas: null
+                                uas: r.nilai_uas ?? null
                             }
                         }
 
-                        // Update UTS or UAS score
+                        // Update UTS or UAS score from exam records (overrides manual input)
                         const dbScore = Number(r.nilai_total || 0)
-                        if (tipeUjian === 'UTS') {
+                        if (tipeUjian === 'UTS' && dbScore > 0) {
                             groups[groupKey].students[mahasiswaId].nuts = dbScore
-                        } else if (tipeUjian === 'UAS') {
+                        } else if (tipeUjian === 'UAS' && dbScore > 0) {
                             groups[groupKey].students[mahasiswaId].uas = dbScore
                         }
 

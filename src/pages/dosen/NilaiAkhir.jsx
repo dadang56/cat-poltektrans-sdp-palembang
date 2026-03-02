@@ -129,10 +129,10 @@ function NilaiAkhirPage() {
                             resultId: r.id, // Store hasil_ujian ID for updates
                             nim: r.mahasiswa?.nim_nip || '-',
                             name: r.mahasiswa?.nama || 'Unknown',
-                            nt: r.nilai_tugas ?? savedGrade.nt ?? null, // Use DB value first
-                            nuts: savedGrade.nuts ?? null, // Will override with DB if exists
-                            np: r.nilai_praktek ?? savedGrade.np ?? null, // Use DB value first
-                            uas: savedGrade.uas ?? null, // Will override with DB if exists
+                            nt: r.nilai_tugas ?? savedGrade.nt ?? null,
+                            nuts: r.nilai_uts ?? savedGrade.nuts ?? null, // DB > localStorage
+                            np: r.nilai_praktek ?? savedGrade.np ?? null,
+                            uas: r.nilai_uas ?? savedGrade.uas ?? null, // DB > localStorage
                             nak: null,
                             nh: null
                         }
@@ -207,7 +207,9 @@ function NilaiAkhirPage() {
             try {
                 await hasilUjianService.update(student.resultId, {
                     nilai_tugas: nt,
-                    nilai_praktek: np
+                    nilai_praktek: np,
+                    nilai_uts: nuts,
+                    nilai_uas: uas
                 })
                 console.log('[NilaiAkhir] Saved to Supabase:', student.resultId)
             } catch (error) {
