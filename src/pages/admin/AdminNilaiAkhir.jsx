@@ -107,18 +107,27 @@ function AdminNilaiAkhirPage() {
                     const mahasiswa = r.mahasiswa || {}
                     const tipeUjian = jadwal.tipe
 
-                    if (!matkul.id || !dosen.id) return
-
-                    // Filter by prodi if admin_prodi
-                    if (user?.role === 'admin_prodi' && matkul.prodi_id && String(matkul.prodi_id) !== String(user.prodi_id)) {
+                    // Skip only if no matkul info at all
+                    if (!matkul.id) {
+                        console.log('[AdminNilaiAkhir] Skipping result - no matkul:', r.id, 'jadwal:', jadwal)
                         return
                     }
 
+                    // Filter by prodi if admin_prodi (skip filter if matkul has no prodi_id)
+                    if (user?.role === 'admin_prodi' && user.prodi_id && matkul.prodi_id && String(matkul.prodi_id) !== String(user.prodi_id)) {
+                        return
+                    }
+
+                    // Use dosen info even if partial
+                    const dosenId = dosen.id || jadwal.dosen_id || 'unknown'
+                    const dosenNama = dosen.nama || 'Dosen'
+                    const dosenNip = dosen.nim_nip || ''
+
                     // Track dosen and matkul for filters
-                    if (!dosenMap.has(dosen.id)) dosenMap.set(dosen.id, dosen)
+                    if (dosen.id && !dosenMap.has(dosen.id)) dosenMap.set(dosen.id, dosen)
                     if (!matkulMap.has(matkul.id)) matkulMap.set(matkul.id, matkul)
 
-                    const groupKey = `${matkul.id}_${dosen.id}`
+                    const groupKey = `${matkul.id}_${dosenId}`
 
                     if (!groups[groupKey]) {
                         groups[groupKey] = {
@@ -126,9 +135,9 @@ function AdminNilaiAkhirPage() {
                             matkulNama: matkul.nama || 'N/A',
                             matkulKode: matkul.kode || '',
                             hasPraktek: (matkul.sks_praktek > 0) || (matkul.sksPraktek > 0),
-                            dosenId: dosen.id,
-                            dosenNama: dosen.nama || 'Dosen',
-                            dosenNip: dosen.nim_nip || dosen.nip || '',
+                            dosenId: dosenId,
+                            dosenNama: dosenNama,
+                            dosenNip: dosenNip,
                             students: {}
                         }
                     }
@@ -164,6 +173,8 @@ function AdminNilaiAkhirPage() {
                         groups[groupKey].students[mahasiswaId].np = r.nilai_praktek
                     }
                 })
+
+                console.log('[AdminNilaiAkhir] Groups formed:', Object.keys(groups).length, 'user.prodi_id:', user?.prodi_id)
 
                 // Convert students objects to arrays
                 const groupArray = Object.values(groups).map(g => ({
