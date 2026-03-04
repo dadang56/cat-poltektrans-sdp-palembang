@@ -210,30 +210,43 @@ function MonitorUjian() {
       ))
     }
 
-    // Load participants from hasil_ujian for this jadwal
-    if (isSupabaseConfigured() && room.jadwalId) {
+    // Load participants from hasil_ujian for ALL jadwal in this room
+    const allJadwalIds = room.jadwalIds || (room.jadwalId ? [room.jadwalId] : [])
+
+    if (isSupabaseConfigured() && allJadwalIds.length > 0) {
       try {
-        console.log('[MonitorUjian] Fetching participants for jadwal:', room.jadwalId)
+        console.log('[MonitorUjian] Fetching participants for jadwal IDs:', allJadwalIds)
 
-        // Use direct Supabase query if service fails or for debugging
-        const hasilData = await hasilUjianService.getByJadwal(room.jadwalId)
+        // Fetch participants from ALL jadwal in this room
+        const allResults = await Promise.all(
+          allJadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
+        )
 
-        if (!hasilData || hasilData.length === 0) {
-          console.log('[MonitorUjian] No participants found.')
-        } else {
-          console.log('[MonitorUjian] Participants found:', hasilData.length, hasilData)
-        }
+        // Combine and deduplicate by mahasiswa_id
+        const seenStudents = new Set()
+        const combinedResults = []
+        allResults.forEach(resultList => {
+          (resultList || []).forEach(hasil => {
+            const key = hasil.mahasiswa_id
+            if (!seenStudents.has(key)) {
+              seenStudents.add(key)
+              combinedResults.push(hasil)
+            }
+          })
+        })
 
-        const roomParticipants = (hasilData || []).map((hasil, idx) => ({
-          id: hasil.id, // Use hasil.id as unique key
+        console.log('[MonitorUjian] Total participants found:', combinedResults.length)
+
+        const roomParticipants = combinedResults.map((hasil, idx) => ({
+          id: hasil.id,
           studentId: hasil.mahasiswa_id,
           name: hasil.mahasiswa?.nama || 'Unknown',
           nim: hasil.mahasiswa?.nim_nip || '-',
           examNumber: `UJIAN-${String(idx + 1).padStart(3, '0')}`,
           status: getDerivedStatus(hasil),
           progress: getDerivedProgress(hasil),
-          currentQuestion: 0, // Not tracked in realtime yet without websocket
-          warnings: 0,
+          currentQuestion: 0,
+          warnings: hasil.jumlah_pelanggaran || 0,
           lastActivity: getDetailedActivityStatus(hasil)
         }))
         setParticipants(roomParticipants)
@@ -299,13 +312,30 @@ function MonitorUjian() {
   const handleRefresh = async () => {
     setIsRefreshing(true)
 
-    // Actually reload participants from Supabase
-    if (isSupabaseConfigured() && selectedRoom?.jadwalId) {
-      try {
-        const hasilData = await hasilUjianService.getByJadwal(selectedRoom.jadwalId)
-        console.log('[MonitorUjian] Refresh - participants found:', hasilData.length)
+    // Reload participants from ALL jadwal in this room
+    const allJadwalIds = selectedRoom?.jadwalIds || (selectedRoom?.jadwalId ? [selectedRoom.jadwalId] : [])
 
-        const roomParticipants = hasilData.map((hasil, idx) => ({
+    if (isSupabaseConfigured() && allJadwalIds.length > 0) {
+      try {
+        const allResults = await Promise.all(
+          allJadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
+        )
+
+        const seenStudents = new Set()
+        const combinedResults = []
+        allResults.forEach(resultList => {
+          (resultList || []).forEach(hasil => {
+            const key = hasil.mahasiswa_id
+            if (!seenStudents.has(key)) {
+              seenStudents.add(key)
+              combinedResults.push(hasil)
+            }
+          })
+        })
+
+        console.log('[MonitorUjian] Refresh - participants found:', combinedResults.length)
+
+        const roomParticipants = combinedResults.map((hasil, idx) => ({
           id: hasil.id,
           studentId: hasil.mahasiswa_id,
           name: hasil.mahasiswa?.nama || 'Unknown',
@@ -314,7 +344,7 @@ function MonitorUjian() {
           status: getDerivedStatus(hasil),
           progress: getDerivedProgress(hasil),
           currentQuestion: 0,
-          warnings: 0,
+          warnings: hasil.jumlah_pelanggaran || 0,
           lastActivity: getDetailedActivityStatus(hasil)
         }))
         setParticipants(roomParticipants)

@@ -33,10 +33,10 @@ const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] ?? obj?.[camelC
 function BeritaAcaraPage() {
     const { settings } = useSettings()
     const { user } = useAuth()
-    const [activeExams, setActiveExams] = useState([])
-    const [selectedExam, setSelectedExam] = useState(null)
+    const [rooms, setRooms] = useState([])
+    const [selectedRoom, setSelectedRoom] = useState(null)
     const [usersList, setUsersList] = useState([])
-    const [examResults, setExamResults] = useState([])
+    const [roomStudentCount, setRoomStudentCount] = useState({ total: 0, hadir: 0 })
     const [formData, setFormData] = useState({
         incidents: '',
         notes: ''
@@ -50,73 +50,81 @@ function BeritaAcaraPage() {
         const loadData = async () => {
             try {
                 if (isSupabaseConfigured()) {
-                    // Load from Supabase
-                    const [jadwalData, usersData, hasilData] = await Promise.all([
+                    const { ruangService } = await import('../../services/supabaseService')
+                    const [jadwalData, usersData, allRuang] = await Promise.all([
                         jadwalService.getAll(),
                         userService.getAll(),
-                        hasilUjianService.getAll()
+                        ruangService.getAll()
                     ])
 
                     setUsersList(usersData)
 
-                    // Map hasil to expected format
-                    const mappedResults = hasilData.map(h => ({
-                        examId: h.jadwal_id,
-                        mahasiswaId: h.mahasiswa_id,
-                        submitted: true
-                    }))
-                    setExamResults(mappedResults)
+                    // Build ruang lookup
+                    const ruangLookup = {}
+                    allRuang.forEach(r => { ruangLookup[r.id] = r })
 
                     const now = new Date()
                     const today = now.toISOString().split('T')[0]
+                    const todayJadwal = jadwalData.filter(j => j.tanggal === today)
 
-                    // Get today's exams with proper field mapping
-                    const active = jadwalData.filter(j => j.tanggal === today).map(j => {
+                    // Group by ruangan
+                    const roomMap = {}
+                    todayJadwal.forEach(j => {
+                        const roomId = j.ruangan_id || j.ruanganId || 'default'
+                        const ruang = ruangLookup[roomId] || j.ruangan || {}
+                        const roomName = ruang.nama || j.ruangan?.nama || 'Ruang Ujian'
+                        const matkulName = j.matkul?.nama || 'Mata Kuliah'
+                        const tipe = j.tipe || getField(j, 'tipe_ujian', 'tipeUjian') || 'UTS'
+                        const examLabel = `${tipe} - ${matkulName}`
                         const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
                         const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
-                        const kelasId = getField(j, 'kelas_id', 'kelasId')
-                        const ruanganId = getField(j, 'ruangan_id', 'ruanganId')
-                        const matkulName = j.matkul?.nama || 'Mata Kuliah'
-                        const tipe = j.tipe || getField(j, 'tipe_ujian', 'tipeUjian') || 'Ujian'
 
-                        return {
-                            ...j,
-                            kelasId,
-                            ruanganId,
-                            waktuMulai,
-                            waktuSelesai,
-                            ruang: j.ruangan?.nama || '-',
-                            examName: `${tipe} ${matkulName}`,
-                            matkulName
+                        if (!roomMap[roomId]) {
+                            roomMap[roomId] = {
+                                id: roomId,
+                                name: roomName,
+                                exams: [examLabel],
+                                jadwalIds: [j.id],
+                                tanggal: j.tanggal,
+                                waktuMulai,
+                                waktuSelesai
+                            }
+                        } else {
+                            if (!roomMap[roomId].exams.includes(examLabel)) {
+                                roomMap[roomId].exams.push(examLabel)
+                            }
+                            roomMap[roomId].jadwalIds.push(j.id)
                         }
                     })
-
-                    setActiveExams(active)
+                    setRooms(Object.values(roomMap))
                 } else {
                     // Fallback to localStorage
                     const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
                     const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
                     const users = localStorage.getItem(USERS_STORAGE_KEY)
-                    const results = localStorage.getItem(EXAM_RESULTS_KEY)
 
                     if (users) setUsersList(JSON.parse(users))
-                    if (results) setExamResults(JSON.parse(results))
 
                     if (jadwal) {
                         const jadwalList = JSON.parse(jadwal)
+                        const matkulData = matkul ? JSON.parse(matkul) : []
                         const now = new Date()
                         const today = now.toISOString().split('T')[0]
 
-                        const active = jadwalList.filter(j => j.tanggal === today).map(j => {
-                            const mk = matkul ? JSON.parse(matkul).find(m => m.id === j.matkulId) : null
+                        const todayJadwal = jadwalList.filter(j => j.tanggal === today)
+                        const fallbackRooms = todayJadwal.map(j => {
+                            const mk = matkulData.find(m => m.id === (j.matkulId || j.matkul_id))
                             return {
-                                ...j,
-                                examName: `${j.tipeUjian} ${mk?.nama || 'Ujian'}`,
-                                matkulName: mk?.nama || 'Mata Kuliah'
+                                id: j.id,
+                                name: j.ruang || 'Ruang Ujian',
+                                exams: [`${j.tipeUjian || j.tipe || 'UTS'} - ${mk?.nama || 'Ujian'}`],
+                                jadwalIds: [j.id],
+                                tanggal: j.tanggal,
+                                waktuMulai: j.waktuMulai || j.waktu_mulai,
+                                waktuSelesai: j.waktuSelesai || j.waktu_selesai
                             }
                         })
-
-                        setActiveExams(active)
+                        setRooms(fallbackRooms)
                     }
                 }
             } catch (error) {
@@ -128,21 +136,37 @@ function BeritaAcaraPage() {
         loadData()
     }, [])
 
-    // Get mahasiswa count for selected exam's kelas
-    const mahasiswaCount = selectedExam
-        ? usersList.filter(u => u.role === 'mahasiswa' &&
-            String(getField(u, 'kelas_id', 'kelasId')) === String(selectedExam.kelasId)).length
-        : 0
+    // Load student counts when room is selected
+    const handleRoomSelect = async (roomId) => {
+        const room = rooms.find(r => String(r.id) === String(roomId))
+        setSelectedRoom(room || null)
 
-    // Calculate actual attendance from exam results
-    const hadirCount = selectedExam
-        ? examResults.filter(r => String(r.examId) === String(selectedExam.id)).length
-        : 0
+        if (!room) return
 
-    const handleExamSelect = (examId) => {
-        // Handle both UUID strings and numeric IDs
-        const exam = activeExams.find(e => String(e.id) === String(examId))
-        setSelectedExam(exam || null)
+        if (isSupabaseConfigured() && room.jadwalIds?.length > 0) {
+            try {
+                const allResults = await Promise.all(
+                    room.jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
+                )
+
+                const seenStudents = new Set()
+                let hadirCount = 0
+                allResults.forEach(resultList => {
+                    (resultList || []).forEach(hasil => {
+                        const mhsId = hasil.mahasiswa_id
+                        if (!seenStudents.has(mhsId)) {
+                            seenStudents.add(mhsId)
+                            const isHadir = hasil.status === 'submitted' || hasil.status === 'graded' || !!hasil.waktu_selesai
+                            if (isHadir) hadirCount++
+                        }
+                    })
+                })
+
+                setRoomStudentCount({ total: seenStudents.size, hadir: hadirCount })
+            } catch (error) {
+                console.error('[BeritaAcara] Error loading room students:', error)
+            }
+        }
     }
 
     const handleInputChange = (field, value) => {
@@ -151,15 +175,16 @@ function BeritaAcaraPage() {
 
     // Save berita acara to Supabase
     const handleSaveBeritaAcara = async () => {
-        if (!selectedExam || !isSupabaseConfigured()) return
+        if (!selectedRoom || !isSupabaseConfigured()) return
 
         setSaving(true)
         try {
+            // Save for the first jadwal in the room
             await beritaAcaraService.upsert({
-                jadwal_id: selectedExam.id,
+                jadwal_id: selectedRoom.jadwalIds[0],
                 pengawas_id: user?.id,
-                jumlah_hadir: hadirCount,
-                jumlah_tidak_hadir: mahasiswaCount - hadirCount,
+                jumlah_hadir: roomStudentCount.hadir,
+                jumlah_tidak_hadir: roomStudentCount.total - roomStudentCount.hadir,
                 catatan: `${formData.incidents}\n\n${formData.notes}`.trim()
             })
             alert('Berita acara berhasil disimpan!')
@@ -179,13 +204,13 @@ function BeritaAcaraPage() {
         window.location.reload()
     }
 
-    // Calculate attendance from exam results
+    // Calculate attendance
     const attendance = {
-        total: mahasiswaCount,
-        hadir: hadirCount,
+        total: roomStudentCount.total,
+        hadir: roomStudentCount.hadir,
         sakit: 0,
         izin: 0,
-        alpha: mahasiswaCount - hadirCount
+        alpha: roomStudentCount.total - roomStudentCount.hadir
     }
 
     return (
@@ -194,10 +219,10 @@ function BeritaAcaraPage() {
                 <div className="page-header">
                     <div>
                         <h1 className="page-title">Berita Acara Ujian</h1>
-                        <p className="page-subtitle">Formulir laporan pelaksanaan ujian</p>
+                        <p className="page-subtitle">Formulir laporan pelaksanaan ujian per ruangan</p>
                     </div>
                     <div className="page-actions">
-                        {selectedExam && (
+                        {selectedRoom && (
                             <>
                                 <button
                                     className="btn btn-success"
@@ -216,34 +241,34 @@ function BeritaAcaraPage() {
                     </div>
                 </div>
 
-                {/* Exam Selection */}
+                {/* Room Selection */}
                 <div className="card mb-4">
                     <div className="card-body">
                         <div className="room-selector">
                             <div className="selector-item">
-                                <label>Pilih Sesi Ujian:</label>
+                                <label>Pilih Ruangan:</label>
                                 <select
                                     className="form-input"
-                                    value={selectedExam?.id || ''}
-                                    onChange={(e) => handleExamSelect(e.target.value)}
+                                    value={selectedRoom?.id || ''}
+                                    onChange={(e) => handleRoomSelect(e.target.value)}
                                 >
-                                    <option value="">-- Pilih Ujian Hari Ini --</option>
-                                    {activeExams.map(exam => (
-                                        <option key={exam.id} value={exam.id}>
-                                            {exam.examName} ({exam.ruang || 'Ruang'}) - {exam.waktuMulai}
+                                    <option value="">-- Pilih Ruangan Ujian Hari Ini --</option>
+                                    {rooms.map(room => (
+                                        <option key={room.id} value={room.id}>
+                                            {room.name} — {room.exams.join(', ')} ({room.waktuMulai})
                                         </option>
                                     ))}
                                 </select>
                             </div>
-                            {selectedExam && (
+                            {selectedRoom && (
                                 <>
                                     <div className="selector-item">
                                         <Calendar size={16} />
-                                        <span className="session-info">{selectedExam.tanggal}</span>
+                                        <span className="session-info">{selectedRoom.tanggal}</span>
                                     </div>
                                     <div className="selector-item">
                                         <Clock size={16} />
-                                        <span className="session-info">{selectedExam.waktuMulai} - {selectedExam.waktuSelesai}</span>
+                                        <span className="session-info">{selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</span>
                                     </div>
                                 </>
                             )}
@@ -251,7 +276,7 @@ function BeritaAcaraPage() {
                     </div>
                 </div>
 
-                {activeExams.length === 0 ? (
+                {rooms.length === 0 ? (
                     <div className="card">
                         <div className="card-body text-center" style={{ padding: '48px', opacity: 0.6 }}>
                             <FileText size={48} style={{ marginBottom: '16px' }} />
@@ -259,48 +284,38 @@ function BeritaAcaraPage() {
                             <p style={{ margin: 0 }}>Tidak ada jadwal ujian yang terdaftar untuk hari ini.</p>
                         </div>
                     </div>
-                ) : !selectedExam ? (
+                ) : !selectedRoom ? (
                     <div className="card">
                         <div className="card-body text-center" style={{ padding: '48px', opacity: 0.6 }}>
                             <FileText size={48} style={{ marginBottom: '16px' }} />
-                            <h4 style={{ margin: '0 0 8px' }}>Pilih Sesi Ujian</h4>
-                            <p style={{ margin: 0 }}>Pilih sesi ujian dari dropdown di atas untuk mengisi berita acara.</p>
+                            <h4 style={{ margin: '0 0 8px' }}>Pilih Ruangan</h4>
+                            <p style={{ margin: 0 }}>Pilih ruangan ujian dari dropdown di atas untuk mengisi berita acara.</p>
                         </div>
                     </div>
                 ) : (
                     <div className="form-grid">
-                        {/* Exam Info */}
+                        {/* Room Info */}
                         <div className="card">
                             <div className="card-header">
-                                <h3><Clock size={18} /> Informasi Ujian</h3>
+                                <h3><Clock size={18} /> Informasi Ruangan Ujian</h3>
                             </div>
                             <div className="card-body">
                                 <div className="form-group">
-                                    <label className="form-label">Nama Ujian</label>
-                                    <input type="text" className="form-input" value={selectedExam.examName} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                                    <label className="form-label">Ruangan</label>
+                                    <input type="text" className="form-input" value={selectedRoom.name} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                                 </div>
                                 <div className="form-group">
-                                    <label className="form-label">Mata Kuliah</label>
-                                    <input type="text" className="form-input" value={selectedExam.matkulName} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                                    <label className="form-label">Mata Ujian</label>
+                                    <input type="text" className="form-input" value={selectedRoom.exams.join(', ')} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                                 </div>
                                 <div className="form-row">
                                     <div className="form-group">
                                         <label className="form-label">Tanggal</label>
-                                        <input type="text" className="form-input" value={selectedExam.tanggal} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                                        <input type="text" className="form-input" value={selectedRoom.tanggal} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Ruangan</label>
-                                        <input type="text" className="form-input" value={selectedExam.ruang || '-'} readOnly style={{ background: 'var(--bg-tertiary)' }} />
-                                    </div>
-                                </div>
-                                <div className="form-row">
-                                    <div className="form-group">
-                                        <label className="form-label">Waktu Mulai</label>
-                                        <input type="text" className="form-input" value={selectedExam.waktuMulai} readOnly style={{ background: 'var(--bg-tertiary)' }} />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Waktu Selesai</label>
-                                        <input type="text" className="form-input" value={selectedExam.waktuSelesai} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                                        <label className="form-label">Waktu</label>
+                                        <input type="text" className="form-input" value={`${selectedRoom.waktuMulai} - ${selectedRoom.waktuSelesai}`} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                                     </div>
                                 </div>
                             </div>
@@ -435,17 +450,16 @@ function BeritaAcaraPage() {
                         <p>Nomor: ......../BA-UJIAN/{new Date().getFullYear()}</p>
                     </div>
 
-                    {selectedExam && (
+                    {selectedRoom && (
                         <>
                             <div className="print-section">
-                                <h4>I. Informasi Ujian</h4>
+                                <h4>I. Informasi Ruangan Ujian</h4>
                                 <table className="print-info-table">
                                     <tbody>
-                                        <tr><td>Nama Ujian</td><td>: {selectedExam.examName}</td></tr>
-                                        <tr><td>Mata Kuliah</td><td>: {selectedExam.matkulName}</td></tr>
-                                        <tr><td>Hari/Tanggal</td><td>: {new Date(selectedExam.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
-                                        <tr><td>Waktu Pelaksanaan</td><td>: {selectedExam.waktuMulai} - {selectedExam.waktuSelesai} WIB</td></tr>
-                                        <tr><td>Ruangan</td><td>: {selectedExam.ruang || '-'}</td></tr>
+                                        <tr><td>Ruangan</td><td>: {selectedRoom.name}</td></tr>
+                                        <tr><td>Mata Ujian</td><td>: {selectedRoom.exams.join(', ')}</td></tr>
+                                        <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+                                        <tr><td>Waktu Pelaksanaan</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai} WIB</td></tr>
                                     </tbody>
                                 </table>
                             </div>

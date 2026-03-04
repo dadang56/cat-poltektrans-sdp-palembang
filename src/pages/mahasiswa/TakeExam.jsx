@@ -316,6 +316,13 @@ function TakeExamPage() {
                     setWarningCount(count)
                     setShowWarning(true)
 
+                    // Save violation count to Supabase so pengawas can see it
+                    if (isSupabaseConfigured() && existingHasilId) {
+                        hasilUjianService.update(existingHasilId, {
+                            jumlah_pelanggaran: count
+                        }).catch(err => console.error('[TakeExam] Failed to save violation count:', err))
+                    }
+
                     // Auto-submit if max warnings reached
                     if (count >= antiCheatSettings.maxWarnings) {
                         console.warn('[TakeExam] Max warnings reached, auto-submitting')

@@ -37,12 +37,12 @@ function AttendancePage() {
     const { user } = useAuth()
     const [searchQuery, setSearchQuery] = useState('')
     const [attendanceData, setAttendanceData] = useState({})
-    const [activeExams, setActiveExams] = useState([])
-    const [selectedExam, setSelectedExam] = useState(null)
+    const [rooms, setRooms] = useState([]) // Room list (grouped by ruangan)
+    const [selectedRoom, setSelectedRoom] = useState(null)
     const [matkulList, setMatkulList] = useState([])
     const [prodiList, setProdiList] = useState([])
     const [usersList, setUsersList] = useState([])
-    const [examResults, setExamResults] = useState([])
+    const [roomStudents, setRoomStudents] = useState([]) // Students in selected room
     const printRef = useRef(null)
 
     // Load data from Supabase or localStorage
@@ -53,12 +53,13 @@ function AttendancePage() {
                 let matkulData = []
 
                 if (isSupabaseConfigured()) {
-                    const [jadwal, matkul, prodi, users, hasil] = await Promise.all([
+                    const { ruangService } = await import('../../services/supabaseService')
+                    const [jadwal, matkul, prodi, users, allRuang] = await Promise.all([
                         jadwalService.getAll(),
                         matkulService.getAll(),
                         prodiService.getAll(),
                         userService.getAll(),
-                        hasilUjianService.getAll()
+                        ruangService.getAll()
                     ])
                     jadwalData = jadwal
                     matkulData = matkul
@@ -66,14 +67,48 @@ function AttendancePage() {
                     setProdiList(prodi)
                     setUsersList(users)
 
-                    // Map Supabase results to expected format
-                    const mappedResults = hasil.map(h => ({
-                        examId: h.jadwal_id,
-                        mahasiswaId: h.mahasiswa_id,
-                        submitted: true
-                    }))
-                    setExamResults(mappedResults)
+                    // Build ruang lookup
+                    const ruangLookup = {}
+                    allRuang.forEach(r => { ruangLookup[r.id] = r })
+
+                    // Get today's jadwal
+                    const now = new Date()
+                    const today = now.toISOString().split('T')[0]
+                    const todayJadwal = jadwalData.filter(j => j.tanggal === today)
+
+                    // Group by ruangan_id
+                    const roomMap = {}
+                    todayJadwal.forEach(j => {
+                        const roomId = j.ruangan_id || j.ruanganId || 'default'
+                        const ruang = ruangLookup[roomId] || j.ruangan || {}
+                        const roomName = ruang.nama || j.ruangan?.nama || 'Ruang Ujian'
+                        const matkulId = getField(j, 'matkul_id', 'matkulId')
+                        const mk = matkulData.find(m => m.id === matkulId)
+                        const tipe = j.tipe || j.tipe_ujian || 'UTS'
+                        const examLabel = `${tipe} - ${mk?.nama || 'Ujian'}`
+                        const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
+                        const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
+
+                        if (!roomMap[roomId]) {
+                            roomMap[roomId] = {
+                                id: roomId,
+                                name: roomName,
+                                exams: [examLabel],
+                                jadwalIds: [j.id],
+                                tanggal: j.tanggal,
+                                waktuMulai: waktuMulai,
+                                waktuSelesai: waktuSelesai
+                            }
+                        } else {
+                            if (!roomMap[roomId].exams.includes(examLabel)) {
+                                roomMap[roomId].exams.push(examLabel)
+                            }
+                            roomMap[roomId].jadwalIds.push(j.id)
+                        }
+                    })
+                    setRooms(Object.values(roomMap))
                 } else {
+                    // Fallback to localStorage
                     const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
                     const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
                     const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
@@ -85,32 +120,24 @@ function AttendancePage() {
                     if (prodi) setProdiList(JSON.parse(prodi))
                     if (users) setUsersList(JSON.parse(users))
 
-                    // Fallback to localStorage results
-                    const results = localStorage.getItem(EXAM_RESULTS_KEY)
-                    if (results) setExamResults(JSON.parse(results))
+                    // Simple fallback: each jadwal = one "room"
+                    const now = new Date()
+                    const today = now.toISOString().split('T')[0]
+                    const todayJadwal = jadwalData.filter(j => j.tanggal === today)
+                    const fallbackRooms = todayJadwal.map(j => {
+                        const mk = matkulData.find(m => m.id === (j.matkulId || j.matkul_id))
+                        return {
+                            id: j.id,
+                            name: j.ruang || 'Ruang Ujian',
+                            exams: [`${j.tipeUjian || j.tipe || 'UTS'} - ${mk?.nama || 'Ujian'}`],
+                            jadwalIds: [j.id],
+                            tanggal: j.tanggal,
+                            waktuMulai: j.waktuMulai || j.waktu_mulai,
+                            waktuSelesai: j.waktuSelesai || j.waktu_selesai
+                        }
+                    })
+                    setRooms(fallbackRooms)
                 }
-
-                // Get active exams (today)
-                const now = new Date()
-                const today = now.toISOString().split('T')[0]
-                const active = jadwalData.filter(j => j.tanggal === today).map(j => {
-                    const matkulId = getField(j, 'matkul_id', 'matkulId')
-                    const mk = matkulData.find(m => m.id === matkulId)
-                    const tipeUjian = getField(j, 'tipe_ujian', 'tipeUjian') || 'Ujian'
-                    const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
-                    const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
-                    const kelasId = getField(j, 'kelas_id', 'kelasId')
-                    return {
-                        ...j,
-                        kelasId,
-                        tipeUjian,
-                        waktuMulai,
-                        waktuSelesai,
-                        examName: `${tipeUjian} ${mk?.nama || 'Ujian'}`,
-                        matkulName: mk?.nama || 'Mata Kuliah'
-                    }
-                })
-                setActiveExams(active)
             } catch (err) {
                 console.error('[Attendance] Error loading data:', err)
             }
@@ -118,38 +145,53 @@ function AttendancePage() {
         loadData()
     }, [])
 
-    // Get mahasiswa for selected exam's kelas
-    const mahasiswaForExam = selectedExam
-        ? usersList.filter(u => u.role === 'mahasiswa' && (String(getField(u, 'kelas_id', 'kelasId')) === String(selectedExam.kelasId)))
-        : []
+    // Load students when room is selected
+    const handleRoomSelect = async (roomId) => {
+        const room = rooms.find(r => String(r.id) === String(roomId))
+        setSelectedRoom(room || null)
+        setRoomStudents([])
 
-    // Filter by search
-    const filteredStudents = mahasiswaForExam.filter(s =>
-        s.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (s.nim || s.nim_nip || '')?.includes(searchQuery)
-    )
+        if (!room) return
 
-    // Initialize attendance when exam selected - pre-fill from exam results
-    const handleExamSelect = (examId) => {
-        const exam = activeExams.find(e => String(e.id) === String(examId))
-        setSelectedExam(exam || null)
-        if (exam) {
-            const students = usersList.filter(u => u.role === 'mahasiswa' && (String(getField(u, 'kelas_id', 'kelasId')) === String(exam.kelasId)))
-            // Get students who submitted this exam
-            const submittedIds = examResults
-                .filter(r => String(r.examId) === String(exam.id))
-                .map(r => String(r.mahasiswaId))
+        if (isSupabaseConfigured() && room.jadwalIds?.length > 0) {
+            try {
+                // Load all hasil_ujian for all jadwal in this room
+                const allResults = await Promise.all(
+                    room.jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
+                )
 
-            const initialData = {}
-            students.forEach(s => {
-                // Mark as hadir if they submitted the exam
-                const hasSubmitted = submittedIds.includes(String(s.id))
-                initialData[s.id] = {
-                    status: hasSubmitted ? 'hadir' : 'tidak_hadir',
-                    reason: hasSubmitted ? '' : 'alpha'
-                }
-            })
-            setAttendanceData(initialData)
+                // Combine and deduplicate by mahasiswa_id
+                const seenStudents = new Set()
+                const students = []
+                allResults.forEach(resultList => {
+                    (resultList || []).forEach(hasil => {
+                        const mhsId = hasil.mahasiswa_id
+                        if (!seenStudents.has(mhsId)) {
+                            seenStudents.add(mhsId)
+                            students.push({
+                                id: mhsId,
+                                nama: hasil.mahasiswa?.nama || 'Unknown',
+                                nim: hasil.mahasiswa?.nim_nip || '-',
+                                submitted: hasil.status === 'submitted' || hasil.status === 'graded' || !!hasil.waktu_selesai
+                            })
+                        }
+                    })
+                })
+
+                setRoomStudents(students)
+
+                // Auto-set attendance from exam results
+                const initialData = {}
+                students.forEach(s => {
+                    initialData[s.id] = {
+                        status: s.submitted ? 'hadir' : 'tidak_hadir',
+                        reason: s.submitted ? '' : 'alpha'
+                    }
+                })
+                setAttendanceData(initialData)
+            } catch (error) {
+                console.error('[Attendance] Error loading room students:', error)
+            }
         }
     }
 
@@ -176,9 +218,15 @@ function AttendancePage() {
         return prodi || { kode: '-', nama: '-' }
     }
 
+    // Filter students by search
+    const filteredStudents = roomStudents.filter(s =>
+        s.nama?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (s.nim || '')?.includes(searchQuery)
+    )
+
     // Stats
     const stats = {
-        total: mahasiswaForExam.length,
+        total: roomStudents.length,
         hadir: Object.values(attendanceData).filter(d => d.status === 'hadir').length,
         sakit: Object.values(attendanceData).filter(d => d.status === 'tidak_hadir' && d.reason === 'sakit').length,
         izin: Object.values(attendanceData).filter(d => d.status === 'tidak_hadir' && d.reason === 'izin').length,
@@ -203,7 +251,7 @@ function AttendancePage() {
                         <p className="page-subtitle">Absensi dan pencatatan kehadiran peserta</p>
                     </div>
                     <div className="page-actions">
-                        {selectedExam && (
+                        {selectedRoom && (
                             <button className="btn btn-primary" onClick={handlePrint}>
                                 <Printer size={18} />
                                 Print Daftar Hadir
@@ -217,29 +265,29 @@ function AttendancePage() {
                     <div className="card-body">
                         <div className="room-selector">
                             <div className="selector-item">
-                                <label>Pilih Sesi Ujian:</label>
+                                <label>Pilih Ruangan:</label>
                                 <select
                                     className="form-input"
-                                    value={selectedExam?.id || ''}
-                                    onChange={(e) => handleExamSelect(e.target.value)}
+                                    value={selectedRoom?.id || ''}
+                                    onChange={(e) => handleRoomSelect(e.target.value)}
                                 >
-                                    <option value="">-- Pilih Ujian Hari Ini --</option>
-                                    {activeExams.map(exam => (
-                                        <option key={exam.id} value={exam.id}>
-                                            {exam.examName} ({exam.ruang || 'Ruang'}) - {exam.waktuMulai}
+                                    <option value="">-- Pilih Ruangan Ujian Hari Ini --</option>
+                                    {rooms.map(room => (
+                                        <option key={room.id} value={room.id}>
+                                            {room.name} — {room.exams.join(', ')} ({room.waktuMulai})
                                         </option>
                                     ))}
                                 </select>
                             </div>
-                            {selectedExam && (
+                            {selectedRoom && (
                                 <>
                                     <div className="selector-item">
                                         <Calendar size={16} />
-                                        <span className="session-info">{selectedExam.tanggal}</span>
+                                        <span className="session-info">{selectedRoom.tanggal}</span>
                                     </div>
                                     <div className="selector-item">
                                         <Clock size={16} />
-                                        <span className="session-info">{selectedExam.waktuMulai} - {selectedExam.waktuSelesai}</span>
+                                        <span className="session-info">{selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</span>
                                     </div>
                                 </>
                             )}
@@ -247,7 +295,7 @@ function AttendancePage() {
                     </div>
                 </div>
 
-                {activeExams.length === 0 ? (
+                {rooms.length === 0 ? (
                     <div className="card">
                         <div className="card-body text-center" style={{ padding: '48px', opacity: 0.6 }}>
                             <ClipboardCheck size={48} style={{ marginBottom: '16px' }} />
@@ -255,12 +303,12 @@ function AttendancePage() {
                             <p style={{ margin: 0 }}>Tidak ada jadwal ujian yang terdaftar untuk hari ini.</p>
                         </div>
                     </div>
-                ) : !selectedExam ? (
+                ) : !selectedRoom ? (
                     <div className="card">
                         <div className="card-body text-center" style={{ padding: '48px', opacity: 0.6 }}>
                             <ClipboardCheck size={48} style={{ marginBottom: '16px' }} />
-                            <h4 style={{ margin: '0 0 8px' }}>Pilih Sesi Ujian</h4>
-                            <p style={{ margin: 0 }}>Pilih sesi ujian dari dropdown di atas untuk mengelola kehadiran peserta.</p>
+                            <h4 style={{ margin: '0 0 8px' }}>Pilih Ruangan</h4>
+                            <p style={{ margin: 0 }}>Pilih ruangan ujian dari dropdown di atas untuk mengelola kehadiran peserta.</p>
                         </div>
                     </div>
                 ) : (
@@ -308,7 +356,7 @@ function AttendancePage() {
                         {/* Attendance Table */}
                         <div className="card">
                             <div className="card-header">
-                                <h3>{selectedExam.examName} - Daftar Hadir</h3>
+                                <h3>{selectedRoom.name} - Daftar Hadir</h3>
                             </div>
                             <div className="card-body">
                                 {filteredStudents.length === 0 ? (
@@ -338,7 +386,7 @@ function AttendancePage() {
                                                             <td className="font-medium">{student.nama}</td>
                                                             <td>{student.nim}</td>
                                                             <td>
-                                                                <span className="badge badge-secondary">{selectedExam?.ruangan || 'Ruang 1'}</span>
+                                                                <span className="badge badge-secondary">{selectedRoom?.name || 'Ruang'}</span>
                                                             </td>
                                                             <td>
                                                                 <div className="status-toggle">
@@ -382,13 +430,7 @@ function AttendancePage() {
                         </div>
                     </>
                 )}
-                <div style={{ marginTop: '20px', padding: '10px', background: '#f5f5f5', fontSize: '10px', color: '#666' }}>
-                    <p><strong>Debug Info (Untuk konfirmasi teknis):</strong></p>
-                    <p>Exam ID: {selectedExam?.id}</p>
-                    <p>Total Data Ujian Loaded: {examResults.length}</p>
-                    <p>Submissions for this Exam: {examResults.filter(r => String(r.examId) === String(selectedExam?.id)).length}</p>
-                    <p>Sample Student IDs: {examResults.slice(0, 2).map(r => r.mahasiswaId).join(', ')}</p>
-                </div>
+
             </div>
 
             {/* Print Template */}
@@ -432,15 +474,15 @@ function AttendancePage() {
                         <h3>DAFTAR HADIR PESERTA UJIAN</h3>
                     </div>
 
-                    {selectedExam && (
+                    {selectedRoom && (
                         <>
                             <div className="print-info">
                                 <table>
                                     <tbody>
-                                        <tr><td>Mata Ujian</td><td>: {selectedExam.examName}</td></tr>
-                                        <tr><td>Ruangan</td><td>: {selectedExam.ruang || '-'}</td></tr>
-                                        <tr><td>Hari/Tanggal</td><td>: {new Date(selectedExam.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
-                                        <tr><td>Waktu</td><td>: {selectedExam.waktuMulai} - {selectedExam.waktuSelesai}</td></tr>
+                                        <tr><td>Ruangan</td><td>: {selectedRoom.name}</td></tr>
+                                        <tr><td>Mata Ujian</td><td>: {selectedRoom.exams.join(', ')}</td></tr>
+                                        <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
+                                        <tr><td>Waktu</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</td></tr>
                                     </tbody>
                                 </table>
                             </div>
@@ -456,7 +498,7 @@ function AttendancePage() {
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {mahasiswaForExam.map((student, idx) => {
+                                    {roomStudents.map((student, idx) => {
                                         const data = attendanceData[student.id] || { status: 'tidak_hadir', reason: 'alpha' }
                                         const reason = ABSENCE_REASONS.find(r => r.value === data.reason)?.label || '-'
                                         return (
