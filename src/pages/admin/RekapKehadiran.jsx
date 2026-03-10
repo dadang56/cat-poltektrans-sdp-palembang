@@ -26,7 +26,7 @@ function RekapKehadiranPage() {
     const [search, setSearch] = useState('')
     const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [dateFilter, setDateFilter] = useState('')
-    const [tahunAkademik, setTahunAkademik] = useState('2024/2025')
+    const [tahunAkademik, setTahunAkademik] = useState(settings?.tahunAkademik || '')
     const [kehadiranData, setKehadiranData] = useState([])
     const [kehadiranPerMahasiswa, setKehadiranPerMahasiswa] = useState([])
     const [prodiList, setProdiList] = useState([])
@@ -81,7 +81,7 @@ function RekapKehadiranPage() {
                         time: `${j.waktu_mulai || '08:00'} - ${j.waktu_selesai || '10:00'}`,
                         pengawas: pengawas.nama || 'Pengawas',
                         prodiId: matkul.prodi_id,
-                        tahunAkademik: j.tahun_akademik || '2024/2025',
+                        tahunAkademik: j.tahun_akademik || '',
                         kelas: kelas.nama || '-',
                         summary: {
                             total: studentsInKelas.length,

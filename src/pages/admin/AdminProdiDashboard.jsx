@@ -85,10 +85,11 @@ function AdminProdiDashboard() {
                 let matkulList = []
 
                 if (isSupabaseConfigured()) {
-                    // Load from Supabase
+                    // Load from Supabase with server-side TA filter
+                    const jadwalFilters = selectedTahunAkademik ? { tahun_akademik: selectedTahunAkademik } : {}
                     const [usersData, jadwalData, matkulData] = await Promise.all([
                         userService.getAll(),
-                        jadwalService.getAll(),
+                        jadwalService.getAll(jadwalFilters),
                         matkulService.getAll()
                     ])
                     usersList = usersData
@@ -111,11 +112,12 @@ function AdminProdiDashboard() {
                     )
                 }
 
-                // Filter by tahun akademik
-                if (selectedTahunAkademik) {
-                    jadwalList = jadwalList.filter(j =>
-                        !getJadwalTahunAkademik(j) || getJadwalTahunAkademik(j) === selectedTahunAkademik
-                    )
+                // Filter by tahun akademik (strict: only match, never include NULL)
+                if (selectedTahunAkademik && !isSupabaseConfigured()) {
+                    jadwalList = jadwalList.filter(j => {
+                        const jTA = getJadwalTahunAkademik(j)
+                        return jTA === selectedTahunAkademik
+                    })
                 }
 
                 const now = new Date()

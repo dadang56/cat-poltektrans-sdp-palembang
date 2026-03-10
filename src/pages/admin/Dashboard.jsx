@@ -87,9 +87,10 @@ function AdminDashboard() {
             let prodiList = []
 
             if (isSupabaseConfigured()) {
+                const jadwalFilters = selectedTahunAkademik ? { tahun_akademik: selectedTahunAkademik } : {}
                 const [usersData, jadwalData, matkulData, prodiData] = await Promise.all([
                     userService.getAll(),
-                    jadwalService.getAll(),
+                    jadwalService.getAll(jadwalFilters),
                     matkulService.getAll(),
                     prodiService.getAll()
                 ])
@@ -111,11 +112,12 @@ function AdminDashboard() {
                 setUseSupabase(false)
             }
 
-            // Filter jadwal by tahun akademik (if jadwal has tahunAkademik field)
-            if (selectedTahunAkademik) {
-                jadwalList = jadwalList.filter(j =>
-                    !j.tahunAkademik && !j.tahun_akademik || j.tahunAkademik === selectedTahunAkademik || j.tahun_akademik === selectedTahunAkademik
-                )
+            // Filter jadwal by tahun akademik (strict: only match, never include NULL)
+            if (selectedTahunAkademik && !isSupabaseConfigured()) {
+                jadwalList = jadwalList.filter(j => {
+                    const jTA = j.tahunAkademik || j.tahun_akademik
+                    return jTA === selectedTahunAkademik
+                })
             }
 
             const now = new Date()

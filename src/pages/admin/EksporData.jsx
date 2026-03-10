@@ -47,7 +47,7 @@ const PRODI_KEY = 'cat_prodi_data'
 
 function EksporDataPage() {
     const { user } = useAuth()
-    const { settings } = useSettings()
+    const { settings, saveSettings } = useSettings()
     const [tahunAkademik, setTahunAkademik] = useState('')
     const [tipeUjian, setTipeUjian] = useState('all')
     const [isLoading, setIsLoading] = useState(false)
@@ -365,7 +365,10 @@ function EksporDataPage() {
                                 <select
                                     className="form-input"
                                     value={tahunAkademik}
-                                    onChange={e => setTahunAkademik(e.target.value)}
+                                    onChange={e => {
+                                        setTahunAkademik(e.target.value)
+                                        saveSettings({ ...settings, tahunAkademik: e.target.value })
+                                    }}
                                 >
                                     {TAHUN_AJARAN_OPTIONS.map(ta => (
                                         <option key={ta} value={ta}>{ta}</option>

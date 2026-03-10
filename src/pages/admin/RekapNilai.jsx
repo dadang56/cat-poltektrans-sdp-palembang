@@ -22,7 +22,7 @@ function RekapNilaiPage() {
     const { settings } = useSettings()
     const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [examTypeFilter, setExamTypeFilter] = useState('all')
-    const [tahunAkademik, setTahunAkademik] = useState('2024/2025')
+    const [tahunAkademik, setTahunAkademik] = useState(settings?.tahunAkademik || '')
     const [expandedRow, setExpandedRow] = useState(null)
     const [viewMode, setViewMode] = useState('matkul') // 'matkul', 'kelas', 'mahasiswa'
     const printRef = useRef()
@@ -81,7 +81,7 @@ function RekapNilaiPage() {
                             examType: jadwal.tipe || 'UAS',
                             prodiId: matkul.prodi_id,
                             date: jadwal.tanggal,
-                            tahunAkademik: jadwal.tahun_akademik || '2024/2025',
+                            tahunAkademik: jadwal.tahun_akademik || '',
                             students: []
                         }
                     }
