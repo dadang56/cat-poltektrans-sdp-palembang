@@ -2,7 +2,11 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
-import { jadwalService, hasilUjianService, kehadiranService, isSupabaseConfigured } from '../../services/supabaseService'
+import {
+    jadwalService, hasilUjianService, kehadiranService,
+    matkulService, kelasService, prodiService, userService,
+    isSupabaseConfigured
+} from '../../services/supabaseService'
 import { exportToXLSX } from '../../utils/excelUtils'
 import {
     Download,
@@ -95,22 +99,44 @@ function EksporDataPage() {
             let prodi = []
 
             if (isSupabaseConfigured()) {
-                // Load from Supabase with full joins
-                const [jadwalRes, hasilRes] = await Promise.all([
-                    jadwalService.getAll(),
-                    hasilUjianService.getAll()
+                // Load jadwal with SERVER-SIDE filter by tahun_akademik
+                const filters = { tahun_akademik: tahunAkademik }
+                if (tipeUjian !== 'all') filters.tipe = tipeUjian
+
+                const [jadwalRes, matkulRes, kelasRes, prodiRes, usersRes] = await Promise.all([
+                    jadwalService.getAll(filters),
+                    matkulService.getAll(),
+                    kelasService.getAll(),
+                    prodiService.getAll(),
+                    userService.getAll()
                 ])
 
                 jadwal = jadwalRes || []
-                hasil = hasilRes || []
+                matkul = matkulRes || []
+                kelas = kelasRes || []
+                prodi = prodiRes || []
+                users = usersRes || []
 
-                // Extract related data from jadwal joins
-                matkul = [...new Map(jadwal.map(j => [j.matkul?.id, j.matkul]).filter(([id, m]) => id && m)).values()]
-                kelas = [...new Map(jadwal.map(j => [j.kelas?.id, j.kelas]).filter(([id, k]) => id && k)).values()]
-                prodi = [...new Map(matkul.map(m => [m?.prodi_id, m?.prodi]).filter(([id, p]) => id && p)).values()]
+                // Filter by prodi for admin_prodi
+                if (user?.role !== 'superadmin' && user?.prodi_id) {
+                    jadwal = jadwal.filter(j => {
+                        const jProdiId = j.matkul?.prodi_id || j.prodi_id
+                        return !jProdiId || jProdiId === user.prodi_id
+                    })
+                }
 
-                // Extract users/mahasiswa from hasil
-                users = [...new Map(hasil.map(h => [h.mahasiswa?.id, h.mahasiswa]).filter(([id, u]) => id && u)).values()]
+                // Get all jadwal IDs for loading hasil and kehadiran
+                const jadwalIds = jadwal.map(j => j.id)
+
+                // Load hasil_ujian for these jadwal
+                const hasilPromises = jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
+                const hasilResults = await Promise.all(hasilPromises)
+                const allHasil = hasilResults.flat().filter(Boolean)
+
+                // Load kehadiran for these jadwal
+                const kehadiranPromises = jadwalIds.map(jId => kehadiranService.getByJadwal(jId))
+                const kehadiranResults = await Promise.all(kehadiranPromises)
+                kehadiran = kehadiranResults.flat().filter(Boolean)
 
                 // Transform jadwal to expected format
                 jadwal = jadwal.map(j => ({
@@ -120,11 +146,11 @@ function EksporDataPage() {
                     waktuMulai: j.waktu_mulai,
                     waktuSelesai: j.waktu_selesai,
                     tipeUjian: j.tipe,
-                    tahunAkademik: j.tahun_akademik || tahunAkademik
+                    tahunAkademik: j.tahun_akademik
                 }))
 
                 // Transform hasil to expected format
-                hasil = hasil.map(h => ({
+                hasil = allHasil.map(h => ({
                     ...h,
                     examId: h.jadwal_id,
                     mahasiswaId: h.mahasiswa_id,
@@ -134,7 +160,22 @@ function EksporDataPage() {
                     maxScore: 100
                 }))
 
-                console.log('[EksporData] Loaded from Supabase:', { jadwal: jadwal.length, hasil: hasil.length })
+                // Transform kehadiran
+                kehadiran = kehadiran.map(k => ({
+                    ...k,
+                    jadwalId: k.jadwal_id,
+                    mahasiswaId: k.mahasiswa_id,
+                    mahasiswaName: k.mahasiswa?.nama,
+                    nim: k.mahasiswa?.nim_nip || '-',
+                    waktuHadir: k.waktu_hadir
+                }))
+
+                console.log('[EksporData] Loaded from Supabase:', {
+                    jadwal: jadwal.length,
+                    hasil: hasil.length,
+                    kehadiran: kehadiran.length,
+                    tahunAkademik
+                })
             } else {
                 // Fallback to localStorage only if Supabase not configured
                 jadwal = JSON.parse(localStorage.getItem(JADWAL_STORAGE_KEY) || '[]')
@@ -144,43 +185,35 @@ function EksporDataPage() {
                 kelas = JSON.parse(localStorage.getItem(KELAS_KEY) || '[]')
                 users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
                 prodi = JSON.parse(localStorage.getItem(PRODI_KEY) || '[]')
+
+                // Client-side filter for localStorage
+                jadwal = jadwal.filter(j => {
+                    const jTahun = j.tahunAkademik || j.tahun_akademik
+                    const matchesTahun = jTahun === tahunAkademik
+                    const matchesTipe = tipeUjian === 'all' || (j.tipeUjian || j.tipe) === tipeUjian
+                    return matchesTahun && matchesTipe
+                })
+
+                const jadwalIds = jadwal.map(j => String(j.id))
+                hasil = hasil.filter(h => jadwalIds.includes(String(h.examId || h.jadwal_id)))
+                kehadiran = kehadiran.filter(k => jadwalIds.includes(String(k.jadwalId || k.jadwal_id)))
             }
 
             setMatkulList(matkul)
             setKelasList(kelas)
             setUsersList(users)
             setProdiList(prodi)
-
-            // Filter by tahun akademik
-            const filteredJadwal = jadwal.filter(j => {
-                const jTahun = j.tahun_akademik || j.tahunAkademik
-                const matchesTahun = jTahun === tahunAkademik
-                const matchesTipe = tipeUjian === 'all' || (j.tipe || j.tipeUjian) === tipeUjian
-                // Filter by prodi for admin_prodi
-                const jProdiId = j.matkul?.prodi_id || j.prodi_id || j.prodiId
-                const matchesProdi = user?.role === 'superadmin' || !jProdiId || jProdiId === user?.prodi_id
-
-                return matchesTahun && matchesTipe && matchesProdi
-            })
-
-            // Filter hasil by jadwal IDs
-            const jadwalIds = filteredJadwal.map(j => String(j.id))
-            const filteredHasil = hasil.filter(h => jadwalIds.includes(String(h.examId || h.jadwal_id)))
-
-            // Filter kehadiran by jadwal IDs
-            const filteredKehadiran = kehadiran.filter(k => jadwalIds.includes(String(k.jadwalId || k.jadwal_id)))
-
-            setJadwalData(filteredJadwal)
-            setHasilData(filteredHasil)
-            setKehadiranData(filteredKehadiran)
+            setJadwalData(jadwal)
+            setHasilData(hasil)
+            setKehadiranData(kehadiran)
 
             // Update stats
             setStats({
-                totalJadwal: filteredJadwal.length,
-                totalUTS: filteredJadwal.filter(j => (j.tipe || j.tipeUjian) === 'UTS').length,
-                totalUAS: filteredJadwal.filter(j => (j.tipe || j.tipeUjian) === 'UAS').length,
-                totalNilai: filteredHasil.length,
-                totalKehadiran: filteredKehadiran.length
+                totalJadwal: jadwal.length,
+                totalUTS: jadwal.filter(j => (j.tipe || j.tipeUjian) === 'UTS').length,
+                totalUAS: jadwal.filter(j => (j.tipe || j.tipeUjian) === 'UAS').length,
+                totalNilai: hasil.length,
+                totalKehadiran: kehadiran.length
             })
 
         } catch (error) {
