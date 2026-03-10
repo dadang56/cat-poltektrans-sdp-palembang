@@ -27,15 +27,46 @@ import { isSupabaseConfigured } from '../../lib/supabase'
 
 
 // Bank Soal Modal for selecting existing questions
-function BankSoalModal({ isOpen, onClose, onSelectQuestions }) {
+function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
     const [selectedQuestions, setSelectedQuestions] = useState([])
     const [examTypeFilter, setExamTypeFilter] = useState('all')
+    const [bankSoalData, setBankSoalData] = useState([])
+    const [loading, setLoading] = useState(false)
 
-    // Bank soal kosong - akan diisi dari data nyata
-    const bankSoalData = []
+    // Load bank soal from Supabase when modal opens
+    useEffect(() => {
+        if (!isOpen) return
+        const loadBankSoal = async () => {
+            setLoading(true)
+            try {
+                if (isSupabaseConfigured()) {
+                    const filters = dosenId ? { dosen_id: dosenId } : {}
+                    const soalData = await soalService.getAll(filters)
+                    const mapped = (soalData || []).map(s => ({
+                        id: s.id,
+                        text: s.pertanyaan || s.text || 'Soal tanpa teks',
+                        type: s.tipe_soal || 'pilihan_ganda',
+                        examType: (s.tipe_ujian || 'UTS').toUpperCase(),
+                        points: s.bobot || s.poin || 1,
+                        matkul: s.matkul?.nama || '-',
+                        options: s.opsi || s.options || [],
+                        correctAnswer: s.jawaban_benar || s.correct_answer,
+                        // Keep original data for import
+                        _original: s
+                    }))
+                    setBankSoalData(mapped)
+                }
+            } catch (err) {
+                console.error('[BankSoal] Error loading:', err)
+            }
+            setLoading(false)
+        }
+        loadBankSoal()
+        setSelectedQuestions([])
+    }, [isOpen, dosenId])
 
     const filteredQuestions = bankSoalData.filter(q =>
-        examTypeFilter === 'all' || q.examType === examTypeFilter
+        examTypeFilter === 'all' || q.examType === examTypeFilter.toUpperCase()
     )
 
     const toggleQuestion = (id) => {
@@ -70,12 +101,16 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions }) {
                             onChange={e => setExamTypeFilter(e.target.value)}
                         >
                             <option value="all">Semua Tipe</option>
-                            <option value="uts">UTS</option>
-                            <option value="uas">UAS</option>
+                            <option value="UTS">UTS</option>
+                            <option value="UAS">UAS</option>
                         </select>
                     </div>
                     <div className="bank-soal-list">
-                        {filteredQuestions.length === 0 ? (
+                        {loading ? (
+                            <div className="text-center" style={{ padding: '48px', opacity: 0.6 }}>
+                                <p>Memuat bank soal...</p>
+                            </div>
+                        ) : filteredQuestions.length === 0 ? (
                             <div className="text-center" style={{ padding: '48px', opacity: 0.6 }}>
                                 <Database size={48} style={{ marginBottom: '16px' }} />
                                 <p>Bank soal kosong. Buat soal terlebih dahulu untuk mengisi bank soal.</p>
@@ -92,9 +127,10 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions }) {
                                 <div className="bank-soal-content">
                                     <p>{q.text}</p>
                                     <div className="bank-soal-meta">
-                                        <span className="badge badge-primary">{q.examType.toUpperCase()}</span>
+                                        <span className="badge badge-primary">{q.examType}</span>
                                         <span className="badge badge-outline">{q.type}</span>
                                         <span>{q.points} poin</span>
+                                        <span style={{ color: 'var(--text-muted)' }}>• {q.matkul}</span>
                                     </div>
                                 </div>
                             </div>
@@ -1218,7 +1254,7 @@ function BuatSoalPage() {
                     isOpen={bankSoalModalOpen}
                     onClose={() => setBankSoalModalOpen(false)}
                     onSelectQuestions={handleImportFromBank}
-                    matkul={matkulList}
+                    dosenId={user?.id}
                 />
 
                 {/* Preview Modal */}
