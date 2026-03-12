@@ -17,7 +17,8 @@ import {
     X,
     Shield,
     ShieldAlert,
-    Monitor
+    Monitor,
+    Ban
 } from 'lucide-react'
 import './TakeExam.css'
 
@@ -57,6 +58,8 @@ function TakeExamPage() {
     const [showNavigator, setShowNavigator] = useState(false)
     const [examStartTime, setExamStartTime] = useState(null) // actual waktu_mulai
     const [existingHasilId, setExistingHasilId] = useState(null) // for resume
+    const [isKicked, setIsKicked] = useState(false) // blocked by pengawas
+    const [waitingApproval, setWaitingApproval] = useState(false) // needs pengawas approval to re-enter
 
     // SEB & Anti-Cheat state
     const [sebDetected, setSebDetected] = useState(false)
@@ -159,6 +162,22 @@ function TakeExamPage() {
                                 hasilId = existingHasil.id
                                 setExistingHasilId(existingHasil.id)
 
+                                // KICKED: block re-entry completely
+                                if (existingHasil.status === 'kicked') {
+                                    console.log('[TakeExam] Student was kicked, blocking re-entry')
+                                    setExamData({
+                                        id: jadwal.id,
+                                        name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
+                                        duration: durasiMenit,
+                                        matkulName: matkul?.nama || 'N/A',
+                                        dosenName: jadwal.dosen?.nama || '-'
+                                    })
+                                    setIsKicked(true)
+                                    setQuestions(examSoal)
+                                    setLoading(false)
+                                    return
+                                }
+
                                 if (existingHasil.status === 'submitted' || existingHasil.status === 'graded') {
                                     // Exam already completed — block re-entry
                                     console.log('[TakeExam] Exam already submitted, blocking re-entry')
@@ -175,10 +194,51 @@ function TakeExamPage() {
                                     return
                                 }
 
+                                // WAITING APPROVAL: show waiting screen
+                                if (existingHasil.status === 'needs_approval') {
+                                    console.log('[TakeExam] Waiting for pengawas approval')
+                                    setExamData({
+                                        id: jadwal.id,
+                                        name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
+                                        duration: durasiMenit,
+                                        matkulName: matkul?.nama || 'N/A',
+                                        dosenName: jadwal.dosen?.nama || '-'
+                                    })
+                                    setWaitingApproval(true)
+                                    setQuestions(examSoal)
+                                    setLoading(false)
+                                    return
+                                }
+
                                 if (existingHasil.status === 'in_progress') {
-                                    // RESUME: load saved answers and calculate remaining time
+                                    // Check if this is a genuine re-login (closed browser) vs page refresh
+                                    const sessionKey = `active_exam_${jadwal.id}_${user.id}`
+                                    const hasActiveSession = sessionStorage.getItem(sessionKey)
+
+                                    if (!hasActiveSession) {
+                                        // RE-LOGIN: student closed and came back, needs approval
+                                        console.log('[TakeExam] Re-login detected, requesting pengawas approval')
+                                        try {
+                                            await hasilUjianService.update(existingHasil.id, { status: 'needs_approval' })
+                                        } catch (e) {
+                                            console.error('[TakeExam] Error setting needs_approval:', e)
+                                        }
+                                        setExamData({
+                                            id: jadwal.id,
+                                            name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
+                                            duration: durasiMenit,
+                                            matkulName: matkul?.nama || 'N/A',
+                                            dosenName: jadwal.dosen?.nama || '-'
+                                        })
+                                        setWaitingApproval(true)
+                                        setQuestions(examSoal)
+                                        setLoading(false)
+                                        return
+                                    }
+
+                                    // PAGE REFRESH: same session, resume normally
                                     personalStartTime = new Date(existingHasil.waktu_mulai)
-                                    console.log('[TakeExam] Resuming exam, started at:', personalStartTime)
+                                    console.log('[TakeExam] Resuming exam (same session), started at:', personalStartTime)
 
                                     // Load saved answers
                                     if (existingHasil.answers_detail) {
@@ -255,6 +315,8 @@ function TakeExamPage() {
                                     waktu_mulai: startNow.toISOString()
                                 })
                                 if (result?.id) setExistingHasilId(result.id)
+                                // Mark active session so page refresh doesn't trigger re-approval
+                                sessionStorage.setItem(`active_exam_${jadwal.id}_${user.id}`, 'true')
                                 console.log('[TakeExam] New exam session recorded')
                             } catch (err) {
                                 console.error('[TakeExam] Error recording exam start:', err)
@@ -420,6 +482,36 @@ function TakeExamPage() {
 
         return () => clearInterval(kickCheckInterval)
     }, [submitted, user, id, navigate])
+
+    // Poll for pengawas approval when waiting
+    useEffect(() => {
+        if (!waitingApproval || !isSupabaseConfigured() || !existingHasilId) return
+
+        const checkApproval = async () => {
+            try {
+                const hasil = await hasilUjianService.getByJadwalAndMahasiswa(id, user?.id)
+                if (!hasil) return
+
+                if (hasil.status === 'in_progress') {
+                    // APPROVED by pengawas! Set session and reload
+                    console.log('[TakeExam] Pengawas approved re-entry!')
+                    sessionStorage.setItem(`active_exam_${id}_${user?.id}`, 'true')
+                    setWaitingApproval(false)
+                    window.location.reload() // reload to resume exam normally
+                } else if (hasil.status === 'kicked') {
+                    // REJECTED by pengawas
+                    console.log('[TakeExam] Pengawas rejected re-entry')
+                    setWaitingApproval(false)
+                    setIsKicked(true)
+                }
+            } catch (err) {
+                console.error('[TakeExam] Error polling approval:', err)
+            }
+        }
+
+        const approvalInterval = setInterval(checkApproval, 3000)
+        return () => clearInterval(approvalInterval)
+    }, [waitingApproval, existingHasilId, id, user])
 
     // Format time
     const formatTime = (seconds) => {
@@ -620,6 +712,55 @@ function TakeExamPage() {
                 <button className="btn btn-primary" onClick={() => navigate('/mahasiswa')}>
                     Kembali ke Dashboard
                 </button>
+            </div>
+        )
+    }
+
+    // KICKED: student was removed by pengawas
+    if (isKicked) {
+        return (
+            <div className="exam-error">
+                <div style={{ background: 'var(--error-100)', borderRadius: '50%', padding: '24px', marginBottom: '16px' }}>
+                    <Ban size={64} style={{ color: 'var(--error-600)' }} />
+                </div>
+                <h2 style={{ color: 'var(--error-600)' }}>Anda Dikeluarkan dari Ujian</h2>
+                <p>Pengawas telah mengeluarkan Anda dari ujian ini. Anda tidak dapat mengerjakan kembali.</p>
+                <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginTop: '8px' }}>
+                    Hubungi pengawas atau admin untuk informasi lebih lanjut.
+                </p>
+                <button className="btn btn-primary" onClick={() => navigate('/mahasiswa')} style={{ marginTop: '24px' }}>
+                    Kembali ke Dashboard
+                </button>
+            </div>
+        )
+    }
+
+    // WAITING APPROVAL: student needs pengawas permission to re-enter
+    if (waitingApproval) {
+        return (
+            <div className="exam-error">
+                <div style={{ background: 'var(--warning-100)', borderRadius: '50%', padding: '24px', marginBottom: '16px' }}>
+                    <Clock size={64} style={{ color: 'var(--warning-600)' }} />
+                </div>
+                <h2 style={{ color: 'var(--warning-600)' }}>Menunggu Persetujuan Pengawas</h2>
+                <p>Anda keluar dari ujian. Untuk masuk kembali, diperlukan persetujuan dari pengawas.</p>
+                <div style={{
+                    margin: '24px 0',
+                    padding: '16px',
+                    background: 'var(--bg-secondary)',
+                    borderRadius: '12px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '12px',
+                    justifyContent: 'center'
+                }}>
+                    <div className="spinner-sm" style={{ width: '24px', height: '24px', border: '3px solid var(--border-color)', borderTopColor: 'var(--primary-500)', borderRadius: '50%', animation: 'spin 1s linear infinite' }}></div>
+                    <span>Menunggu pengawas menyetujui...</span>
+                </div>
+                <p style={{ fontSize: '13px', color: 'var(--text-muted)' }}>
+                    Ujian: <strong>{examData.name}</strong>
+                </p>
+                <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
             </div>
         )
     }

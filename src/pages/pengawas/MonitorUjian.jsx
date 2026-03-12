@@ -50,6 +50,7 @@ function MonitorUjian() {
     if (hasil.status === 'graded') return 'submitted'
     if (hasil.status === 'submitted') return 'submitted'
     if (hasil.status === 'kicked') return 'kicked'
+    if (hasil.status === 'needs_approval') return 'needs_approval'
     if (hasil.waktu_selesai) return 'submitted'
     return 'active'
   }
@@ -288,26 +289,15 @@ function MonitorUjian() {
     setSelectedRoom(null)
   }
 
-  // Simulate real-time updates
+  // Real-time polling: refresh participants from Supabase every 5 seconds
   useEffect(() => {
+    if (!selectedRoom) return
     const interval = setInterval(() => {
-      setParticipants(prev => prev.map(p => {
-        if (p.status === 'active' && Math.random() > 0.7) {
-          const newProgress = Math.min(p.progress + 2, 100)
-          const newQuestion = Math.min(p.currentQuestion + 1, 50)
-          return {
-            ...p,
-            progress: newProgress,
-            currentQuestion: newQuestion,
-            lastActivity: `Mengerjakan soal ${newQuestion}`
-          }
-        }
-        return p
-      }))
+      handleRefresh()
     }, 5000)
 
     return () => clearInterval(interval)
-  }, [])
+  }, [selectedRoom])
 
   const handleRefresh = async () => {
     setIsRefreshing(true)
@@ -347,6 +337,33 @@ function MonitorUjian() {
           warnings: hasil.jumlah_pelanggaran || 0,
           lastActivity: getDetailedActivityStatus(hasil)
         }))
+
+        // Detect new violations by comparing with old participants
+        roomParticipants.forEach(newP => {
+          const oldP = participants.find(p => p.id === newP.id)
+          if (oldP && newP.warnings > oldP.warnings) {
+            setAlerts(prev => [{
+              id: Date.now() + Math.random(),
+              studentId: newP.studentId,
+              student: newP.name,
+              action: `Melakukan kecurangan (peringatan ke-${newP.warnings})`,
+              time: new Date().toLocaleTimeString('id-ID'),
+              severity: 'error'
+            }, ...prev])
+          }
+          // Detect needs_approval (student requesting re-entry)
+          if (newP.status === 'needs_approval' && (!oldP || oldP.status !== 'needs_approval')) {
+            setAlerts(prev => [{
+              id: Date.now() + Math.random(),
+              studentId: newP.studentId,
+              student: newP.name,
+              action: 'Meminta izin masuk kembali ke ujian',
+              time: new Date().toLocaleTimeString('id-ID'),
+              severity: 'warning'
+            }, ...prev])
+          }
+        })
+
         setParticipants(roomParticipants)
       } catch (error) {
         console.error('[MonitorUjian] Error refreshing participants:', error)
@@ -407,6 +424,58 @@ function MonitorUjian() {
     }
   }
 
+  // Approve re-entry for a student
+  const handleApproveReEntry = async (studentId) => {
+    const student = participants.find(p => p.id === studentId)
+    setParticipants(prev => prev.map(p =>
+      p.id === studentId ? { ...p, status: 'active' } : p
+    ))
+    try {
+      await hasilUjianService.update(studentId, { status: 'in_progress' })
+      console.log('[MonitorUjian] Re-entry approved:', studentId)
+    } catch (error) {
+      console.error('[MonitorUjian] Error approving re-entry:', error)
+      setParticipants(prev => prev.map(p =>
+        p.id === studentId ? { ...p, status: 'needs_approval' } : p
+      ))
+    }
+    setAlerts(prev => [{
+      id: Date.now(),
+      studentId,
+      student: student?.name,
+      action: 'Diizinkan masuk kembali oleh pengawas',
+      time: new Date().toLocaleTimeString('id-ID'),
+      severity: 'info'
+    }, ...prev])
+  }
+
+  // Reject re-entry (kick)
+  const handleRejectReEntry = async (studentId) => {
+    showConfirm({
+      title: 'Tolak Masuk Kembali',
+      message: 'Peserta akan dikeluarkan permanen dan tidak bisa mengerjakan ujian lagi.',
+      onConfirm: async () => {
+        const student = participants.find(p => p.id === studentId)
+        setParticipants(prev => prev.map(p =>
+          p.id === studentId ? { ...p, status: 'kicked' } : p
+        ))
+        try {
+          await hasilUjianService.update(studentId, { status: 'kicked' })
+        } catch (error) {
+          console.error('[MonitorUjian] Error rejecting re-entry:', error)
+        }
+        setAlerts(prev => [{
+          id: Date.now(),
+          studentId,
+          student: student?.name,
+          action: 'Ditolak masuk kembali dan dikeluarkan',
+          time: new Date().toLocaleTimeString('id-ID'),
+          severity: 'error'
+        }, ...prev])
+      }
+    })
+  }
+
   // Filter participants
   const filteredParticipants = participants.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -420,7 +489,7 @@ function MonitorUjian() {
     total: participants.length,
     active: participants.filter(p => p.status === 'active').length,
     submitted: participants.filter(p => p.status === 'submitted').length,
-    issues: participants.filter(p => p.warnings > 0 || p.status === 'disconnected' || p.status === 'warning').length
+    issues: participants.filter(p => p.warnings > 0 || p.status === 'disconnected' || p.status === 'warning' || p.status === 'needs_approval').length
   }
 
   const getStatusColor = (status) => {
@@ -430,6 +499,7 @@ function MonitorUjian() {
       case 'disconnected': return 'error'
       case 'warning': return 'warning'
       case 'kicked': return 'error'
+      case 'needs_approval': return 'warning'
       default: return 'info'
     }
   }
@@ -441,6 +511,7 @@ function MonitorUjian() {
       case 'disconnected': return 'Terputus'
       case 'warning': return 'Peringatan'
       case 'kicked': return 'Dikeluarkan'
+      case 'needs_approval': return 'Minta Izin Masuk'
       default: return status
     }
   }
@@ -636,20 +707,42 @@ function MonitorUjian() {
                         </div>
                       </div>
                       <div className="participant-actions">
-                        <button
-                          className="action-btn warning"
-                          title="Kirim Peringatan"
-                          onClick={(e) => { e.stopPropagation(); handleSendWarning(participant.id); }}
-                        >
-                          <MessageSquare size={14} />
-                        </button>
-                        <button
-                          className="action-btn danger"
-                          title="Keluarkan"
-                          onClick={(e) => { e.stopPropagation(); handleKickStudent(participant.id); }}
-                        >
-                          <Ban size={14} />
-                        </button>
+                        {participant.status === 'needs_approval' ? (
+                          <>
+                            <button
+                              className="action-btn success"
+                              title="Izinkan Masuk Kembali"
+                              onClick={(e) => { e.stopPropagation(); handleApproveReEntry(participant.id); }}
+                              style={{ background: 'var(--success-500)', color: 'white' }}
+                            >
+                              <CheckCircle size={14} />
+                            </button>
+                            <button
+                              className="action-btn danger"
+                              title="Tolak & Keluarkan"
+                              onClick={(e) => { e.stopPropagation(); handleRejectReEntry(participant.id); }}
+                            >
+                              <XCircle size={14} />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              className="action-btn warning"
+                              title="Kirim Peringatan"
+                              onClick={(e) => { e.stopPropagation(); handleSendWarning(participant.id); }}
+                            >
+                              <MessageSquare size={14} />
+                            </button>
+                            <button
+                              className="action-btn danger"
+                              title="Keluarkan"
+                              onClick={(e) => { e.stopPropagation(); handleKickStudent(participant.id); }}
+                            >
+                              <Ban size={14} />
+                            </button>
+                          </>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -885,6 +978,8 @@ function MonitorUjian() {
         .status-dot.disconnected { background: var(--error-500); }
         .status-dot.warning { background: var(--warning-500); }
         .status-dot.kicked { background: var(--gray-500); }
+        .status-dot.needs_approval { background: var(--warning-500); animation: pulse-dot 1.5s ease-in-out infinite; }
+        @keyframes pulse-dot { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(1.3); } }
         
         .participant-info {
           flex: 1;
