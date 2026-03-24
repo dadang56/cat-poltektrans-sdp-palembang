@@ -21,12 +21,16 @@ import '../admin/Dashboard.css'
 
 // Grade calculation helper functions
 const calculateNAK = (student, hasPraktek) => {
+    const nt = Number(student.nt) || 0
+    const nuts = Number(student.nuts) || 0
+    const np = Number(student.np) || 0
+    const uas = Number(student.uas) || 0
     if (hasPraktek) {
         // NT 10% + NUTS 20% + NP 20% + UAS 50%
-        return (student.nt * 0.1) + (student.nuts * 0.2) + (student.np * 0.2) + (student.uas * 0.5)
+        return (nt * 0.1) + (nuts * 0.2) + (np * 0.2) + (uas * 0.5)
     } else {
         // NT 10% + NUTS 30% + UAS 60%
-        return (student.nt * 0.1) + (student.nuts * 0.3) + (student.uas * 0.6)
+        return (nt * 0.1) + (nuts * 0.3) + (uas * 0.6)
     }
 }
 
@@ -113,7 +117,7 @@ function NilaiAkhirPage() {
                 results.forEach(r => {
                     const matkulId = r.jadwal?.matkul_id
                     const mahasiswaId = r.mahasiswa_id
-                    const tipeUjian = r.jadwal?.tipe // 'UTS' or 'UAS'
+                    const tipeUjian = (r.jadwal?.tipe || r.jadwal?.tipe_ujian || '').toUpperCase()
 
                     if (!matkulId || !mahasiswaId) return
 
@@ -126,13 +130,13 @@ function NilaiAkhirPage() {
                         const savedGrade = manualGrades[matkulId]?.[mahasiswaId] || {}
                         gradesByMatkul[matkulId][mahasiswaId] = {
                             id: mahasiswaId,
-                            resultId: r.id, // Store hasil_ujian ID for updates
+                            resultId: r.id,
                             nim: r.mahasiswa?.nim_nip || '-',
                             name: r.mahasiswa?.nama || 'Unknown',
                             nt: r.nilai_tugas ?? savedGrade.nt ?? null,
-                            nuts: r.nilai_uts ?? savedGrade.nuts ?? null, // DB > localStorage
+                            nuts: savedGrade.nuts ?? null, // Only from manual input, DB score applied below
                             np: r.nilai_praktek ?? savedGrade.np ?? null,
-                            uas: r.nilai_uas ?? savedGrade.uas ?? null, // DB > localStorage
+                            uas: savedGrade.uas ?? null, // Only from manual input, DB score applied below
                             nak: null,
                             nh: null
                         }
@@ -141,14 +145,23 @@ function NilaiAkhirPage() {
                         gradesByMatkul[matkulId][mahasiswaId].resultId = r.id
                     }
 
-                    // Update UTS or UAS score from DB
-                    // Assume nilai_total is the score (0-100)
-                    const dbScore = Number(r.nilai_total || 0)
+                    // Apply UTS or UAS score from exam results (nilai_total)
+                    const dbScore = r.nilai_total != null ? Number(r.nilai_total) : null
 
-                    if (tipeUjian === 'UTS') {
+                    if (dbScore != null && tipeUjian === 'UTS') {
                         gradesByMatkul[matkulId][mahasiswaId].nuts = dbScore
-                    } else if (tipeUjian === 'UAS') {
+                        console.log(`[NilaiAkhir] Set NUTS=${dbScore} for ${mahasiswaId} from hasil_ujian`)
+                    } else if (dbScore != null && tipeUjian === 'UAS') {
                         gradesByMatkul[matkulId][mahasiswaId].uas = dbScore
+                        console.log(`[NilaiAkhir] Set UAS=${dbScore} for ${mahasiswaId} from hasil_ujian`)
+                    }
+
+                    // Also apply manual overrides from DB if available (nilai_uts, nilai_uas columns)
+                    if (r.nilai_uts != null && tipeUjian === 'UTS') {
+                        gradesByMatkul[matkulId][mahasiswaId].nuts = Number(r.nilai_uts)
+                    }
+                    if (r.nilai_uas != null && tipeUjian === 'UAS') {
+                        gradesByMatkul[matkulId][mahasiswaId].uas = Number(r.nilai_uas)
                     }
                 })
 
