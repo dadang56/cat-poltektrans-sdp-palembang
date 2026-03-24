@@ -70,7 +70,11 @@ function MahasiswaDashboard() {
       if (jKelasId !== mahasiswaKelasId) return false
       // Hide exams expired more than 1 day ago
       const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
-      const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+      const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
+      let examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+      const examStart = new Date(`${j.tanggal}T${waktuMulai}`)
+      // Handle cross-midnight exams (e.g. 20:18 - 00:18)
+      if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
       return (now - examEnd) < oneDayMs
     })
     .map(j => {
@@ -78,8 +82,10 @@ function MahasiswaDashboard() {
       const matkul = matkulList.find(m => m.id === matkulId)
       const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
       const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
-      const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+      let examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
       const examStart = new Date(`${j.tanggal}T${waktuMulai}`)
+      // Handle cross-midnight exams
+      if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
 
       // Calculate duration in minutes
       const durasi = Math.round((examEnd - examStart) / 60000)

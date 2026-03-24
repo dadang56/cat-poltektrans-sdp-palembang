@@ -285,7 +285,9 @@ function TakeExamPage() {
                     // ===========================
                     const now = new Date()
                     const windowStart = new Date(`${jadwal.tanggal}T${waktuMulai}`)
-                    const windowEnd = new Date(`${jadwal.tanggal}T${waktuSelesai}`)
+                    let windowEnd = new Date(`${jadwal.tanggal}T${waktuSelesai}`)
+                    // Handle cross-midnight exams (e.g. 20:18 - 00:18)
+                    if (windowEnd <= windowStart) windowEnd = new Date(windowEnd.getTime() + 24 * 60 * 60 * 1000)
 
                     if (personalStartTime) {
                         // RESUME: calculate remaining from personal start

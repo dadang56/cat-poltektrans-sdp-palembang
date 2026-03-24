@@ -266,7 +266,11 @@ function UjianPage() {
             if (jKelasId !== mahasiswaKelasId) return false
             // Hide exams expired more than 1 day ago
             const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
-            const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+            const waktuMulaiCheck = getField(j, 'waktu_mulai', 'waktuMulai')
+            let examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+            const examStartCheck = new Date(`${j.tanggal}T${waktuMulaiCheck}`)
+            // Handle cross-midnight exams (e.g. 20:18 - 00:18)
+            if (examEnd <= examStartCheck) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
             if ((now - examEnd) > oneDayMs) return false
             return true
         })
@@ -288,7 +292,9 @@ function UjianPage() {
             const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
             const tipeUjian = j.tipe || getField(j, 'tipe_ujian', 'tipeUjian') || 'UTS'
             const startTime = new Date(`${j.tanggal}T${waktuMulai}`)
-            const endTime = new Date(`${j.tanggal}T${waktuSelesai}`)
+            let endTime = new Date(`${j.tanggal}T${waktuSelesai}`)
+            // Handle cross-midnight exams
+            if (endTime <= startTime) endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000)
             const durasiMenit = Math.round((endTime - startTime) / 60000)
 
             // Count soal for this exam
@@ -366,7 +372,9 @@ function UjianPage() {
         if (exam.completed) return 'completed'
         const now = new Date()
         const examStart = new Date(`${exam.date}T${exam.time}`)
-        const examEnd = new Date(`${exam.date}T${exam.endTime}`)
+        let examEnd = new Date(`${exam.date}T${exam.endTime}`)
+        // Handle cross-midnight exams
+        if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
 
         if (now >= examStart && now <= examEnd) return 'active'
         if (now > examEnd) return 'expired'
