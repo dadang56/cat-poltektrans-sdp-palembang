@@ -51,7 +51,9 @@ function PengawasDashboard() {
   // Check if there are active jadwal (for time info)
   const activeJadwal = jadwalList.filter(j => {
     const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-    const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+    let examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+    // Handle cross-midnight exams (e.g. 20:18 - 00:18)
+    if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
     return now >= examStart && now <= examEnd
   })
 

@@ -94,7 +94,9 @@ function MonitorUjian() {
             if (!j.tanggal || !waktuMulai || !waktuSelesai) return false
 
             const examStart = new Date(`${j.tanggal}T${waktuMulai}`)
-            const examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+            let examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
+            // Handle cross-midnight exams (e.g. 20:18 - 00:18)
+            if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
             const thirtyMinsBefore = new Date(examStart.getTime() - 30 * 60 * 1000)
             return now >= thirtyMinsBefore && now <= examEnd
           })
@@ -154,7 +156,9 @@ function MonitorUjian() {
             const allocatedRooms = roomData.rooms || []
             const activeJadwal = jadwal ? JSON.parse(jadwal).filter(j => {
               const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-              const examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+              let examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
+              // Handle cross-midnight exams
+              if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
               const thirtyMinsBefore = new Date(examStart.getTime() - 30 * 60 * 1000)
               return now >= thirtyMinsBefore && now <= examEnd
             }) : []
