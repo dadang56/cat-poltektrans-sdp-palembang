@@ -56,7 +56,14 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList, isLoading }) {
 
     const handleSubmit = (e) => {
         e.preventDefault()
-        onSave(formData)
+        // Sanitize: only send DB columns, not nested join objects
+        const cleanData = {
+            nama: formData.nama,
+            prodi_id: parseInt(formData.prodi_id),
+            angkatan: Number(formData.angkatan),
+            semester: Number(formData.semester || 1)
+        }
+        onSave(cleanData)
     }
 
     if (!isOpen) return null

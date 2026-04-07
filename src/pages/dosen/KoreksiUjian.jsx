@@ -278,6 +278,7 @@ function KoreksiUjianPage() {
                             }
                         }
 
+
                         // Parse answers_detail if exists
                         let answers = []
                         try {
@@ -290,7 +291,22 @@ function KoreksiUjianPage() {
                             console.error('Error parsing answers:', e)
                         }
 
-                        const isFullyCorrected = hasil.status === 'graded'
+                        // Enrich answers with maxPoints from soal if missing
+                        const enrichedAnswers = answers.map(a => {
+                            if (a.maxPoints != null && a.maxPoints !== undefined) return a
+                            // Lookup max points from soal data
+                            const soal = soalData.find(s => String(s.id) === String(a.questionId))
+                            return {
+                                ...a,
+                                maxPoints: soal?.bobot || soal?.points || a.maxPoints || 10
+                            }
+                        })
+
+                        const hasEssay = enrichedAnswers.some(a => a.type === 'essay' || a.type === 'uraian')
+                        const hasEssayPending = enrichedAnswers.some(a =>
+                            (a.type === 'essay' || a.type === 'uraian') && (a.earnedPoints === null || a.earnedPoints === undefined)
+                        )
+                        const isFullyCorrected = hasil.status === 'graded' && !hasEssayPending
 
                         examGroups[jadwalId].students.push({
                             id: hasil.id,
@@ -298,10 +314,10 @@ function KoreksiUjianPage() {
                             studentName: mahasiswa?.nama || 'N/A',
                             nim: mahasiswa?.nim_nip || 'N/A',
                             submittedAt: hasil.waktu_selesai ? new Date(hasil.waktu_selesai).toLocaleString('id-ID') : 'N/A',
-                            answers: answers,
-                            totalScore: hasil.nilai_total,
-                            maxScore: answers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
-                            hasEssay: answers.some(a => a.type === 'essay' || a.type === 'uraian'),
+                            answers: enrichedAnswers,
+                            totalScore: isFullyCorrected ? hasil.nilai_total : null,
+                            maxScore: enrichedAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
+                            hasEssay,
                             isFullyCorrected
                         })
 

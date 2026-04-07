@@ -593,7 +593,7 @@ function TakeExamPage() {
                 }
             }
             // Essay questions need manual grading, set earnedPoints to null
-            const needsManualGrading = q.type === 'essay'
+            const needsManualGrading = q.type === 'essay' || q.type === 'uraian'
 
             totalScore += earned
 
