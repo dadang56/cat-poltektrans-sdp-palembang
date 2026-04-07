@@ -362,9 +362,10 @@ function SettingsPage() {
                                 <label className="form-label">Batas Peringatan</label>
                                 <select
                                     className="form-input"
-                                    value={localSettings.maxWarnings || 5}
+                                    value={localSettings.maxWarnings || 2}
                                     onChange={(e) => handleInputChange('maxWarnings', parseInt(e.target.value))}
                                 >
+                                    <option value={2}>2 Peringatan (Sangat Ketat)</option>
                                     <option value={3}>3 Peringatan (Ketat)</option>
                                     <option value={5}>5 Peringatan (Normal)</option>
                                     <option value={10}>10 Peringatan (Longgar)</option>
