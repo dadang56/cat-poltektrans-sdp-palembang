@@ -31,7 +31,7 @@ const SETTINGS_STORAGE_KEY = 'cat_settings_data'
 // Default anti-cheat settings
 const DEFAULT_ANTICHEAT_SETTINGS = {
     requireSEB: false,
-    maxWarnings: 5,
+    maxWarnings: 2,
     antiCheatLevel: 'medium' // low, medium, high
 }
 
@@ -355,7 +355,7 @@ function TakeExamPage() {
                 const settings = JSON.parse(settingsData)
                 const acSettings = {
                     requireSEB: settings.requireSEB || false,
-                    maxWarnings: settings.maxWarnings || 5,
+                    maxWarnings: settings.maxWarnings || 2,
                     antiCheatLevel: settings.antiCheatLevel || 'medium'
                 }
                 setAntiCheatSettings(acSettings)

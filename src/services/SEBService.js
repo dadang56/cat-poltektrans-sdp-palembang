@@ -117,7 +117,7 @@ export const AntiCheat = {
     this.warningCount = 0
     this.onViolation = options.onViolation || (() => { })
     this.onLockdownChange = options.onLockdownChange || (() => { })
-    this.maxWarnings = options.maxWarnings || 5
+    this.maxWarnings = options.maxWarnings || 2
     this.level = options.level || 'medium'
     this.isLocked = false
 
