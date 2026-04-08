@@ -786,26 +786,57 @@ function TakeExamPage() {
                         <p>Browser yang terdeteksi: <strong>{platformInfo?.browser || 'Unknown'}</strong></p>
 
                         <div className="seb-instructions">
-                            <h4>Langkah-langkah:</h4>
+                            <h4>Cara Membuka di SEB:</h4>
+
+                            {/* Quick SEB Link - works on iPhone/iPad/Mac/Windows */}
+                            <div style={{
+                                background: 'rgba(59, 130, 246, 0.1)',
+                                border: '1px solid rgba(59, 130, 246, 0.3)',
+                                borderRadius: '12px',
+                                padding: '1rem',
+                                marginBottom: '1rem',
+                                textAlign: 'center'
+                            }}>
+                                <p style={{ margin: '0 0 0.5rem', fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+                                    Klik tombol di bawah untuk membuka langsung di SEB:
+                                </p>
+                                <a
+                                    href={`sebs://${window.location.host}${window.location.pathname}`}
+                                    className="btn btn-primary"
+                                    style={{ textDecoration: 'none', display: 'inline-flex' }}
+                                >
+                                    <Shield size={18} />
+                                    Buka di Safe Exam Browser
+                                </a>
+                                <p style={{ margin: '0.5rem 0 0', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                    Pastikan SEB sudah terinstall di perangkat Anda
+                                </p>
+                            </div>
+
+                            <h4 style={{ marginTop: '1rem' }}>Belum install SEB?</h4>
                             <ol>
-                                <li>Download Safe Exam Browser dari halaman panduan</li>
-                                <li>Install dan buka SEB</li>
-                                <li>Masukkan URL: <code>{window.location.origin}</code></li>
-                                <li>Login dan akses ujian kembali</li>
+                                <li><strong>iPhone/iPad:</strong> Download "Safe Exam Browser" dari <strong>App Store</strong></li>
+                                <li><strong>Windows/Mac:</strong> Download dari <a href="https://safeexambrowser.org/download_en.html" target="_blank" rel="noopener" style={{ color: 'var(--primary)' }}>safeexambrowser.org</a></li>
+                                <li><strong>Android:</strong> Bisa langsung pakai browser biasa atau install <strong>Exam Browser</strong> dari Play Store</li>
                             </ol>
                         </div>
 
                         <div className="seb-modal-actions">
                             <button
-                                className="btn btn-primary"
-                                onClick={() => navigate('/mahasiswa/seb-instructions')}
+                                className="btn btn-outline"
+                                onClick={() => {
+                                    // Copy sebs:// link to clipboard
+                                    const sebLink = `sebs://${window.location.host}${window.location.pathname}`
+                                    navigator.clipboard?.writeText(sebLink)
+                                    alert('Link SEB disalin: ' + sebLink)
+                                }}
                             >
-                                <Shield size={18} />
-                                Lihat Panduan SEB
+                                📋 Salin Link SEB
                             </button>
                             <button
-                                className="btn btn-outline"
+                                className="btn btn-ghost"
                                 onClick={() => setShowSEBWarning(false)}
+                                style={{ fontSize: '0.85rem', opacity: 0.7 }}
                             >
                                 Lanjutkan Tanpa SEB (Dengan Risiko)
                             </button>
