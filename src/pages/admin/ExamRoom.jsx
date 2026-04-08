@@ -198,6 +198,24 @@ function ExamRoomPage() {
                 await ruangService.delete(ruangId)
             }
             setRuangList(ruangList.filter(r => r.id !== ruangId))
+
+            // Also remove from allocated rooms (denah) and update localStorage
+            const updatedRooms = rooms.filter(r => r.id !== ruangId)
+            setRooms(updatedRooms)
+            if (updatedRooms.length === 0) {
+                setIsAllocated(false)
+                localStorage.removeItem(EXAM_ROOMS_KEY)
+            } else {
+                // Reset selected room if it was the deleted one
+                if (selectedRoom >= updatedRooms.length) {
+                    setSelectedRoom(Math.max(0, updatedRooms.length - 1))
+                }
+                localStorage.setItem(EXAM_ROOMS_KEY, JSON.stringify({
+                    rooms: updatedRooms,
+                    allocatedAt: new Date().toISOString(),
+                    allocatedBy: currentUser?.username || currentUser?.nama || 'Unknown'
+                }))
+            }
         } catch (err) {
             console.error('Error deleting ruang:', err)
             alert('Gagal menghapus ruangan: ' + err.message)
