@@ -18,8 +18,11 @@ import {
     AlertCircle,
     Download,
     Database,
-    Loader2
+    Loader2,
+    Upload,
+    FileSpreadsheet
 } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import '../admin/Dashboard.css'
 
 // Supabase services
@@ -292,7 +295,7 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                                 </div>
                             )}
                             <div className="form-group" style={selectedPackage ? { width: '100%' } : {}}>
-                                <label className="form-label">Bobot Nilai</label>
+                                <label className="form-label">Bobot Nilai di Butir Soal Ini</label>
                                 <input
                                     type="number"
                                     className="form-input"
@@ -950,6 +953,214 @@ function BuatSoalPage() {
         }
     }
 
+    // Download Excel template for bulk question import
+    const handleDownloadTemplate = () => {
+        const templateData = [
+            {
+                'Pertanyaan': 'Contoh: Apa kepanjangan dari IMO?',
+                'Tipe Soal': 'pilihan_ganda',
+                'Bobot': 10,
+                'Pilihan A': 'International Maritime Organization',
+                'Pilihan B': 'International Marine Office',
+                'Pilihan C': 'Indonesian Maritime Organization',
+                'Pilihan D': 'International Maritime Office',
+                'Pilihan E': '',
+                'Jawaban Benar (A/B/C/D/E)': 'A'
+            },
+            {
+                'Pertanyaan': 'Contoh: Jelaskan fungsi utama sistem kemudi kapal',
+                'Tipe Soal': 'essay',
+                'Bobot': 20,
+                'Pilihan A': '',
+                'Pilihan B': '',
+                'Pilihan C': '',
+                'Pilihan D': '',
+                'Pilihan E': '',
+                'Jawaban Benar (A/B/C/D/E)': ''
+            },
+            {
+                'Pertanyaan': 'Contoh: Kapal tanker termasuk jenis kapal penumpang',
+                'Tipe Soal': 'benar_salah',
+                'Bobot': 5,
+                'Pilihan A': '',
+                'Pilihan B': '',
+                'Pilihan C': '',
+                'Pilihan D': '',
+                'Pilihan E': '',
+                'Jawaban Benar (A/B/C/D/E)': 'Salah'
+            }
+        ]
+
+        const ws = XLSX.utils.json_to_sheet(templateData)
+
+        // Set column widths
+        ws['!cols'] = [
+            { wch: 50 },  // Pertanyaan
+            { wch: 18 },  // Tipe Soal
+            { wch: 8 },   // Bobot
+            { wch: 35 },  // A
+            { wch: 35 },  // B
+            { wch: 35 },  // C
+            { wch: 35 },  // D
+            { wch: 35 },  // E
+            { wch: 25 }   // Jawaban
+        ]
+
+        // Add instruction sheet
+        const instruksi = [
+            ['PETUNJUK PENGISIAN TEMPLATE SOAL'],
+            [''],
+            ['1. Kolom "Pertanyaan" wajib diisi'],
+            ['2. Tipe Soal: pilihan_ganda, essay, benar_salah'],
+            ['3. Bobot: nilai poin untuk soal ini (1-100)'],
+            ['4. Pilihan A-E: isi untuk tipe pilihan_ganda, kosongkan untuk essay/benar_salah'],
+            ['5. Jawaban Benar: A/B/C/D/E untuk pilihan ganda, Benar/Salah untuk benar_salah, kosong untuk essay'],
+            ['6. Hapus baris contoh sebelum mengupload'],
+            [''],
+            ['CATATAN:'],
+            ['- Mata kuliah dan jenis ujian (UTS/UAS) mengikuti paket soal yang sedang aktif'],
+            ['- Pastikan format file .xlsx'],
+        ]
+        const wsInstruksi = XLSX.utils.aoa_to_sheet(instruksi)
+        wsInstruksi['!cols'] = [{ wch: 80 }]
+
+        const wb = XLSX.utils.book_new()
+        XLSX.utils.book_append_sheet(wb, ws, 'Soal')
+        XLSX.utils.book_append_sheet(wb, wsInstruksi, 'Petunjuk')
+
+        const matkulName = selectedPackage ? getMatkulName(selectedPackage.matkulId) : 'Soal'
+        const examType = selectedPackage?.examType || 'UTS'
+        XLSX.writeFile(wb, `Template_${matkulName}_${examType}.xlsx`)
+    }
+
+    // Import questions from Excel file
+    const handleExcelImport = async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+
+        // Reset input so same file can be re-uploaded
+        e.target.value = ''
+
+        try {
+            const data = await file.arrayBuffer()
+            const workbook = XLSX.read(data, { type: 'array' })
+            const sheetName = workbook.SheetNames[0]
+            const sheet = workbook.Sheets[sheetName]
+            const rows = XLSX.utils.sheet_to_json(sheet)
+
+            if (rows.length === 0) {
+                alert('File Excel kosong. Pastikan ada data di sheet pertama.')
+                return
+            }
+
+            const targetMatkulId = selectedPackage?.matkulId || matkulList[0]?.id
+            const targetExamType = selectedPackage?.examType || 'UTS'
+
+            // Map tipe_soal
+            const mapTipeSoal = (type) => {
+                const t = (type || '').toLowerCase().trim()
+                const mapping = {
+                    'pilihan_ganda': 'pilihan_ganda',
+                    'pilihan ganda': 'pilihan_ganda',
+                    'pg': 'pilihan_ganda',
+                    'multiple_choice': 'pilihan_ganda',
+                    'essay': 'uraian',
+                    'uraian': 'uraian',
+                    'benar_salah': 'benar_salah',
+                    'benar salah': 'benar_salah',
+                    'true_false': 'benar_salah',
+                }
+                return mapping[t] || 'pilihan_ganda'
+            }
+
+            // Map answer letter to index
+            const answerMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 }
+
+            let created = 0
+            let errors = 0
+            const newQuestions = []
+
+            for (const row of rows) {
+                const pertanyaan = row['Pertanyaan'] || row['pertanyaan']
+                if (!pertanyaan || pertanyaan.toString().trim() === '') continue
+
+                const tipeSoal = mapTipeSoal(row['Tipe Soal'] || row['tipe_soal'] || 'pilihan_ganda')
+                const bobot = parseInt(row['Bobot'] || row['bobot'] || 10)
+
+                // Build options for pilihan_ganda
+                let pilihan = []
+                let jawabanBenar = null
+
+                if (tipeSoal === 'pilihan_ganda') {
+                    const optA = row['Pilihan A'] || row['pilihan_a'] || ''
+                    const optB = row['Pilihan B'] || row['pilihan_b'] || ''
+                    const optC = row['Pilihan C'] || row['pilihan_c'] || ''
+                    const optD = row['Pilihan D'] || row['pilihan_d'] || ''
+                    const optE = row['Pilihan E'] || row['pilihan_e'] || ''
+
+                    pilihan = [optA, optB, optC, optD, optE]
+                        .filter(o => o && o.toString().trim() !== '')
+                        .map(o => ({ text: o.toString().trim(), image: null }))
+
+                    const jawaban = (row['Jawaban Benar (A/B/C/D/E)'] || row['jawaban_benar'] || 'A').toString().trim().toUpperCase()
+                    jawabanBenar = answerMap[jawaban] ?? 0
+                } else if (tipeSoal === 'benar_salah') {
+                    const jawaban = (row['Jawaban Benar (A/B/C/D/E)'] || row['jawaban_benar'] || '').toString().trim().toLowerCase()
+                    jawabanBenar = jawaban === 'benar' || jawaban === 'true' || jawaban === 'b'
+                }
+
+                try {
+                    const supabaseData = {
+                        pertanyaan: pertanyaan.toString().trim(),
+                        tipe_soal: tipeSoal,
+                        matkul_id: targetMatkulId,
+                        tipe_ujian: targetExamType,
+                        bobot: bobot,
+                        pilihan: pilihan,
+                        jawaban_benar: jawabanBenar,
+                        dosen_id: user?.id,
+                        kelas_ids: []
+                    }
+
+                    const result = await soalService.create(supabaseData)
+
+                    const reverseTipeSoal = (dbType) => {
+                        const mapping = { 'uraian': 'essay', 'menjodohkan': 'mencocokan' }
+                        return mapping[dbType] || dbType
+                    }
+
+                    newQuestions.push({
+                        id: result.id,
+                        text: result.pertanyaan,
+                        type: reverseTipeSoal(result.tipe_soal),
+                        matkulId: result.matkul_id,
+                        examType: result.tipe_ujian?.toUpperCase() || 'UTS',
+                        points: result.bobot || 10,
+                        options: result.pilihan || [],
+                        correctAnswer: result.jawaban_benar,
+                        dosenId: result.dosen_id,
+                        kelasIds: result.kelas_ids || []
+                    })
+                    created++
+                } catch (err) {
+                    console.error('[BuatSoal] Error importing row:', err, row)
+                    errors++
+                }
+            }
+
+            setQuestions(prev => [...prev, ...newQuestions])
+
+            if (errors > 0) {
+                alert(`Import selesai: ${created} soal berhasil, ${errors} soal gagal.`)
+            } else {
+                alert(`✓ ${created} soal berhasil diimport dari Excel!`)
+            }
+        } catch (error) {
+            console.error('[BuatSoal] Excel import error:', error)
+            alert('Gagal membaca file Excel: ' + error.message)
+        }
+    }
+
     const getMatkulName = (id) => matkulList.find(m => String(m.id) === String(id))?.nama || '-'
 
     return (
@@ -984,6 +1195,20 @@ function BuatSoalPage() {
                                     <Database size={18} />
                                     Ambil dari Bank Soal
                                 </button>
+                                <button className="btn btn-outline" onClick={handleDownloadTemplate}>
+                                    <Download size={18} />
+                                    Template Excel
+                                </button>
+                                <label className="btn btn-outline" style={{ cursor: 'pointer' }}>
+                                    <Upload size={18} />
+                                    Upload Excel
+                                    <input
+                                        type="file"
+                                        accept=".xlsx,.xls"
+                                        style={{ display: 'none' }}
+                                        onChange={handleExcelImport}
+                                    />
+                                </label>
                                 <button className="btn btn-primary" onClick={handleAddQuestion}>
                                     <Plus size={18} />
                                     Tambah Soal
