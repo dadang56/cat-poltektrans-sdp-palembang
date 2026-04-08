@@ -7,13 +7,9 @@ import { jawabanMahasiswaService, isSupabaseConfigured } from '../services/supab
  * Features:
  * - Debounced autosave (configurable delay)
  * - Exponential backoff retry (max 3 attempts)
- * - Offline queue with localStorage backup
  * - Online/offline status detection
  * - Optimistic updates with rollback
  */
-
-const OFFLINE_QUEUE_KEY = 'cat_offline_queue'
-const LOCAL_ANSWERS_KEY = 'cat_exam_answers'
 
 export const SaveStatus = {
     IDLE: 'idle',
@@ -45,8 +41,7 @@ export function useAutosave({
     useEffect(() => {
         const handleOnline = () => {
             setIsOnline(true)
-            // Sync pending changes when back online
-            syncOfflineQueue()
+            setSaveStatus(SaveStatus.IDLE)
         }
 
         const handleOffline = () => {
@@ -62,19 +57,6 @@ export function useAutosave({
             window.removeEventListener('offline', handleOffline)
         }
     }, [])
-
-    // Load pending changes from localStorage on mount
-    useEffect(() => {
-        const savedAnswers = localStorage.getItem(`${LOCAL_ANSWERS_KEY}_${jadwalId}_${mahasiswaId}`)
-        if (savedAnswers) {
-            try {
-                const answers = JSON.parse(savedAnswers)
-                setPendingChanges(answers)
-            } catch (e) {
-                console.error('[useAutosave] Error loading saved answers:', e)
-            }
-        }
-    }, [jadwalId, mahasiswaId])
 
     // Cleanup on unmount
     useEffect(() => {
@@ -97,15 +79,9 @@ export function useAutosave({
             _localVersion: Date.now()
         }
 
-        // Update pending changes
+        // Update pending changes (in memory only)
         setPendingChanges(prev => {
-            const updated = { ...prev, [soalId]: change }
-            // Save to localStorage for offline backup
-            localStorage.setItem(
-                `${LOCAL_ANSWERS_KEY}_${jadwalId}_${mahasiswaId}`,
-                JSON.stringify(updated)
-            )
-            return updated
+            return { ...prev, [soalId]: change }
         })
 
         setSaveStatus(isOnline ? SaveStatus.PENDING : SaveStatus.OFFLINE)
@@ -135,18 +111,9 @@ export function useAutosave({
             return { success: true }
         }
 
-        if (!isOnline) {
-            addToOfflineQueue(changes)
+        if (!isOnline || !isSupabaseConfigured()) {
             setSaveStatus(SaveStatus.OFFLINE)
             return { success: false, error: 'offline' }
-        }
-
-        if (!isSupabaseConfigured()) {
-            // In demo mode, just mark as saved
-            setSaveStatus(SaveStatus.SAVED)
-            setLastSaved(new Date())
-            setPendingChanges({})
-            return { success: true }
         }
 
         setSaveStatus(SaveStatus.SAVING)
@@ -171,9 +138,6 @@ export function useAutosave({
             setRetryCount(0)
             setPendingChanges({})
 
-            // Clear localStorage backup
-            localStorage.removeItem(`${LOCAL_ANSWERS_KEY}_${jadwalId}_${mahasiswaId}`)
-
             onSaveSuccess?.()
             return { success: true }
 
@@ -187,79 +151,10 @@ export function useAutosave({
                 setRetryCount(prev => prev + 1)
                 retryTimer.current = setTimeout(saveChanges, delay)
             } else {
-                // Max retries reached, add to offline queue
-                addToOfflineQueue(Object.values(pendingChanges))
                 onSaveError?.(error)
             }
 
             return { success: false, error }
-        }
-    }
-
-    /**
-     * Add changes to offline queue
-     */
-    const addToOfflineQueue = (changes) => {
-        const queue = getOfflineQueue()
-        const queueKey = `${jadwalId}_${mahasiswaId}`
-
-        queue[queueKey] = {
-            jadwalId,
-            mahasiswaId,
-            changes,
-            timestamp: Date.now()
-        }
-
-        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue))
-    }
-
-    /**
-     * Get offline queue from localStorage
-     */
-    const getOfflineQueue = () => {
-        try {
-            const queue = localStorage.getItem(OFFLINE_QUEUE_KEY)
-            return queue ? JSON.parse(queue) : {}
-        } catch (e) {
-            return {}
-        }
-    }
-
-    /**
-     * Sync offline queue when back online
-     */
-    const syncOfflineQueue = async () => {
-        if (!isSupabaseConfigured()) return
-
-        const queue = getOfflineQueue()
-        const keys = Object.keys(queue)
-
-        for (const key of keys) {
-            const item = queue[key]
-            try {
-                const upsertData = item.changes.map(change => ({
-                    jadwal_id: change.jadwal_id,
-                    mahasiswa_id: change.mahasiswa_id,
-                    soal_id: change.soal_id,
-                    jawaban: typeof change.jawaban === 'object'
-                        ? change.jawaban
-                        : { value: change.jawaban },
-                    answered_at: change.answered_at
-                }))
-
-                await jawabanMahasiswaService.bulkUpsert(upsertData)
-
-                // Remove from queue on success
-                delete queue[key]
-            } catch (error) {
-                console.error('[useAutosave] Sync error for', key, error)
-            }
-        }
-
-        localStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue))
-
-        if (Object.keys(queue).length === 0) {
-            setSaveStatus(SaveStatus.SAVED)
         }
     }
 

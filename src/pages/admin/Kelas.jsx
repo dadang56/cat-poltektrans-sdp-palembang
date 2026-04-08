@@ -17,9 +17,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys for fallback
-const STORAGE_KEY = 'cat_kelas_data'
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
 
 // Angkatan options
 const generateAngkatanOptions = () => {
@@ -180,9 +177,6 @@ function KelasPage() {
                 setProdiList(prodiData)
                 setUseSupabase(true)
             } else {
-                // Fallback to localStorage
-                const savedKelas = localStorage.getItem(STORAGE_KEY)
-                const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
                 setKelasList(savedKelas ? JSON.parse(savedKelas) : [])
                 setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
                 setUseSupabase(false)
@@ -190,8 +184,6 @@ function KelasPage() {
         } catch (err) {
             console.error('Error loading data:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            const savedKelas = localStorage.getItem(STORAGE_KEY)
-            const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
             setKelasList(savedKelas ? JSON.parse(savedKelas) : [])
             setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
             setUseSupabase(false)
@@ -200,10 +192,8 @@ function KelasPage() {
         }
     }
 
-    // Backup to localStorage
     useEffect(() => {
         if (kelasList.length > 0) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(kelasList))
         }
     }, [kelasList])
 

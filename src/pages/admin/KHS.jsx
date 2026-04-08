@@ -124,8 +124,6 @@ function KHSPage() {
                     }
                 }
 
-                // Load nilai akhir from localStorage (saved by Dosen)
-                const savedNilai = localStorage.getItem('cat_nilai_akhir')
                 if (savedNilai) {
                     setNilaiAkhirData(JSON.parse(savedNilai))
                     console.log('[KHS] Nilai akhir loaded:', Object.keys(JSON.parse(savedNilai)).length, 'records')

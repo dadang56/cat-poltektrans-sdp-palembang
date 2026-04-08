@@ -18,12 +18,7 @@ import {
 } from 'lucide-react'
 import { isSupabaseConfigured, hasilUjianService, prodiService, kelasService, matkulService, userService } from '../../services/supabaseService'
 
-// LocalStorage keys
-const EXAM_RESULTS_KEY = 'cat_exam_results'
-const USERS_KEY = 'cat_users'
-const PRODI_KEY = 'cat_prodi_data'
-const KELAS_KEY = 'cat_kelas_data'
-const MATKUL_KEY = 'cat_matkul_data'
+
 
 function getGradeLabel(nilai) {
     if (nilai >= 85) return { label: 'A', color: 'success' }
@@ -64,19 +59,12 @@ function ReportsPage() {
         setIsLoading(true)
         setError(null)
 
-        if (isSupabaseConfigured()) {
-            try {
-                await loadFromSupabase()
-                setDataSource('supabase')
-            } catch (err) {
-                console.error('Error loading from Supabase, falling back to localStorage:', err)
-                setError('Gagal memuat dari database, menggunakan data lokal')
-                loadFromLocalStorage()
-                setDataSource('local')
-            }
-        } else {
-            loadFromLocalStorage()
-            setDataSource('local')
+        try {
+            await loadFromSupabase()
+            setDataSource('supabase')
+        } catch (err) {
+            console.error('[Reports] Error loading from Supabase:', err)
+            setError('Gagal memuat data dari database')
         }
 
         setIsLoading(false)
@@ -124,56 +112,7 @@ function ReportsPage() {
         setGrades(enrichedResults)
     }
 
-    const loadFromLocalStorage = () => {
-        const examResults = localStorage.getItem(EXAM_RESULTS_KEY)
-        const users = localStorage.getItem(USERS_KEY)
-        const prodi = localStorage.getItem(PRODI_KEY)
-        const kelas = localStorage.getItem(KELAS_KEY)
-        const matkul = localStorage.getItem(MATKUL_KEY)
 
-        const usersData = users ? JSON.parse(users) : []
-        const prodiData = prodi ? JSON.parse(prodi) : []
-        const kelasData = kelas ? JSON.parse(kelas) : []
-        const matkulData = matkul ? JSON.parse(matkul) : []
-
-        // Build prodi list for filter
-        setProdiList(['Semua Prodi', ...prodiData.map(p => p.nama)])
-
-        // Build kelas list for filter  
-        setKelasList(['Semua Kelas', ...kelasData.map(k => k.nama)])
-
-        // Build matkul list for filter
-        setMatkulList(['Semua Mata Kuliah', ...matkulData.map(m => m.nama)])
-
-        // Build dosen list
-        const dosenUsers = usersData.filter(u => u.role === 'dosen')
-        setDosenList(['Semua Dosen', ...dosenUsers.map(d => d.nama || d.name)])
-
-        // Load exam results and enrich with user data
-        if (examResults) {
-            const results = JSON.parse(examResults)
-            const enrichedResults = results.map(r => {
-                const mahasiswa = usersData.find(u => u.id === r.mahasiswaId)
-                const dosenUser = usersData.find(u => u.id === r.dosenId)
-                const matkulItem = matkulData.find(m => m.id === r.matkulId)
-                const kelasItem = kelasData.find(k => k.id === mahasiswa?.kelasId)
-                const prodiItem = prodiData.find(p => p.id === kelasItem?.prodiId)
-
-                return {
-                    id: r.id,
-                    nim: mahasiswa?.nim || '-',
-                    nama: mahasiswa?.nama || mahasiswa?.name || '-',
-                    prodi: prodiItem?.nama || '-',
-                    kelas: kelasItem?.nama || '-',
-                    matkul: matkulItem?.nama || '-',
-                    dosen: dosenUser?.nama || dosenUser?.name || '-',
-                    nilai: r.score || 0,
-                    tanggal: r.tanggal || r.submittedAt?.split('T')[0] || '-'
-                }
-            })
-            setGrades(enrichedResults)
-        }
-    }
 
     // Filter data
     const filteredGrades = grades.filter(grade => {

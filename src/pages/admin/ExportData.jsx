@@ -24,12 +24,6 @@ import {
 import { exportToExcel } from '../../utils/excelUtils'
 import './Dashboard.css'
 
-// LocalStorage keys
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const USERS_STORAGE_KEY = 'cat_users_data'
-const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const EXAM_RESULTS_KEY = 'cat_exam_results'
 
 // Generate Tahun Akademik options
 const generateTahunAjaranOptions = () => {
@@ -86,19 +80,12 @@ function ExportData() {
                     setUsersList(users)
                     setProdiList(prodi)
                 } else {
-                    // Fallback to localStorage
-                    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-                    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-                    const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-                    const users = localStorage.getItem(USERS_STORAGE_KEY)
                     setJadwalList(jadwal ? JSON.parse(jadwal) : [])
                     setMatkulList(matkul ? JSON.parse(matkul) : [])
                     setKelasList(kelas ? JSON.parse(kelas) : [])
                     setUsersList(users ? JSON.parse(users) : [])
                 }
 
-                // Load exam results from localStorage
-                const results = localStorage.getItem(EXAM_RESULTS_KEY)
                 setExamResults(results ? JSON.parse(results) : [])
             } catch (err) {
                 console.error('Error loading data:', err)

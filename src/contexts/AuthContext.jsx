@@ -30,7 +30,6 @@ export function AuthProvider({ children }) {
 
     const checkSession = async () => {
         try {
-            // Check localStorage for demo mode
             const savedUser = localStorage.getItem('cat_user')
             if (savedUser) {
                 const parsed = JSON.parse(savedUser)

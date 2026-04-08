@@ -15,10 +15,6 @@ import {
     Square
 } from 'lucide-react'
 
-// LocalStorage keys
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
-const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const USERS_STORAGE_KEY = 'cat_users_data'
 
 function StudentCardPage() {
     const { settings } = useSettings()
@@ -29,7 +25,6 @@ function StudentCardPage() {
     const [selectedStudents, setSelectedStudents] = useState([])
     const printRef = useRef(null)
 
-    // Load from Supabase or localStorage
     const [prodiList, setProdiList] = useState([])
     const [kelasList, setKelasList] = useState([])
     const [mahasiswaData, setMahasiswaData] = useState([])
@@ -53,10 +48,6 @@ function StudentCardPage() {
                     usersData = users
                     console.log('[StudentCard] Loaded from Supabase:', { prodi: prodi.length, kelas: kelas.length, users: users.length })
                 } else {
-                    // Fallback to localStorage
-                    const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-                    const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-                    const users = localStorage.getItem(USERS_STORAGE_KEY)
                     prodiData = prodi ? JSON.parse(prodi) : []
                     kelasData = kelas ? JSON.parse(kelas) : []
                     usersData = users ? JSON.parse(users).filter(u => u.role === 'mahasiswa') : []
@@ -65,7 +56,6 @@ function StudentCardPage() {
                 setProdiList(prodiData)
                 setKelasList(kelasData)
 
-                // Map users to mahasiswa format (handle both Supabase snake_case and localStorage camelCase)
                 const mhs = usersData.map(u => {
                     const prodiId = u.prodi_id || u.prodiId
                     const kelasId = u.kelas_id || u.kelasId

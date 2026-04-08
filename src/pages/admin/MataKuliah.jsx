@@ -22,9 +22,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys for fallback
-const STORAGE_KEY = 'cat_matkul_data'
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
 
 function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) {
     const getInitialData = (data) => ({
@@ -212,8 +209,6 @@ function MataKuliahPage() {
                 setProdiList(prodiData)
                 setUseSupabase(true)
             } else {
-                const savedMatkul = localStorage.getItem(STORAGE_KEY)
-                const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
                 setMatkulList(savedMatkul ? JSON.parse(savedMatkul) : [])
                 setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
                 setUseSupabase(false)
@@ -221,8 +216,6 @@ function MataKuliahPage() {
         } catch (err) {
             console.error('Error loading data:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            const savedMatkul = localStorage.getItem(STORAGE_KEY)
-            const savedProdi = localStorage.getItem(PRODI_STORAGE_KEY)
             setMatkulList(savedMatkul ? JSON.parse(savedMatkul) : [])
             setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
             setUseSupabase(false)
@@ -231,10 +224,8 @@ function MataKuliahPage() {
         }
     }
 
-    // Backup to localStorage
     useEffect(() => {
         if (matkulList.length > 0) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(matkulList))
         }
     }, [matkulList])
 

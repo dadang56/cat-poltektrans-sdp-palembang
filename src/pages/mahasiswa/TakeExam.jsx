@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../App'
 import { SEBService, AntiCheat } from '../../services/SEBService'
 import { jadwalService, matkulService, soalService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
+import { useSettings } from '../../contexts/SettingsContext'
 import {
     Clock,
     ChevronLeft,
@@ -23,10 +24,6 @@ import {
 import './TakeExam.css'
 
 // LocalStorage keys
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const SOAL_STORAGE_KEY = 'cat_soal_data'
-const SETTINGS_STORAGE_KEY = 'cat_settings_data'
 
 // Default anti-cheat settings
 const DEFAULT_ANTICHEAT_SETTINGS = {
@@ -37,10 +34,11 @@ const DEFAULT_ANTICHEAT_SETTINGS = {
 
 function TakeExamPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
     const { id } = useParams()
     const navigate = useNavigate()
 
-    // Exam data from localStorage
+    // Exam data
     const [examData, setExamData] = useState(null)
     const [questions, setQuestions] = useState([])
     const [loading, setLoading] = useState(true)
@@ -70,7 +68,7 @@ function TakeExamPage() {
     const [violations, setViolations] = useState([])
     const [antiCheatSettings, setAntiCheatSettings] = useState(DEFAULT_ANTICHEAT_SETTINGS)
 
-    // Load exam from Supabase (with localStorage fallback)
+    // Load exam from Supabase
     useEffect(() => {
         const loadExamData = async () => {
             console.log('TakeExam: Loading exam with id:', id, 'type:', typeof id)
@@ -100,27 +98,6 @@ function TakeExamPage() {
                         })
 
                         console.log('TakeExam: Supabase soal found:', allSoal.length, 'for matkulId:', matkulId, 'examType:', examType)
-                    }
-                } else {
-                    // Fallback to localStorage
-                    const jadwalData = localStorage.getItem(JADWAL_STORAGE_KEY)
-                    const matkulData = localStorage.getItem(MATKUL_STORAGE_KEY)
-                    const soalData = localStorage.getItem(SOAL_STORAGE_KEY)
-
-                    if (jadwalData) {
-                        const jadwalList = JSON.parse(jadwalData)
-                        jadwal = jadwalList.find(j => String(j.id) === String(id))
-                    }
-                    matkulList = matkulData ? JSON.parse(matkulData) : []
-                    allSoal = soalData ? JSON.parse(soalData) : []
-
-                    if (jadwal) {
-                        const examType = jadwal.tipeUjian?.toUpperCase()
-                        allSoal = allSoal.filter(s => {
-                            const soalMatkulMatch = s.matkulId === jadwal.matkulId
-                            if (!s.examType) return soalMatkulMatch
-                            return soalMatkulMatch && s.examType.toUpperCase() === examType
-                        })
                     }
                 }
 
@@ -348,25 +325,20 @@ function TakeExamPage() {
 
         console.log('[TakeExam] SEB Detection:', { isSEB, platform })
 
-        // Load anti-cheat settings
-        const settingsData = localStorage.getItem(SETTINGS_STORAGE_KEY)
-        if (settingsData) {
-            try {
-                const settings = JSON.parse(settingsData)
-                const acSettings = {
-                    requireSEB: settings.requireSEB || false,
-                    maxWarnings: settings.maxWarnings || 2,
-                    antiCheatLevel: settings.antiCheatLevel || 'medium'
-                }
-                setAntiCheatSettings(acSettings)
-                setSebRequired(acSettings.requireSEB)
+        // Load anti-cheat settings from SettingsContext or defaults
+        // Settings are loaded from Supabase via SettingsContext
+        if (settings) {
+            const acSettings = {
+                requireSEB: settings.requireSEB || false,
+                maxWarnings: settings.maxWarnings || 2,
+                antiCheatLevel: settings.antiCheatLevel || 'medium'
+            }
+            setAntiCheatSettings(acSettings)
+            setSebRequired(acSettings.requireSEB)
 
-                // Show SEB warning if required but not detected
-                if (acSettings.requireSEB && !isSEB) {
-                    setShowSEBWarning(true)
-                }
-            } catch (e) {
-                console.error('Error loading settings:', e)
+            // Show SEB warning if required but not detected
+            if (acSettings.requireSEB && !isSEB) {
+                setShowSEBWarning(true)
             }
         }
 
@@ -629,47 +601,33 @@ function TakeExamPage() {
             submittedAtDisplay: new Date().toLocaleString('id-ID')
         }
 
-        // Save to Supabase (primary) and localStorage (fallback)
+        // Save to Supabase
         const saveExamResult = async () => {
             // Count statistics
             const jumlahBenar = answerDetails.filter(a => a.isCorrect === true).length
             const jumlahSalah = answerDetails.filter(a => a.isCorrect === false).length
             const jumlahKosong = answerDetails.filter(a => a.answer === null).length
 
-            if (isSupabaseConfigured()) {
-                try {
-                    // Save to hasil_ujian table
-                    const hasilData = {
-                        jadwal_id: examData.id,
-                        mahasiswa_id: user?.id,
-                        nilai_total: totalScore,
-                        jumlah_benar: jumlahBenar,
-                        jumlah_salah: jumlahSalah,
-                        jumlah_kosong: jumlahKosong,
-                        waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
-                        waktu_selesai: new Date().toISOString(),
-                        status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
-                        // Store detailed answers as JSON
-                        answers_detail: JSON.stringify(answerDetails)
-                    }
-
-                    await hasilUjianService.upsert(hasilData)
-                    console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
-                } catch (error) {
-                    console.error('[TakeExam] Error saving to Supabase:', error)
+            try {
+                // Save to hasil_ujian table
+                const hasilData = {
+                    jadwal_id: examData.id,
+                    mahasiswa_id: user?.id,
+                    nilai_total: totalScore,
+                    jumlah_benar: jumlahBenar,
+                    jumlah_salah: jumlahSalah,
+                    jumlah_kosong: jumlahKosong,
+                    waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
+                    waktu_selesai: new Date().toISOString(),
+                    status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
+                    // Store detailed answers as JSON
+                    answers_detail: JSON.stringify(answerDetails)
                 }
-            }
 
-            // Also save to localStorage for compatibility
-            const EXAM_RESULTS_KEY = 'cat_exam_results'
-            const existingResults = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-            const alreadySubmitted = existingResults.some(r =>
-                r.examId === examResult.examId && r.mahasiswaId === examResult.mahasiswaId
-            )
-
-            if (!alreadySubmitted) {
-                existingResults.push(examResult)
-                localStorage.setItem(EXAM_RESULTS_KEY, JSON.stringify(existingResults))
+                await hasilUjianService.upsert(hasilData)
+                console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
+            } catch (error) {
+                console.error('[TakeExam] Error saving to Supabase:', error)
             }
         }
 

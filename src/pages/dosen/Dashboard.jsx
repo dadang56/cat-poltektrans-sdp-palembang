@@ -27,7 +27,6 @@ function DosenDashboard() {
     const [ujianSelesai, setUjianSelesai] = useState(0)
     const [jadwalDosen, setJadwalDosen] = useState([])
 
-    // Load data from Supabase or localStorage
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -165,9 +164,6 @@ function DosenDashboard() {
 
                     console.log('[DosenDashboard] Perlu koreksi:', needsCorrection.length, 'Selesai:', fullyGraded.length)
                 } else {
-                    // Fallback to localStorage
-                    const savedMatkul = localStorage.getItem('cat_matkul_data')
-                    const savedSoal = localStorage.getItem('cat_soal_data')
 
                     if (savedMatkul) {
                         const allMatkul = JSON.parse(savedMatkul)

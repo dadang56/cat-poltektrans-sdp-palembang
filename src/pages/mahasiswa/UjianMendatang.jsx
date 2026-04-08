@@ -19,13 +19,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const USERS_STORAGE_KEY = 'cat_users'
-const SOAL_STORAGE_KEY = 'cat_soal_data'
 
-// Helper for field compatibility (Supabase snake_case vs localStorage camelCase)
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
 // Modal konfirmasi ujian
@@ -192,7 +186,6 @@ function UjianPage() {
     const { user } = useAuth()
     const navigate = useNavigate()
 
-    // Load data from Supabase or localStorage
     const [jadwalList, setJadwalList] = useState([])
     const [matkulList, setMatkulList] = useState([])
     const [kelasList, setKelasList] = useState([])
@@ -220,11 +213,6 @@ function UjianPage() {
                     setSoalList(soal)
                     setRuangList(ruang)
                 } else {
-                    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-                    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-                    const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-                    const users = localStorage.getItem(USERS_STORAGE_KEY)
-                    const soal = localStorage.getItem(SOAL_STORAGE_KEY)
                     if (jadwal) setJadwalList(JSON.parse(jadwal))
                     if (matkul) setMatkulList(JSON.parse(matkul))
                     if (kelas) setKelasList(JSON.parse(kelas))
@@ -233,12 +221,6 @@ function UjianPage() {
                 }
             } catch (err) {
                 console.error('[UjianMendatang] Error loading data:', err)
-                // Fallback to localStorage
-                const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-                const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-                const users = localStorage.getItem(USERS_STORAGE_KEY)
-                const soal = localStorage.getItem(SOAL_STORAGE_KEY)
                 if (jadwal) setJadwalList(JSON.parse(jadwal))
                 if (matkul) setMatkulList(JSON.parse(matkul))
                 if (kelas) setKelasList(JSON.parse(kelas))
@@ -255,7 +237,6 @@ function UjianPage() {
     const oneDayMs = 24 * 60 * 60 * 1000
 
     // Load exam results to check completed exams
-    const examResultsData = localStorage.getItem('cat_exam_results')
     const examResults = examResultsData ? JSON.parse(examResultsData) : []
 
     // Filter jadwal for this mahasiswa's kelas, hide expired more than 1 day
@@ -300,7 +281,6 @@ function UjianPage() {
             // Count soal for this exam
             const examSoal = soalList.filter(s => {
                 const sMatkulId = getField(s, 'matkul_id', 'matkulId')
-                // Fix: Check 'tipe_ujian' (Supabase) or 'examType' (LocalStorage)
                 // The 'exam_type' key was incorrect for Supabase data
                 const sExamType = s.tipe_ujian || s.tipeUjian || s.examType
                 return String(sMatkulId) === String(matkulId) &&

@@ -17,7 +17,8 @@ import {
     ArrowRight,
     AlertCircle,
     Download,
-    Database
+    Database,
+    Loader2
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -606,6 +607,7 @@ function BuatSoalPage() {
     const [matkulList, setMatkulList] = useState([])
     const [kelasList, setKelasList] = useState([])
     const [isInitialized, setIsInitialized] = useState(false)
+    const [isLoading, setIsLoading] = useState(true)
     const [search, setSearch] = useState('')
     const [matkulFilter, setMatkulFilter] = useState('all')
     const [typeFilter, setTypeFilter] = useState('all')
@@ -620,62 +622,45 @@ function BuatSoalPage() {
     const [selectedPackage, setSelectedPackage] = useState(null) // { matkulId, examType }
     const [createPackageModalOpen, setCreatePackageModalOpen] = useState(false)
 
-    // Load matkul, kelas, and soal from Supabase
+    // Load matkul, kelas, and soal from Supabase (parallelized for speed)
     useEffect(() => {
         const loadData = async () => {
+            setIsLoading(true)
             try {
-                // Get current user info
                 const dosenId = user?.id
                 const dosenMatkulIds = user?.matkulIds || []
+                const dosenKelasIds = user?.kelasIds || []
 
-                console.log('[BuatSoal] Loading data for dosen:', {
-                    id: dosenId,
-                    matkulIds: dosenMatkulIds
-                })
+                // Load ALL data in parallel for maximum speed
+                const soalFilter = dosenId ? { dosen_id: dosenId } : {}
+                const [allMatkul, allKelas, allSoal] = await Promise.all([
+                    matkulService.getAll(),
+                    kelasService.getAll(),
+                    soalService.getAll(soalFilter)
+                ])
 
-                // Load mata kuliah from Supabase
-                const allMatkul = await matkulService.getAll()
+                // Process matkul
                 if (dosenMatkulIds.length > 0) {
-                    // Filter matkul based on dosen's assigned courses
                     const dosenMatkul = allMatkul.filter(mk =>
                         dosenMatkulIds.some(id => String(id) === String(mk.id))
                     )
-                    // If filter finds matching matkul, use them; otherwise fallback to all
-                    if (dosenMatkul.length > 0) {
-                        setMatkulList(dosenMatkul)
-                        console.log('[BuatSoal] Dosen matkul loaded:', dosenMatkul.length)
-                    } else {
-                        // Fallback: IDs may be integer vs UUID mismatch, show all matkul
-                        setMatkulList(allMatkul)
-                        console.log('[BuatSoal] ID mismatch, showing all matkul:', allMatkul.length)
-                    }
+                    setMatkulList(dosenMatkul.length > 0 ? dosenMatkul : allMatkul)
                 } else {
-                    // No specific matkul assigned - show all matkul as fallback
                     setMatkulList(allMatkul)
-                    console.log('[BuatSoal] No matkulIds assigned, showing all:', allMatkul.length)
                 }
 
-                // Load kelas from Supabase
-                const allKelas = await kelasService.getAll()
-                const dosenKelasIds = user?.kelasIds || []
+                // Process kelas
                 if (dosenKelasIds.length > 0) {
-                    const dosenKelas = allKelas.filter(k =>
+                    setKelasList(allKelas.filter(k =>
                         dosenKelasIds.some(id => String(id) === String(k.id))
-                    )
-                    setKelasList(dosenKelas)
-                    console.log('[BuatSoal] Dosen kelas loaded:', dosenKelas.length)
+                    ))
                 } else if (user?.prodiId) {
-                    const prodiKelas = allKelas.filter(k => String(k.prodi_id) === String(user.prodiId))
-                    setKelasList(prodiKelas)
+                    setKelasList(allKelas.filter(k => String(k.prodi_id) === String(user.prodiId)))
                 } else {
                     setKelasList([])
                 }
 
-                // Load soal from Supabase (filtered by dosen_id if available)
-                const soalFilter = dosenId ? { dosen_id: dosenId } : {}
-                const allSoal = await soalService.getAll(soalFilter)
-                // Map Supabase fields to local format
-                // Reverse mapping: database values -> UI values
+                // Map soal from DB format to UI format
                 const reverseTipeSoal = (dbType) => {
                     const mapping = {
                         'uraian': 'essay',
@@ -686,7 +671,7 @@ function BuatSoalPage() {
                     }
                     return mapping[dbType] || dbType
                 }
-                const mappedSoal = allSoal.map(s => ({
+                setQuestions(allSoal.map(s => ({
                     id: s.id,
                     text: s.pertanyaan,
                     type: reverseTipeSoal(s.tipe_soal),
@@ -697,16 +682,16 @@ function BuatSoalPage() {
                     correctAnswer: s.jawaban_benar,
                     dosenId: s.dosen_id,
                     kelasIds: s.kelas_ids || [],
-                    image: s.gambar || null, // Load question image
-                    matkul: s.matkul // Include joined matkul data
-                }))
-                setQuestions(mappedSoal)
-                console.log('[BuatSoal] Soal loaded:', mappedSoal.length, dosenId ? '(filtered by dosen)' : '(all soal)')
+                    image: s.gambar || null,
+                    matkul: s.matkul
+                })))
 
                 setIsInitialized(true)
             } catch (error) {
                 console.error('[BuatSoal] Error loading data:', error)
                 setIsInitialized(true)
+            } finally {
+                setIsLoading(false)
             }
         }
 
@@ -716,7 +701,6 @@ function BuatSoalPage() {
     }, [user])
 
     // Note: We no longer auto-save all questions because we need to preserve
-    // other dosen's questions. Instead, we directly manipulate localStorage
     // in handleSaveQuestion and handleDeleteQuestion.
 
     // Type labels
@@ -885,6 +869,28 @@ function BuatSoalPage() {
         })
     }
 
+    // Delete entire package (all questions in a matkul+examType group)
+    const handleDeletePackage = (pkg) => {
+        const matkulName = getMatkulName(pkg.matkulId)
+        showConfirm({
+            title: 'Hapus Paket Soal',
+            message: `Hapus semua ${pkg.questions.length} soal dalam paket "${matkulName} - ${pkg.examType}"? Tindakan ini tidak dapat dibatalkan.`,
+            onConfirm: async () => {
+                try {
+                    // Delete all questions in the package in parallel
+                    await Promise.all(pkg.questions.map(q => soalService.delete(q.id)))
+                    // Remove from local state
+                    const deletedIds = new Set(pkg.questions.map(q => q.id))
+                    setQuestions(prev => prev.filter(q => !deletedIds.has(q.id)))
+                    console.log('[BuatSoal] Package deleted:', matkulName, pkg.examType, pkg.questions.length, 'questions')
+                } catch (error) {
+                    console.error('[BuatSoal] Error deleting package:', error)
+                    alert('Gagal menghapus paket soal: ' + error.message)
+                }
+            }
+        })
+    }
+
     const handleImportFromBank = async (importedQuestions) => {
         try {
             // If inside a package, use package's matkulId and examType
@@ -997,7 +1003,14 @@ function BuatSoalPage() {
                 </div>
 
                 {/* Content based on view mode */}
-                {viewMode === 'packages' ? (
+                {isLoading ? (
+                    <div className="card">
+                        <div className="card-body" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '4rem 2rem', gap: '1rem' }}>
+                            <Loader2 size={40} className="spin" style={{ color: 'var(--primary)' }} />
+                            <p style={{ color: 'var(--text-muted)' }}>Memuat data soal...</p>
+                        </div>
+                    </div>
+                ) : viewMode === 'packages' ? (
                     /* PACKAGES VIEW */
                     <div className="card">
                         <div className="card-body">
@@ -1100,13 +1113,27 @@ function BuatSoalPage() {
                                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                                         {pkg.questions.length} soal
                                                     </span>
-                                                    <span style={{
-                                                        color: 'var(--primary)',
-                                                        fontSize: '0.875rem',
-                                                        fontWeight: '500'
-                                                    }}>
-                                                        Kelola Soal →
-                                                    </span>
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <button
+                                                            className="btn btn-ghost btn-sm text-error"
+                                                            onClick={(e) => {
+                                                                e.stopPropagation()
+                                                                handleDeletePackage(pkg)
+                                                            }}
+                                                            title="Hapus Paket"
+                                                            style={{ padding: '0.25rem 0.5rem' }}
+                                                        >
+                                                            <Trash2 size={16} />
+                                                            Hapus
+                                                        </button>
+                                                        <span style={{
+                                                            color: 'var(--primary)',
+                                                            fontSize: '0.875rem',
+                                                            fontWeight: '500'
+                                                        }}>
+                                                            Kelola Soal →
+                                                        </span>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}

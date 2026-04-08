@@ -16,23 +16,16 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const EXAM_ROOMS_KEY = 'cat_exam_rooms'
 
 function PengawasDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  // Load from localStorage
   const [jadwalList, setJadwalList] = useState([])
   const [matkulList, setMatkulList] = useState([])
   const [examRooms, setExamRooms] = useState([])
 
   useEffect(() => {
-    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-    const rooms = localStorage.getItem(EXAM_ROOMS_KEY)
 
     if (jadwal) setJadwalList(JSON.parse(jadwal))
     if (matkul) setMatkulList(JSON.parse(matkul))

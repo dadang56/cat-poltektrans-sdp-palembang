@@ -59,8 +59,6 @@ export async function logAction({
     console.log('[Audit]', action, { tableName, recordId, extraData })
 
     if (!isSupabaseConfigured()) {
-        // Store in localStorage for demo mode
-        logToLocalStorage({ action, tableName, recordId, oldValues, newValues, extraData })
         return { data: null, error: null }
     }
 
@@ -100,8 +98,6 @@ export async function logAction({
 
     } catch (error) {
         console.error('[Audit] Error logging action:', error)
-        // Fallback to localStorage
-        logToLocalStorage({ action, tableName, recordId, oldValues, newValues, extraData, userId })
         return { data: null, error }
     }
 }
@@ -224,53 +220,6 @@ export async function logDataExport(tableName, userId, format, recordCount) {
     })
 }
 
-// ============================================
-// LocalStorage Fallback
-// ============================================
-
-const LOCAL_AUDIT_KEY = 'cat_audit_logs'
-const MAX_LOCAL_LOGS = 1000
-
-function logToLocalStorage(logEntry) {
-    try {
-        const logs = JSON.parse(localStorage.getItem(LOCAL_AUDIT_KEY) || '[]')
-        logs.push({
-            ...logEntry,
-            id: Date.now(),
-            created_at: new Date().toISOString(),
-            user_agent: navigator.userAgent
-        })
-
-        // Keep only last N logs
-        if (logs.length > MAX_LOCAL_LOGS) {
-            logs.splice(0, logs.length - MAX_LOCAL_LOGS)
-        }
-
-        localStorage.setItem(LOCAL_AUDIT_KEY, JSON.stringify(logs))
-    } catch (e) {
-        console.error('[Audit] Error saving to localStorage:', e)
-    }
-}
-
-/**
- * Get audit logs from localStorage (for demo mode)
- */
-export function getLocalAuditLogs(limit = 100) {
-    try {
-        const logs = JSON.parse(localStorage.getItem(LOCAL_AUDIT_KEY) || '[]')
-        return logs.slice(-limit).reverse()
-    } catch (e) {
-        return []
-    }
-}
-
-/**
- * Clear local audit logs
- */
-export function clearLocalAuditLogs() {
-    localStorage.removeItem(LOCAL_AUDIT_KEY)
-}
-
 // Export service object
 export default {
     AuditAction,
@@ -282,7 +231,5 @@ export default {
     logExamTimeout,
     logViolation,
     logGradeSubmit,
-    logDataExport,
-    getLocalAuditLogs,
-    clearLocalAuditLogs
+    logDataExport
 }

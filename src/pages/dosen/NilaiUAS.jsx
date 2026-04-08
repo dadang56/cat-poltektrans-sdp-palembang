@@ -130,7 +130,6 @@ function NilaiUASPage() {
                     // We assume max score is 100 for now or calculate from answers if needed.
                     // For simplicity, let's assume nilai_total is already the percentage 
                     // or if it's raw, we might need max score from soal count.
-                    // BUT: The previous localStorage code did: percent = (total / max) * 100
                     // In Supabase `hasil_ujian`, we typically store the final calculated score or raw.
                     // Let's use `nilai_total` as the Score directly for now, assuming it's 0-100 logic or raw.
                     // Warning: If `nilai_total` is raw (e.g. 40 out of 50 questions), we need context.

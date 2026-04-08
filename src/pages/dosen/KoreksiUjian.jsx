@@ -234,7 +234,6 @@ function KoreksiUjianPage() {
     const [soalList, setSoalList] = useState([])
     const [loading, setLoading] = useState(true)
 
-    // Load exam results from Supabase (with localStorage fallback)
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -328,27 +327,17 @@ function KoreksiUjianPage() {
                     setExamResults(Object.values(examGroups))
                     console.log('[KoreksiUjian] Loaded', Object.keys(examGroups).length, 'exams from Supabase')
                 } else {
-                    // Fallback to localStorage
                     loadFromLocalStorage()
                 }
             } catch (error) {
                 console.error('[KoreksiUjian] Error loading from Supabase:', error)
-                // Fallback to localStorage
                 loadFromLocalStorage()
             }
             setLoading(false)
         }
 
         const loadFromLocalStorage = () => {
-            const EXAM_RESULTS_KEY = 'cat_exam_results'
-            const SOAL_KEY = 'cat_soal_data'
-            const JADWAL_KEY = 'cat_jadwal_data'
-            const MATKUL_KEY = 'cat_matkul_data'
 
-            const results = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-            const soal = JSON.parse(localStorage.getItem(SOAL_KEY) || '[]')
-            const jadwal = JSON.parse(localStorage.getItem(JADWAL_KEY) || '[]')
-            const matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
 
             setSoalList(soal)
 
@@ -427,9 +416,6 @@ function KoreksiUjianPage() {
                     : exam
             ))
 
-            // 4. Save back to localStorage (Backup/Sync)
-            const EXAM_RESULTS_KEY = 'cat_exam_results'
-            const existingResults = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
             const updatedResults = existingResults.map(r => {
                 if (r.id === updatedStudent.resultId) {
                     return {
@@ -441,7 +427,6 @@ function KoreksiUjianPage() {
                 }
                 return r
             })
-            localStorage.setItem(EXAM_RESULTS_KEY, JSON.stringify(updatedResults))
 
         } catch (error) {
             console.error('Failed to save correction:', error)

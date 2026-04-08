@@ -20,11 +20,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys for fallback
-const STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
-const KELAS_STORAGE_KEY = 'cat_kelas_data'
 
 function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], isLoading }) {
     const getDefaultFormData = () => ({
@@ -298,11 +293,6 @@ function JadwalUjianPage() {
                 setKelasList(kelasData)
                 setUseSupabase(true)
             } else {
-                // Fallback to localStorage
-                const jadwal = localStorage.getItem(STORAGE_KEY)
-                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-                const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-                const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
                 setJadwalList(jadwal ? JSON.parse(jadwal) : [])
                 setMatkulList(matkul ? JSON.parse(matkul) : [])
                 setProdiList(prodi ? JSON.parse(prodi) : [])
@@ -312,10 +302,6 @@ function JadwalUjianPage() {
         } catch (err) {
             console.error('Error loading jadwal:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            const jadwal = localStorage.getItem(STORAGE_KEY)
-            const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-            const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-            const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
             setJadwalList(jadwal ? JSON.parse(jadwal) : [])
             setMatkulList(matkul ? JSON.parse(matkul) : [])
             setProdiList(prodi ? JSON.parse(prodi) : [])
@@ -326,10 +312,8 @@ function JadwalUjianPage() {
         }
     }
 
-    // Backup to localStorage
     useEffect(() => {
         if (jadwalList.length > 0 && !useSupabase) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(jadwalList))
         }
     }, [jadwalList, useSupabase])
 
@@ -337,7 +321,6 @@ function JadwalUjianPage() {
 
     // Helper to get prodi_id from jadwal via kelas relation
     const getJadwalProdiId = (j) => {
-        // First try direct prodi_id on jadwal (localStorage)
         if (j.prodi_id || j.prodiId) return j.prodi_id || j.prodiId
         // Otherwise get from kelas
         const kelasId = j.kelas_id || j.kelasId
@@ -397,7 +380,6 @@ function JadwalUjianPage() {
                 }
                 await loadData()
             } else {
-                // LocalStorage fallback
                 const localData = {
                     ...jadwalData,
                     prodiId: jadwalData.prodi_id,

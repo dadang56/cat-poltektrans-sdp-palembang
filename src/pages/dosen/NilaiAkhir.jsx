@@ -80,7 +80,6 @@ function NilaiAkhirPage() {
     const [saving, setSaving] = useState(false)
 
     // Storage key for manual grades
-    const GRADES_STORAGE_KEY = 'cat_nilai_akhir'
 
     // Load matkul and exam results from Supabase
     useEffect(() => {
@@ -108,8 +107,6 @@ function NilaiAkhirPage() {
                     setSelectedMatkul(uniqueMatkuls[0])
                 }
 
-                // 3. Load manual grades (NT, NP) from localStorage (kept as local drafts)
-                const manualGrades = JSON.parse(localStorage.getItem(GRADES_STORAGE_KEY) || '{}')
 
                 // 4. Process grades
                 const gradesByMatkul = {}
@@ -240,11 +237,8 @@ function NilaiAkhirPage() {
         setEditingStudent(null)
         setSaving(false)
 
-        // Save to localStorage as backup
-        const savedGrades = JSON.parse(localStorage.getItem(GRADES_STORAGE_KEY) || '{}')
         if (!savedGrades[selectedMatkul.id]) savedGrades[selectedMatkul.id] = {}
         savedGrades[selectedMatkul.id][String(student.id)] = { nt, nuts, np, uas }
-        localStorage.setItem(GRADES_STORAGE_KEY, JSON.stringify(savedGrades))
     }
 
     const handleCancelEdit = () => {

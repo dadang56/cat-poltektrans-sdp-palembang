@@ -16,14 +16,11 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
 
 function MahasiswaDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
 
-  // Load from Supabase or localStorage
   const [jadwalList, setJadwalList] = useState([])
   const [matkulList, setMatkulList] = useState([])
 
@@ -38,16 +35,11 @@ function MahasiswaDashboard() {
           setJadwalList(jadwal)
           setMatkulList(matkul)
         } else {
-          const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-          const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
           if (jadwal) setJadwalList(JSON.parse(jadwal))
           if (matkul) setMatkulList(JSON.parse(matkul))
         }
       } catch (err) {
         console.error('[MahasiswaDashboard] Error loading data:', err)
-        // Fallback to localStorage
-        const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-        const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
         if (jadwal) setJadwalList(JSON.parse(jadwal))
         if (matkul) setMatkulList(JSON.parse(matkul))
       }
@@ -55,7 +47,6 @@ function MahasiswaDashboard() {
     loadData()
   }, [])
 
-  // Helper for field compatibility (Supabase snake_case vs localStorage camelCase)
   const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
   // Filter jadwal untuk kelas mahasiswa

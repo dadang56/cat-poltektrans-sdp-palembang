@@ -5,9 +5,8 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
  * Uses Supabase Auth with NIM/NIP as custom identifier
  */
 
-// LocalStorage keys for fallback/demo mode
-const DEMO_USER_KEY = 'cat_user'
-const USERS_KEY = 'cat_users_data'
+// LocalStorage keys for session persistence (required for current device)
+const USER_PROFILE_KEY = 'cat_user'
 const SESSION_TOKEN_KEY = 'cat_session_token'
 
 /**
@@ -25,10 +24,6 @@ function generateSessionToken() {
  * 3. If user has NO auth_id -> allow temporary login (legacy/manual users)
  */
 export async function signInWithNimNip(nimNip, password) {
-    if (!isSupabaseConfigured()) {
-        // Fallback to demo mode
-        return signInDemo(nimNip, password)
-    }
 
     try {
         // STRATEGY: Try Supabase Auth First
@@ -78,6 +73,7 @@ export async function signInWithNimNip(nimNip, password) {
 
             // Store token in localStorage for validation
             localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
+            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formatUserProfile(userProfile, authData.session)))
 
             return { data: formatUserProfile(userProfile, authData.session), error: null }
 
@@ -150,7 +146,7 @@ export async function signInWithNimNip(nimNip, password) {
                     .eq('id', existingUser.id)
 
                 const formattedUser = formatUserProfile(existingUser, null)
-                localStorage.setItem(DEMO_USER_KEY, JSON.stringify(formattedUser))
+                localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
                 localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
 
                 return { data: formattedUser, error: null }
@@ -168,9 +164,6 @@ export async function signInWithNimNip(nimNip, password) {
  * Sign up a new user (admin function)
  */
 export async function signUpUser(nimNip, password, userData) {
-    if (!isSupabaseConfigured()) {
-        return signUpDemo(nimNip, password, userData)
-    }
 
     try {
         const email = `${nimNip.toLowerCase()}@cat.poltektrans.local`
@@ -209,8 +202,8 @@ export async function signUpUser(nimNip, password, userData) {
  */
 export async function signOut() {
     // Clear session token from database
-    const localUser = localStorage.getItem(DEMO_USER_KEY)
-    if (localUser && isSupabaseConfigured()) {
+    const localUser = localStorage.getItem(USER_PROFILE_KEY)
+    if (localUser) {
         try {
             const user = JSON.parse(localUser)
             if (user?.id) {
@@ -225,12 +218,8 @@ export async function signOut() {
     }
 
     // Clear localStorage
-    localStorage.removeItem(DEMO_USER_KEY)
+    localStorage.removeItem(USER_PROFILE_KEY)
     localStorage.removeItem(SESSION_TOKEN_KEY)
-
-    if (!isSupabaseConfigured()) {
-        return { error: null }
-    }
 
     try {
         const { error } = await supabase.auth.signOut()
@@ -246,14 +235,6 @@ export async function signOut() {
  * Get current session
  */
 export async function getSession() {
-    if (!isSupabaseConfigured()) {
-        const demoUser = localStorage.getItem(DEMO_USER_KEY)
-        return {
-            data: { session: demoUser ? { user: JSON.parse(demoUser) } : null },
-            error: null
-        }
-    }
-
     return await supabase.auth.getSession()
 }
 
@@ -262,11 +243,7 @@ export async function getSession() {
  * Returns false if session is invalid (logged in elsewhere)
  */
 export async function validateSession() {
-    if (!isSupabaseConfigured()) {
-        return { valid: true }
-    }
-
-    const localUser = localStorage.getItem(DEMO_USER_KEY)
+    const localUser = localStorage.getItem(USER_PROFILE_KEY)
     const localToken = localStorage.getItem(SESSION_TOKEN_KEY)
 
     if (!localUser || !localToken) {
@@ -276,7 +253,7 @@ export async function validateSession() {
     try {
         try {
             // Get user from localStorage first (works for both legacy and auth users since we store profile there)
-            const localUser = localStorage.getItem(DEMO_USER_KEY) // Note: This key name is confusing but used for profile storage
+            const localUser = localStorage.getItem(USER_PROFILE_KEY)
             // If not mapped there, check if we have a supabase session and partial profile
 
             let userId = null
@@ -332,20 +309,17 @@ export async function validateSession() {
  * Get current user profile
  */
 export async function getCurrentUser() {
-    // First, always check localStorage for database-only auth session
-    const localUser = localStorage.getItem(DEMO_USER_KEY)
+    // Check localStorage for cached profile (works for both auth and legacy users)
+    const localUser = localStorage.getItem(USER_PROFILE_KEY)
     if (localUser) {
         try {
             return JSON.parse(localUser)
         } catch (e) {
-            localStorage.removeItem(DEMO_USER_KEY)
+            localStorage.removeItem(USER_PROFILE_KEY)
         }
     }
 
-    // If no local session and Supabase not configured, return null
-    if (!isSupabaseConfigured()) {
-        return null
-    }
+
 
     // Check Supabase Auth session (for future OAuth users)
     const { data: { session } } = await supabase.auth.getSession()
@@ -368,12 +342,6 @@ export async function getCurrentUser() {
  * Subscribe to auth state changes
  */
 export function onAuthStateChange(callback) {
-    if (!isSupabaseConfigured()) {
-        // In demo mode, just call with current state
-        const demoUser = localStorage.getItem(DEMO_USER_KEY)
-        callback('SIGNED_IN', demoUser ? { user: JSON.parse(demoUser) } : null)
-        return { data: { subscription: { unsubscribe: () => { } } } }
-    }
 
     return supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
@@ -389,9 +357,6 @@ export function onAuthStateChange(callback) {
  * Update user password
  */
 export async function updatePassword(newPassword) {
-    if (!isSupabaseConfigured()) {
-        return { error: new Error('Not supported in demo mode') }
-    }
 
     return await supabase.auth.updateUser({ password: newPassword })
 }
@@ -456,70 +421,6 @@ async function checkLegacyUser(nimNip, password) {
         return formatUserProfile(user, null)
     }
     return null
-}
-
-// ============================================
-// Demo Mode Functions (when Supabase not configured)
-// ============================================
-
-function signInDemo(nimNip, password) {
-    const usersData = localStorage.getItem(USERS_KEY)
-    const users = usersData ? JSON.parse(usersData) : []
-
-    const normalizedNim = String(nimNip).trim().toLowerCase()
-
-    // Find user by nim_nip (no more demo accounts) - Case Insensitive
-    const user = users.find(u =>
-        (u.nim_nip && String(u.nim_nip).toLowerCase() === normalizedNim) ||
-        (u.nimNip && String(u.nimNip).toLowerCase() === normalizedNim)
-    )
-
-    if (!user) {
-        return { data: null, error: new Error('NIM/NIP tidak ditemukan (Demo Mode)') }
-    }
-
-    if (user.status !== 'active') {
-        return { data: null, error: new Error('Akun tidak aktif') }
-    }
-
-    const formattedUser = {
-        id: user.id || nimNip,
-        nimNip: user.nim_nip || user.nimNip,
-        nim: user.nim_nip || user.nimNip,
-        nama: user.nama,
-        name: user.nama,
-        email: user.email,
-        role: user.role,
-        status: user.status,
-        prodiId: user.prodi_id || user.prodiId,
-        kelasId: user.kelas_id || user.kelasId
-    }
-
-    localStorage.setItem(DEMO_USER_KEY, JSON.stringify(formattedUser))
-    return { data: formattedUser, error: null }
-}
-
-function signUpDemo(nimNip, password, userData) {
-    const usersData = localStorage.getItem(USERS_KEY)
-    const users = usersData ? JSON.parse(usersData) : []
-
-    // Check if user already exists
-    if (users.find(u => u.nim_nip === nimNip)) {
-        return { data: null, error: new Error('NIM/NIP sudah terdaftar') }
-    }
-
-    const newUser = {
-        id: Date.now(),
-        nim_nip: nimNip,
-        ...userData,
-        status: 'active',
-        created_at: new Date().toISOString()
-    }
-
-    users.push(newUser)
-    localStorage.setItem(USERS_KEY, JSON.stringify(users))
-
-    return { data: newUser, error: null }
 }
 
 // Export for use in components

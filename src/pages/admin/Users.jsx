@@ -30,11 +30,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys for fallback
-const STORAGE_KEY = 'cat_users_data'
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
-const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
 
 // Multi-Select Component
 function MultiSelect({ options, selected, onChange, placeholder, getLabel }) {
@@ -562,11 +557,6 @@ function UsersPage() {
                 setMatkulList(matkulData)
                 setUseSupabase(true)
             } else {
-                // Fallback to localStorage
-                const saved = localStorage.getItem(STORAGE_KEY)
-                const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-                const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
                 setUsers(saved ? JSON.parse(saved) : [])
                 setProdiList(prodi ? JSON.parse(prodi) : [])
                 setKelasList(kelas ? JSON.parse(kelas) : [])
@@ -576,11 +566,6 @@ function UsersPage() {
         } catch (err) {
             console.error('Error loading users:', err)
             setError('Gagal memuat data dari database. Menggunakan data lokal.')
-            // Fallback to localStorage
-            const saved = localStorage.getItem(STORAGE_KEY)
-            const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-            const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-            const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
             setUsers(saved ? JSON.parse(saved) : [])
             setProdiList(prodi ? JSON.parse(prodi) : [])
             setKelasList(kelas ? JSON.parse(kelas) : [])
@@ -591,10 +576,8 @@ function UsersPage() {
         }
     }
 
-    // Backup to localStorage
     useEffect(() => {
         if (users.length > 0 && !useSupabase) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(users))
         }
     }, [users, useSupabase])
 
@@ -729,7 +712,6 @@ function UsersPage() {
                     setUsers([...users, newUser])
                 }
             } else {
-                // Fallback to localStorage
                 if (editingUser) {
                     setUsers(users.map(u => u.id === editingUser.id ? { ...userData, id: editingUser.id } : u))
                 } else {

@@ -22,10 +22,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
-const SOAL_KEY = 'cat_soal_data'
-const PRODI_KEY = 'cat_prodi_data'
-const MATKUL_KEY = 'cat_matkul_data'
 
 function QuestionModal({ isOpen, onClose, question, onSave, categories }) {
     const [formData, setFormData] = useState(question || {
@@ -211,11 +207,7 @@ function BankSoalPage() {
     const [previewQuestion, setPreviewQuestion] = useState(null)
     const itemsPerPage = 5
 
-    // Load data from localStorage
     useEffect(() => {
-        const soalData = localStorage.getItem(SOAL_KEY)
-        const prodiData = localStorage.getItem(PRODI_KEY)
-        const matkulData = localStorage.getItem(MATKUL_KEY)
 
         if (soalData) {
             const allSoal = JSON.parse(soalData)
@@ -229,10 +221,8 @@ function BankSoalPage() {
         setIsInitialized(true)
     }, [])
 
-    // Save to localStorage when questions change (only after initialized)
     useEffect(() => {
         if (isInitialized) {
-            localStorage.setItem(SOAL_KEY, JSON.stringify(questions))
         }
     }, [questions, isInitialized])
 

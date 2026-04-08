@@ -18,12 +18,6 @@ import {
     X
 } from 'lucide-react'
 
-// LocalStorage keys
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
-const KELAS_STORAGE_KEY = 'cat_kelas_data'
-const USERS_STORAGE_KEY = 'cat_users_data'
-const EXAM_ROOMS_KEY = 'cat_exam_rooms'
-
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
@@ -57,7 +51,7 @@ function ExamRoomPage() {
     const [newRuangKapasitas, setNewRuangKapasitas] = useState(30)
     const [showAddRuang, setShowAddRuang] = useState(false)
 
-    // Load from Supabase or localStorage
+    // Load from Supabase
     const [prodiList, setProdiList] = useState([])
     const [kelasList, setKelasList] = useState([])
     const [mahasiswaData, setMahasiswaData] = useState([])
@@ -66,51 +60,22 @@ function ExamRoomPage() {
         const loadData = async () => {
             setIsLoading(true)
             try {
-                let prodiData = []
-                let kelasData = []
-                let usersData = []
-                let ruangData = []
-
-                if (isSupabaseConfigured()) {
-                    console.log('[ExamRoom] Loading from Supabase...')
-                    const [prodi, kelas, users, ruang] = await Promise.all([
-                        prodiService.getAll(),
-                        kelasService.getAll(),
-                        userService.getAll({ role: 'mahasiswa' }),
-                        ruangService.getAll()
-                    ])
-                    prodiData = prodi.map((p, idx) => ({
-                        ...p,
-                        color: p.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
-                    }))
-                    kelasData = kelas
-                    usersData = users
-                    ruangData = ruang
-                    console.log('[ExamRoom] Loaded from Supabase:', usersData.length, 'mahasiswa,', ruangData.length, 'ruangan')
-                } else {
-                    console.log('[ExamRoom] Loading from localStorage...')
-                    const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-                    const kelas = localStorage.getItem(KELAS_STORAGE_KEY)
-                    const users = localStorage.getItem(USERS_STORAGE_KEY)
-
-                    prodiData = prodi ? JSON.parse(prodi).map((p, idx) => ({
-                        ...p,
-                        color: p.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
-                    })) : []
-                    kelasData = kelas ? JSON.parse(kelas) : []
-                    const allUsers = users ? JSON.parse(users) : []
-                    usersData = allUsers.filter(u => u.role === 'mahasiswa')
-                }
-
-                setProdiList(prodiData)
-                setKelasList(kelasData)
-                setRuangList(ruangData)
-
-                // Map mahasiswa with prodi info
-                const mhs = usersData.map(u => {
-                    const kelasId = getField(u, 'kelas_id', 'kelasId')
-                    const userKelas = kelasData.find(k => String(k.id) === String(kelasId))
-                    const derivedProdiId = getField(u, 'prodi_id', 'prodiId') || getField(userKelas, 'prodi_id', 'prodiId') || null
+                console.log('[ExamRoom] Loading from Supabase...')
+                const [prodi, kelas, users, ruang] = await Promise.all([
+                    prodiService.getAll(),
+                    kelasService.getAll(),
+                    userService.getAll({ role: 'mahasiswa' }),
+                    ruangService.getAll()
+                ])
+                setProdiList(prodi.map((p, idx) => ({
+                    ...p,
+                    color: p.color || DEFAULT_COLORS[idx % DEFAULT_COLORS.length]
+                })))
+                setKelasList(kelas)
+                const mhs = users.map(u => {
+                    const kelasId = u.kelas_id || u.kelasId
+                    const userKelas = kelas.find(k => String(k.id) === String(kelasId))
+                    const derivedProdiId = u.prodi_id || u.prodiId || userKelas?.prodi_id || null
                     return {
                         id: u.id,
                         name: u.nama || u.name,
@@ -120,22 +85,9 @@ function ExamRoomPage() {
                         photo: u.photo
                     }
                 })
-                console.log('[ExamRoom] Mapped mahasiswa:', mhs.length)
                 setMahasiswaData(mhs)
-
-                // Load existing room allocation
-                const savedRooms = localStorage.getItem(EXAM_ROOMS_KEY)
-                if (savedRooms) {
-                    try {
-                        const roomData = JSON.parse(savedRooms)
-                        if (roomData.rooms && roomData.rooms.length > 0) {
-                            setRooms(roomData.rooms)
-                            setIsAllocated(true)
-                        }
-                    } catch (e) {
-                        console.error('Error loading saved rooms:', e)
-                    }
-                }
+                setRuangList(ruang)
+                console.log('[ExamRoom] Loaded from Supabase:', mhs.length, 'mahasiswa,', ruang.length, 'ruangan')
             } catch (err) {
                 console.error('[ExamRoom] Error loading data:', err)
             } finally {
@@ -149,12 +101,8 @@ function ExamRoomPage() {
     const handleAddRuang = async () => {
         if (!newRuangName.trim()) return
         try {
-            if (isSupabaseConfigured()) {
-                const created = await ruangService.create({ nama: newRuangName.trim(), kapasitas: newRuangKapasitas })
-                setRuangList([...ruangList, created])
-            } else {
-                setRuangList([...ruangList, { id: Date.now(), nama: newRuangName.trim(), kapasitas: newRuangKapasitas }])
-            }
+            const created = await ruangService.create({ nama: newRuangName.trim(), kapasitas: newRuangKapasitas })
+            setRuangList([...ruangList, created])
             setNewRuangName('')
             setNewRuangKapasitas(30)
             setShowAddRuang(false)
@@ -199,22 +147,16 @@ function ExamRoomPage() {
             }
             setRuangList(ruangList.filter(r => r.id !== ruangId))
 
-            // Also remove from allocated rooms (denah) and update localStorage
+            // Also remove from allocated rooms (denah)
             const updatedRooms = rooms.filter(r => r.id !== ruangId)
             setRooms(updatedRooms)
             if (updatedRooms.length === 0) {
                 setIsAllocated(false)
-                localStorage.removeItem(EXAM_ROOMS_KEY)
             } else {
                 // Reset selected room if it was the deleted one
                 if (selectedRoom >= updatedRooms.length) {
                     setSelectedRoom(Math.max(0, updatedRooms.length - 1))
                 }
-                localStorage.setItem(EXAM_ROOMS_KEY, JSON.stringify({
-                    rooms: updatedRooms,
-                    allocatedAt: new Date().toISOString(),
-                    allocatedBy: currentUser?.username || currentUser?.nama || 'Unknown'
-                }))
             }
         } catch (err) {
             console.error('Error deleting ruang:', err)
@@ -308,13 +250,6 @@ function ExamRoomPage() {
         setSelectedRoom(0)
         setIsAllocated(true)
 
-        // Save to localStorage
-        const roomAllocation = {
-            rooms: roomsData,
-            allocatedAt: new Date().toISOString(),
-            allocatedBy: currentUser?.username || currentUser?.nama || 'Unknown'
-        }
-        localStorage.setItem(EXAM_ROOMS_KEY, JSON.stringify(roomAllocation))
         console.log('[ExamRoom] Allocated:', roomsData.length, 'rooms')
     }
 

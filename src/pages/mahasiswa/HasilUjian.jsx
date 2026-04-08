@@ -17,11 +17,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
-const EXAM_RESULTS_KEY = 'cat_exam_results'
-const MATKUL_KEY = 'cat_matkul_data'
-const JADWAL_KEY = 'cat_jadwal_data'
-const USERS_KEY = 'cat_users_data'
 
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
@@ -38,7 +33,6 @@ function HasilUjianPage() {
     // Get semester and Ka.Prodi info from settings
     const academicYear = settings?.academicYear || '2025/2026'
     const semester = settings?.semester || 'Ganjil'
-    const kaprodiInfo = JSON.parse(localStorage.getItem(`kaprodiInfo_${user?.prodiId || 'default'}`) || '{"nama":"","nip":""}')
 
     // Load exam results
     useEffect(() => {
@@ -58,16 +52,11 @@ function HasilUjianPage() {
                     jadwal = jadwalData
                     users = usersData
                 } else {
-                    const matkulData = localStorage.getItem(MATKUL_KEY)
-                    const jadwalData = localStorage.getItem(JADWAL_KEY)
-                    const usersData = localStorage.getItem(USERS_KEY)
                     matkul = matkulData ? JSON.parse(matkulData) : []
                     jadwal = jadwalData ? JSON.parse(jadwalData) : []
                     users = usersData ? JSON.parse(usersData) : []
                 }
 
-                // Exam results still from localStorage
-                const examResults = localStorage.getItem(EXAM_RESULTS_KEY)
 
                 if (examResults && user?.id) {
                     const results = JSON.parse(examResults)

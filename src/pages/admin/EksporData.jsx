@@ -36,14 +36,6 @@ const generateTahunAjaranOptions = () => {
 
 const TAHUN_AJARAN_OPTIONS = generateTahunAjaranOptions()
 
-// LocalStorage keys for fallback
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const EXAM_RESULTS_KEY = 'cat_exam_results'
-const KEHADIRAN_KEY = 'cat_kehadiran_data'
-const MATKUL_KEY = 'cat_matkul_data'
-const KELAS_KEY = 'cat_kelas_data'
-const USERS_KEY = 'cat_users_data'
-const PRODI_KEY = 'cat_prodi_data'
 
 function EksporDataPage() {
     const { user } = useAuth()
@@ -176,27 +168,6 @@ function EksporDataPage() {
                     kehadiran: kehadiran.length,
                     tahunAkademik
                 })
-            } else {
-                // Fallback to localStorage only if Supabase not configured
-                jadwal = JSON.parse(localStorage.getItem(JADWAL_STORAGE_KEY) || '[]')
-                hasil = JSON.parse(localStorage.getItem(EXAM_RESULTS_KEY) || '[]')
-                kehadiran = JSON.parse(localStorage.getItem(KEHADIRAN_KEY) || '[]')
-                matkul = JSON.parse(localStorage.getItem(MATKUL_KEY) || '[]')
-                kelas = JSON.parse(localStorage.getItem(KELAS_KEY) || '[]')
-                users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]')
-                prodi = JSON.parse(localStorage.getItem(PRODI_KEY) || '[]')
-
-                // Client-side filter for localStorage
-                jadwal = jadwal.filter(j => {
-                    const jTahun = j.tahunAkademik || j.tahun_akademik
-                    const matchesTahun = jTahun === tahunAkademik
-                    const matchesTipe = tipeUjian === 'all' || (j.tipeUjian || j.tipe) === tipeUjian
-                    return matchesTahun && matchesTipe
-                })
-
-                const jadwalIds = jadwal.map(j => String(j.id))
-                hasil = hasil.filter(h => jadwalIds.includes(String(h.examId || h.jadwal_id)))
-                kehadiran = kehadiran.filter(k => jadwalIds.includes(String(k.jadwalId || k.jadwal_id)))
             }
 
             setMatkulList(matkul)

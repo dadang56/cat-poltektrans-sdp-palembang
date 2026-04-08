@@ -22,11 +22,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys
-const JADWAL_KEY = 'cat_jadwal_data'
-const SOAL_KEY = 'cat_soal_data'
-const MATKUL_KEY = 'cat_matkul_data'
-const USERS_KEY = 'cat_users'
 
 function ExamModal({ isOpen, onClose, exam, onSave, availableQuestions = [] }) {
   const [formData, setFormData] = useState(exam || {
@@ -214,11 +209,7 @@ function SesiUjianPage() {
   const [modalOpen, setModalOpen] = useState(false)
   const [editingExam, setEditingExam] = useState(null)
 
-  // Load data from localStorage
   useEffect(() => {
-    const jadwalData = localStorage.getItem(JADWAL_KEY)
-    const soalData = localStorage.getItem(SOAL_KEY)
-    const matkulData = localStorage.getItem(MATKUL_KEY)
 
     if (jadwalData) {
       const jadwals = JSON.parse(jadwalData)

@@ -19,11 +19,6 @@ import {
 } from 'lucide-react'
 import './Dashboard.css'
 
-// LocalStorage keys for fallback
-const USERS_STORAGE_KEY = 'cat_users_data'
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
 
 // Generate Tahun Akademik options
 const generateTahunAjaranOptions = () => {
@@ -70,7 +65,6 @@ function AdminDashboard() {
         saveSettings({ ...settings, tahunAkademik: value })
     }
 
-    // Helper functions for field names (Supabase vs localStorage)
     const getJadwalMatkul = (j) => j.matkul_id || j.matkulId
     const getJadwalProdi = (j) => j.prodi_id || j.prodiId
     const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian
@@ -100,11 +94,6 @@ function AdminDashboard() {
                 prodiList = prodiData
                 setUseSupabase(true)
             } else {
-                // Fallback to localStorage
-                const users = localStorage.getItem(USERS_STORAGE_KEY)
-                const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-                const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-                const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
                 usersList = users ? JSON.parse(users) : []
                 jadwalList = jadwal ? JSON.parse(jadwal) : []
                 matkulList = matkul ? JSON.parse(matkul) : []
@@ -192,8 +181,6 @@ function AdminDashboard() {
             setUjianBerlangsung(berlangsung)
         } catch (err) {
             console.error('Error loading dashboard data:', err)
-            // Fallback to localStorage
-            const users = localStorage.getItem(USERS_STORAGE_KEY)
             const usersList = users ? JSON.parse(users) : []
             setStats([
                 { label: 'Total User', value: String(usersList.length), icon: Users, color: 'primary', trend: '-' },

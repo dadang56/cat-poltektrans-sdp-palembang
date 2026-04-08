@@ -17,9 +17,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage keys (fallback)
-const BERITA_ACARA_KEY = 'cat_berita_acara_data'
-const PRODI_KEY = 'cat_prodi_data'
 
 function RekapBeritaAcaraPage() {
     const { user } = useAuth()
@@ -31,11 +28,9 @@ function RekapBeritaAcaraPage() {
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
 
-    // Data from Supabase or localStorage
     const [beritaAcaraData, setBeritaAcaraData] = useState([])
     const [prodiList, setProdiList] = useState([])
 
-    // Load data from Supabase or fallback to localStorage
     useEffect(() => {
         const loadData = async () => {
             setLoading(true)
@@ -74,9 +69,6 @@ function RekapBeritaAcaraPage() {
                     setBeritaAcaraData(transformedData)
                     setProdiList(prodi)
                 } else {
-                    // Fallback to localStorage
-                    const baData = localStorage.getItem(BERITA_ACARA_KEY)
-                    const prodiData = localStorage.getItem(PRODI_KEY)
 
                     if (prodiData) setProdiList(JSON.parse(prodiData))
                     if (baData) setBeritaAcaraData(JSON.parse(baData))
@@ -85,9 +77,6 @@ function RekapBeritaAcaraPage() {
                 console.error('Error loading data:', err)
                 setError('Gagal memuat data dari Supabase. Menggunakan data lokal.')
 
-                // Fallback to localStorage on error
-                const baData = localStorage.getItem(BERITA_ACARA_KEY)
-                const prodiData = localStorage.getItem(PRODI_KEY)
                 if (prodiData) setProdiList(JSON.parse(prodiData))
                 if (baData) setBeritaAcaraData(JSON.parse(baData))
             } finally {

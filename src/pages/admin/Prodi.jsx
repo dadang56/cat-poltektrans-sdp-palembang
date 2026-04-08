@@ -15,8 +15,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// LocalStorage key for fallback
-const STORAGE_KEY = 'cat_prodi_data'
 
 function ProdiModal({ isOpen, onClose, prodi, onSave, isLoading }) {
     const [formData, setFormData] = useState(prodi || {
@@ -110,16 +108,12 @@ function ProdiPage() {
                 setProdiList(data)
                 setUseSupabase(true)
             } else {
-                // Fallback to localStorage
-                const saved = localStorage.getItem(STORAGE_KEY)
                 setProdiList(saved ? JSON.parse(saved) : [])
                 setUseSupabase(false)
             }
         } catch (err) {
             console.error('Error loading prodi:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            // Fallback to localStorage on error
-            const saved = localStorage.getItem(STORAGE_KEY)
             setProdiList(saved ? JSON.parse(saved) : [])
             setUseSupabase(false)
         } finally {
@@ -127,10 +121,8 @@ function ProdiPage() {
         }
     }
 
-    // Save to localStorage as backup
     useEffect(() => {
         if (prodiList.length > 0) {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(prodiList))
         }
     }, [prodiList])
 
@@ -160,7 +152,6 @@ function ProdiPage() {
                 }
                 await loadData() // Reload from database
             } else {
-                // localStorage fallback
                 if (editingProdi) {
                     setProdiList(prodiList.map(p => p.id === editingProdi.id ? { ...data, id: editingProdi.id } : p))
                 } else {

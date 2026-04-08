@@ -15,14 +15,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// localStorage keys
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const PRODI_STORAGE_KEY = 'cat_prodi_data'
-const USERS_STORAGE_KEY = 'cat_users_data'
-const EXAM_RESULTS_KEY = 'cat_exam_results'
 
-// Helper for field compatibility (Supabase snake_case vs localStorage camelCase)
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
 const ABSENCE_REASONS = [
@@ -45,7 +38,6 @@ function AttendancePage() {
     const [roomStudents, setRoomStudents] = useState([]) // Students in selected room
     const printRef = useRef(null)
 
-    // Load data from Supabase or localStorage
     useEffect(() => {
         const loadData = async () => {
             try {
@@ -108,11 +100,6 @@ function AttendancePage() {
                     })
                     setRooms(Object.values(roomMap))
                 } else {
-                    // Fallback to localStorage
-                    const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-                    const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
-                    const prodi = localStorage.getItem(PRODI_STORAGE_KEY)
-                    const users = localStorage.getItem(USERS_STORAGE_KEY)
 
                     jadwalData = jadwal ? JSON.parse(jadwal) : []
                     matkulData = matkul ? JSON.parse(matkul) : []

@@ -25,10 +25,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-// localStorage keys
-const JADWAL_STORAGE_KEY = 'cat_jadwal_data'
-const MATKUL_STORAGE_KEY = 'cat_matkul_data'
-const EXAM_ROOMS_KEY = 'cat_exam_rooms'
 
 function MonitorUjian() {
   const { user } = useAuth()
@@ -143,10 +139,6 @@ function MonitorUjian() {
 
           setRooms(Object.values(roomMap))
         } else {
-          // Fallback to localStorage
-          const savedRooms = localStorage.getItem(EXAM_ROOMS_KEY)
-          const jadwal = localStorage.getItem(JADWAL_STORAGE_KEY)
-          const matkul = localStorage.getItem(MATKUL_STORAGE_KEY)
 
           if (matkul) setMatkulList(JSON.parse(matkul))
           if (jadwal) setJadwalList(JSON.parse(jadwal))
@@ -261,7 +253,6 @@ function MonitorUjian() {
         setParticipants([])
       }
     } else if (room.students && room.students.length > 0) {
-      // Fallback to localStorage room.students
       const roomParticipants = room.students.map((student, idx) => ({
         id: student.id || idx + 1,
         studentId: student.id,
