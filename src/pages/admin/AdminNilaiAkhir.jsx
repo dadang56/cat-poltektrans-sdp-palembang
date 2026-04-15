@@ -133,13 +133,15 @@ function AdminNilaiAkhirPage() {
                             return
                         }
 
-                        // Use dosen info even if partial
+                        // Use dosen info - check multiple sources since jadwal.dosen_id may be null
                         const dosenId = dosen.id || jadwal.dosen_id || 'unknown'
-                        const dosenNama = dosen.nama || 'Dosen'
+                        const dosenNama = dosen.nama || (dosenId !== 'unknown' ? 'Dosen' : 'Belum Ditentukan')
                         const dosenNip = dosen.nim_nip || ''
 
                         // Track dosen and matkul for filters
-                        if (dosen.id && !dosenMap.has(dosen.id)) dosenMap.set(dosen.id, dosen)
+                        if (dosenId !== 'unknown' && !dosenMap.has(dosenId)) {
+                            dosenMap.set(dosenId, { id: dosenId, nama: dosenNama, nim_nip: dosenNip })
+                        }
                         if (!matkulMap.has(matkul.id)) matkulMap.set(matkul.id, matkul)
 
                         const groupKey = `${matkul.id}_${dosenId}`

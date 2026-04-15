@@ -433,17 +433,7 @@ function KoreksiUjianPage() {
                     : exam
             ))
 
-            const updatedResults = existingResults.map(r => {
-                if (r.id === updatedStudent.resultId) {
-                    return {
-                        ...r,
-                        answers: updatedStudent.answers,
-                        totalScore: updatedStudent.totalScore,
-                        isFullyCorrected: true
-                    }
-                }
-                return r
-            })
+
 
         } catch (error) {
             console.error('Failed to save correction:', error)

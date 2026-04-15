@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { jadwalService, matkulService, prodiService, kelasService, ruangService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, prodiService, kelasService, ruangService, userService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Calendar,
     Plus,
@@ -21,7 +21,7 @@ import {
 import '../admin/Dashboard.css'
 
 
-function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], ruangList = [], isLoading }) {
+function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], ruangList = [], dosenList = [], isLoading }) {
     const getDefaultFormData = () => ({
         matkul_id: '',
         kelas_id: '',
@@ -30,7 +30,8 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
         waktu_mulai: '',
         waktu_selesai: '',
         durasi: '',
-        ruangan_id: ''
+        ruangan_id: '',
+        dosen_id: ''
     })
 
     const [formData, setFormData] = useState(jadwal || getDefaultFormData())
@@ -47,7 +48,8 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                     waktu_mulai: jadwal.waktu_mulai || jadwal.waktuMulai || '',
                     waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '',
                     durasi: jadwal.durasi || '',
-                    ruangan_id: jadwal.ruangan?.id || jadwal.ruangan_id || ''
+                    ruangan_id: jadwal.ruangan?.id || jadwal.ruangan_id || '',
+                    dosen_id: jadwal.dosen?.id || jadwal.dosen_id || ''
                 })
             } else {
                 setFormData(getDefaultFormData())
@@ -254,6 +256,20 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 ))}
                             </select>
                         </div>
+                        {/* Dosen Pengampu */}
+                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                            <label className="form-label">Dosen Pengampu</label>
+                            <select
+                                className="form-input"
+                                value={formData.dosen_id}
+                                onChange={e => setFormData({ ...formData, dosen_id: e.target.value })}
+                            >
+                                <option value="">Pilih Dosen</option>
+                                {dosenList.map(d => (
+                                    <option key={d.id} value={d.id}>{d.nama} ({d.nim_nip})</option>
+                                ))}
+                            </select>
+                        </div>
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
@@ -278,6 +294,7 @@ function JadwalUjianPage() {
     const [prodiList, setProdiList] = useState([])
     const [kelasList, setKelasList] = useState([])
     const [ruangList, setRuangList] = useState([])
+    const [dosenList, setDosenList] = useState([])
     const [isLoading, setIsLoading] = useState(true)
     const [isSaving, setIsSaving] = useState(false)
     const [error, setError] = useState(null)
@@ -299,18 +316,20 @@ function JadwalUjianPage() {
 
         try {
             if (isSupabaseConfigured()) {
-                const [jadwalData, matkulData, prodiData, kelasData, ruangData] = await Promise.all([
+                const [jadwalData, matkulData, prodiData, kelasData, ruangData, dosenData] = await Promise.all([
                     jadwalService.getAll(),
                     matkulService.getAll(),
                     prodiService.getAll(),
                     kelasService.getAll(),
-                    ruangService.getAll()
+                    ruangService.getAll(),
+                    userService.getAll({ role: 'dosen' })
                 ])
                 setJadwalList(jadwalData)
                 setMatkulList(matkulData)
                 setProdiList(prodiData)
                 setKelasList(kelasData)
                 setRuangList(ruangData || [])
+                setDosenList(dosenData || [])
                 setUseSupabase(true)
             } else {
                 setJadwalList(jadwal ? JSON.parse(jadwal) : [])
@@ -389,7 +408,9 @@ function JadwalUjianPage() {
                 tanggal: data.tanggal,
                 waktu_mulai: data.waktu_mulai || data.waktuMulai,
                 waktu_selesai: data.waktu_selesai || data.waktuSelesai,
-                durasi: parseInt(data.durasi) || 90
+                durasi: parseInt(data.durasi) || 90,
+                ruangan_id: data.ruangan_id || null,
+                dosen_id: data.dosen_id || null
             }
 
             if (useSupabase) {
@@ -736,6 +757,7 @@ function JadwalUjianPage() {
                     matkulList={user?.role === 'superadmin' ? matkulList : matkulList.filter(m => (m.prodi_id || m.prodiId) === user?.prodiId)}
                     kelasList={user?.role === 'superadmin' ? kelasList : kelasList.filter(k => (k.prodi_id || k.prodiId) === user?.prodiId)}
                     ruangList={ruangList}
+                    dosenList={user?.role === 'superadmin' ? dosenList : dosenList.filter(d => (d.prodi_id || d.prodiId) === user?.prodiId)}
                 />
             </div>
 
