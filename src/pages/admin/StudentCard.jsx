@@ -48,9 +48,9 @@ function StudentCardPage() {
                     usersData = users
                     console.log('[StudentCard] Loaded from Supabase:', { prodi: prodi.length, kelas: kelas.length, users: users.length })
                 } else {
-                    prodiData = prodi ? JSON.parse(prodi) : []
-                    kelasData = kelas ? JSON.parse(kelas) : []
-                    usersData = users ? JSON.parse(users).filter(u => u.role === 'mahasiswa') : []
+                    prodiData = []
+                    kelasData = []
+                    usersData = []
                 }
 
                 setProdiList(prodiData)
@@ -100,7 +100,7 @@ function StudentCardPage() {
     // Get filtered kelas based on prodi
     const filteredKelasList = effectiveProdiFilter === 'all'
         ? kelasList
-        : kelasList.filter(k => String(k.prodiId) === String(effectiveProdiFilter))
+        : kelasList.filter(k => String(k.prodi_id || k.prodiId) === String(effectiveProdiFilter))
 
     // Filter mahasiswa - simplified logic with better debug
     const filteredMahasiswa = mahasiswaData.filter(mhs => {
@@ -110,7 +110,7 @@ function StudentCardPage() {
 
         // Get prodiId from kelas if mahasiswa prodiId not set
         const mahasiswaKelas = kelasList.find(k => k.id === mhs.kelasId)
-        const mahasiswaProdiId = mhs.prodiId || mahasiswaKelas?.prodiId
+        const mahasiswaProdiId = mhs.prodiId || mahasiswaKelas?.prodi_id || mahasiswaKelas?.prodiId
 
         // For prodi matching - skip filter if admin selects a prodi from dropdown
         let matchProdi = true
@@ -211,22 +211,24 @@ function StudentCardPage() {
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                 />
                             </div>
-                            <div className="filter-group">
-                                <Filter size={16} />
-                                <select
-                                    className="form-input"
-                                    value={filterProdi}
-                                    onChange={(e) => {
-                                        setFilterProdi(e.target.value)
-                                        setFilterKelas('all')
-                                    }}
-                                >
-                                    <option value="all">Semua Prodi</option>
-                                    {prodiList.map(p => (
-                                        <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
-                                    ))}
-                                </select>
-                            </div>
+                            {currentUser?.role === 'superadmin' && (
+                                <div className="filter-group">
+                                    <Filter size={16} />
+                                    <select
+                                        className="form-input"
+                                        value={filterProdi}
+                                        onChange={(e) => {
+                                            setFilterProdi(e.target.value)
+                                            setFilterKelas('all')
+                                        }}
+                                    >
+                                        <option value="all">Semua Prodi</option>
+                                        {prodiList.map(p => (
+                                            <option key={p.id} value={p.id}>{p.kode} - {p.nama}</option>
+                                        ))}
+                                    </select>
+                                </div>
+                            )}
                             <div className="filter-group">
                                 <select
                                     className="form-input"
@@ -235,7 +237,7 @@ function StudentCardPage() {
                                 >
                                     <option value="all">Semua Kelas</option>
                                     {filteredKelasList.map(k => {
-                                        const prodi = prodiList.find(p => p.id === k.prodiId)
+                                        const prodi = prodiList.find(p => p.id === (k.prodi_id || k.prodiId))
                                         return (
                                             <option key={k.id} value={k.id}>
                                                 {prodi?.kode} - {k.nama} ({k.angkatan})

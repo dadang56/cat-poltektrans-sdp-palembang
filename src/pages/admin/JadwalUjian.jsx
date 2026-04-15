@@ -29,7 +29,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
         tanggal: '',
         waktu_mulai: '',
         waktu_selesai: '',
-        durasi: 90,
+        durasi: '',
         ruangan: ''
     })
 
@@ -46,7 +46,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                     tipe_ujian: jadwal.tipe_ujian || jadwal.tipeUjian || jadwal.tipe || '',
                     waktu_mulai: jadwal.waktu_mulai || jadwal.waktuMulai || '',
                     waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '',
-                    durasi: jadwal.durasi || 90,
+                    durasi: jadwal.durasi || '',
                     ruangan: jadwal.ruangan || jadwal.ruang || ''
                 })
             } else {
@@ -58,12 +58,15 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
 
     const handleSubmit = (e) => {
         e.preventDefault()
-        // Validate matkul_id is selected
         if (!formData.matkul_id) {
             alert('Silakan pilih Mata Kuliah')
             return
         }
-        onSave(formData)
+        if (!formData.durasi || parseInt(formData.durasi) < 1) {
+            alert('Silakan isi durasi ujian (minimal 1 menit)')
+            return
+        }
+        onSave({ ...formData, durasi: parseInt(formData.durasi) })
     }
 
     // Filter lists based on search - only for Matkul
@@ -227,11 +230,11 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 type="number"
                                 className="form-input"
                                 value={formData.durasi}
-                                onChange={e => setFormData({ ...formData, durasi: parseInt(e.target.value) || 90 })}
-                                min={10}
+                                onChange={e => setFormData({ ...formData, durasi: e.target.value === '' ? '' : parseInt(e.target.value) || '' })}
+                                min={1}
                                 max={600}
                                 required
-                                placeholder="90"
+                                placeholder="Masukkan durasi (menit)"
                             />
                             <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
                                 Durasi personal per mahasiswa. Mahasiswa bisa mulai kapan saja dalam jendela waktu di atas.

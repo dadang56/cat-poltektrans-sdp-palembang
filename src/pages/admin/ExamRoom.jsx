@@ -49,7 +49,9 @@ function ExamRoomPage() {
     const [editingRuangName, setEditingRuangName] = useState(null)
     const [newRuangName, setNewRuangName] = useState('')
     const [newRuangKapasitas, setNewRuangKapasitas] = useState(30)
+    const [newRuangKelasIds, setNewRuangKelasIds] = useState([])
     const [showAddRuang, setShowAddRuang] = useState(false)
+    const [editingRuangFull, setEditingRuangFull] = useState(null) // full edit modal
 
     // Load from Supabase
     const [prodiList, setProdiList] = useState([])
@@ -101,15 +103,50 @@ function ExamRoomPage() {
     const handleAddRuang = async () => {
         if (!newRuangName.trim()) return
         try {
-            const created = await ruangService.create({ nama: newRuangName.trim(), kapasitas: newRuangKapasitas })
+            const created = await ruangService.create({
+                nama: newRuangName.trim(),
+                kapasitas: newRuangKapasitas,
+                kelas_ids: newRuangKelasIds
+            })
             setRuangList([...ruangList, created])
             setNewRuangName('')
             setNewRuangKapasitas(30)
+            setNewRuangKelasIds([])
             setShowAddRuang(false)
         } catch (err) {
             console.error('Error adding ruang:', err)
             alert('Gagal menambah ruangan: ' + err.message)
         }
+    }
+
+    // Full edit handler (name + kapasitas + kelas)
+    const handleSaveEditRuang = async () => {
+        if (!editingRuangFull) return
+        try {
+            const { id, nama, kapasitas, kelas_ids } = editingRuangFull
+            await ruangService.update(id, { nama, kapasitas, kelas_ids: kelas_ids || [] })
+            setRuangList(ruangList.map(r => r.id === id ? { ...r, nama, kapasitas, kelas_ids } : r))
+            setEditingRuangFull(null)
+        } catch (err) {
+            console.error('Error saving ruang:', err)
+            alert('Gagal menyimpan ruangan: ' + err.message)
+        }
+    }
+
+    const toggleKelasId = (kelasId, list, setter) => {
+        if (list.includes(kelasId)) {
+            setter(list.filter(id => id !== kelasId))
+        } else {
+            setter([...list, kelasId])
+        }
+    }
+
+    const getKelasNamesForRoom = (kelasIds) => {
+        if (!kelasIds || kelasIds.length === 0) return 'Semua kelas'
+        return kelasIds.map(kid => {
+            const k = kelasList.find(kk => String(kk.id) === String(kid))
+            return k ? k.nama : ''
+        }).filter(Boolean).join(', ')
     }
 
     const handleUpdateRuangKapasitas = async (ruangId, kapasitas) => {
@@ -174,11 +211,24 @@ function ExamRoomPage() {
             return
         }
 
+        // Filter students based on kelas selections across ALL rooms
+        const allSelectedKelasIds = ruangList.reduce((acc, r) => {
+            if (r.kelas_ids && r.kelas_ids.length > 0) {
+                r.kelas_ids.forEach(kid => { if (!acc.includes(kid)) acc.push(kid) })
+            }
+            return acc
+        }, [])
+
+        // If any room has kelas filter, only include those students
+        const eligibleStudents = allSelectedKelasIds.length > 0
+            ? mahasiswaData.filter(m => allSelectedKelasIds.some(kid => String(m.kelasId) === String(kid)))
+            : mahasiswaData
+
         // Group students by prodi (use String comparison for prodiId)
         const studentsByProdi = {}
         prodiList.forEach(p => {
             studentsByProdi[p.id] = shuffleArray(
-                mahasiswaData.filter(m => String(m.prodiId) === String(p.id))
+                eligibleStudents.filter(m => String(m.prodiId) === String(p.id))
             )
         })
 
@@ -343,31 +393,50 @@ function ExamRoomPage() {
                             </div>
 
                             {showAddRuang && (
-                                <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem', padding: '0.75rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)' }}>
-                                    <input
-                                        type="text"
-                                        className="form-input"
-                                        placeholder="Nama ruangan..."
-                                        value={newRuangName}
-                                        onChange={e => setNewRuangName(e.target.value)}
-                                        style={{ flex: 1 }}
-                                    />
-                                    <input
-                                        type="number"
-                                        className="form-input"
-                                        placeholder="Kapasitas"
-                                        value={newRuangKapasitas}
-                                        onChange={e => setNewRuangKapasitas(parseInt(e.target.value) || 30)}
-                                        min={1}
-                                        max={1000}
-                                        style={{ width: '100px' }}
-                                    />
-                                    <button className="btn btn-sm btn-primary" onClick={handleAddRuang}>
-                                        <Save size={14} /> Simpan
-                                    </button>
-                                    <button className="btn btn-sm btn-ghost" onClick={() => setShowAddRuang(false)}>
-                                        <X size={14} />
-                                    </button>
+                                <div style={{ padding: '1rem', background: 'var(--bg-tertiary)', borderRadius: 'var(--radius-md)', marginBottom: '0.75rem' }}>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+                                        <input
+                                            type="text"
+                                            className="form-input"
+                                            placeholder="Nama ruangan..."
+                                            value={newRuangName}
+                                            onChange={e => setNewRuangName(e.target.value)}
+                                            style={{ flex: 1 }}
+                                        />
+                                        <input
+                                            type="number"
+                                            className="form-input"
+                                            placeholder="Kapasitas"
+                                            value={newRuangKapasitas}
+                                            onChange={e => setNewRuangKapasitas(parseInt(e.target.value) || 30)}
+                                            min={1}
+                                            max={1000}
+                                            style={{ width: '100px' }}
+                                        />
+                                    </div>
+                                    <div style={{ marginBottom: '0.75rem' }}>
+                                        <label style={{ display: 'block', fontSize: '0.8rem', fontWeight: 500, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>Kelas Peserta:</label>
+                                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                            {kelasList.map(k => {
+                                                const isChecked = newRuangKelasIds.includes(k.id)
+                                                return (
+                                                    <label key={k.id} style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.8rem', cursor: 'pointer', padding: '0.25rem 0.5rem', borderRadius: '6px', border: `1px solid ${isChecked ? 'var(--primary-500)' : 'var(--border-color)'}`, background: isChecked ? 'var(--primary-50)' : 'transparent' }}>
+                                                        <input type="checkbox" checked={isChecked} onChange={() => toggleKelasId(k.id, newRuangKelasIds, setNewRuangKelasIds)} style={{ accentColor: 'var(--primary-500)' }} />
+                                                        {k.nama}
+                                                    </label>
+                                                )
+                                            })}
+                                        </div>
+                                        {newRuangKelasIds.length === 0 && <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Kosong = semua mahasiswa akan disertakan</small>}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+                                        <button className="btn btn-sm btn-ghost" onClick={() => { setShowAddRuang(false); setNewRuangKelasIds([]) }}>
+                                            <X size={14} /> Batal
+                                        </button>
+                                        <button className="btn btn-sm btn-primary" onClick={handleAddRuang}>
+                                            <Save size={14} /> Simpan
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
@@ -380,8 +449,9 @@ function ExamRoomPage() {
                                             <tr>
                                                 <th>No</th>
                                                 <th>Nama Ruangan</th>
+                                                <th>Kelas Peserta</th>
                                                 <th>Kapasitas</th>
-                                                <th style={{ width: '100px' }}>Aksi</th>
+                                                <th style={{ width: '120px' }}>Aksi</th>
                                             </tr>
                                         </thead>
                                         <tbody>
@@ -411,6 +481,11 @@ function ExamRoomPage() {
                                                                 {ruang.nama}
                                                             </span>
                                                         )}
+                                                    </td>
+                                                    <td>
+                                                        <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                                                            {getKelasNamesForRoom(ruang.kelas_ids)}
+                                                        </span>
                                                     </td>
                                                     <td>
                                                         {editingRuang === ruang.id ? (
@@ -443,7 +518,7 @@ function ExamRoomPage() {
                                                     </td>
                                                     <td>
                                                         <div style={{ display: 'flex', gap: '0.25rem' }}>
-                                                            <button className="btn btn-icon btn-ghost btn-sm" onClick={() => setEditingRuang(ruang.id)} title="Edit kapasitas">
+                                                            <button className="btn btn-icon btn-ghost btn-sm" onClick={() => setEditingRuangFull({ ...ruang, kelas_ids: ruang.kelas_ids || [] })} title="Edit ruangan">
                                                                 <Edit2 size={14} />
                                                             </button>
                                                             <button className="btn btn-icon btn-ghost btn-sm" onClick={() => handleDeleteRuang(ruang.id)} title="Hapus" style={{ color: 'var(--danger-500)' }}>
@@ -665,6 +740,85 @@ function ExamRoomPage() {
                     ))}
                 </div>
             </div>
+
+                {/* Edit Ruangan Modal */}
+                {editingRuangFull && (
+                    <div className="modal-overlay" onClick={() => setEditingRuangFull(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px', width: '95%' }}>
+                            <div className="modal-header">
+                                <h3>Edit Ruangan</h3>
+                                <button className="btn btn-icon btn-ghost" onClick={() => setEditingRuangFull(null)}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="modal-body">
+                                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                    <label className="form-label">Nama Ruangan</label>
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        value={editingRuangFull.nama || ''}
+                                        onChange={e => setEditingRuangFull({ ...editingRuangFull, nama: e.target.value })}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                    <label className="form-label">Kapasitas</label>
+                                    <input
+                                        type="number"
+                                        className="form-input"
+                                        value={editingRuangFull.kapasitas || 30}
+                                        onChange={e => setEditingRuangFull({ ...editingRuangFull, kapasitas: parseInt(e.target.value) || 30 })}
+                                        min={1}
+                                        max={1000}
+                                    />
+                                </div>
+                                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                    <label className="form-label">Kelas Peserta</label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                        {kelasList.map(k => {
+                                            const isChecked = (editingRuangFull.kelas_ids || []).includes(k.id)
+                                            return (
+                                                <label key={k.id} style={{
+                                                    display: 'flex', alignItems: 'center', gap: '0.35rem',
+                                                    fontSize: '0.85rem', cursor: 'pointer', padding: '0.35rem 0.65rem',
+                                                    borderRadius: '8px',
+                                                    border: `1.5px solid ${isChecked ? 'var(--primary-500)' : 'var(--border-color)'}`,
+                                                    background: isChecked ? 'var(--primary-50)' : 'transparent',
+                                                    transition: 'all 0.15s'
+                                                }}>
+                                                    <input
+                                                        type="checkbox"
+                                                        checked={isChecked}
+                                                        onChange={() => {
+                                                            const ids = editingRuangFull.kelas_ids || []
+                                                            setEditingRuangFull({
+                                                                ...editingRuangFull,
+                                                                kelas_ids: isChecked ? ids.filter(id => id !== k.id) : [...ids, k.id]
+                                                            })
+                                                        }}
+                                                        style={{ accentColor: 'var(--primary-500)' }}
+                                                    />
+                                                    {k.nama}
+                                                </label>
+                                            )
+                                        })}
+                                    </div>
+                                    {(!editingRuangFull.kelas_ids || editingRuangFull.kelas_ids.length === 0) && (
+                                        <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginTop: '0.5rem', display: 'block' }}>
+                                            Tidak ada kelas dipilih = semua mahasiswa akan disertakan saat alokasi
+                                        </small>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-ghost" onClick={() => setEditingRuangFull(null)}>Batal</button>
+                                <button className="btn btn-primary" onClick={handleSaveEditRuang}>
+                                    <Save size={16} /> Simpan
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
             <style>{`
                 .exam-room-page { padding: 0; }
