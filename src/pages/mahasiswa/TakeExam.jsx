@@ -352,17 +352,29 @@ function TakeExamPage() {
                     setWarningCount(count)
                     setShowWarning(true)
 
-                    // Save violation count to Supabase so pengawas can see it
+                    // Save violation count AND violation log to Supabase so pengawas can see it
                     if (isSupabaseConfigured() && existingHasilId) {
+                        const violationEntry = {
+                            type: violation.type || 'unknown',
+                            message: violation.message || 'Pelanggaran terdeteksi',
+                            timestamp: new Date().toISOString(),
+                            count: count
+                        }
                         hasilUjianService.update(existingHasilId, {
-                            jumlah_pelanggaran: count
-                        }).catch(err => console.error('[TakeExam] Failed to save violation count:', err))
+                            jumlah_pelanggaran: count,
+                            violation_log: JSON.stringify([...violations, violationEntry].map(v => ({
+                                type: v.type || 'unknown',
+                                message: v.message || 'Pelanggaran',
+                                timestamp: v.timestamp || new Date().toISOString(),
+                                count: v.count || count
+                            })))
+                        }).catch(err => console.error('[TakeExam] Failed to save violation:', err))
                     }
 
                     // Auto-submit if max warnings reached
                     if (count >= antiCheatSettings.maxWarnings) {
-                        console.warn('[TakeExam] Max warnings reached, auto-submitting')
-                        handleSubmit()
+                        console.warn('[TakeExam] Max warnings reached, auto-submitting due to cheating')
+                        handleCheatingAutoSubmit()
                     }
                 },
                 onLockdownChange: (locked) => {
@@ -456,6 +468,27 @@ function TakeExamPage() {
 
         return () => clearInterval(kickCheckInterval)
     }, [submitted, user, id, navigate])
+
+    // Poll for reactivation (pengawas can reactivate a submitted exam)
+    useEffect(() => {
+        if (!submitted || !isSupabaseConfigured() || !user?.id || !id) return
+
+        const checkReactivation = async () => {
+            try {
+                const hasil = await hasilUjianService.getByJadwalAndMahasiswa(id, user.id)
+                if (hasil && hasil.status === 'in_progress') {
+                    console.log('[TakeExam] Exam reactivated by pengawas!')
+                    sessionStorage.setItem(`active_exam_${id}_${user.id}`, 'true')
+                    window.location.reload()
+                }
+            } catch (err) {
+                console.error('[TakeExam] Error checking reactivation:', err)
+            }
+        }
+
+        const reactivateInterval = setInterval(checkReactivation, 5000)
+        return () => clearInterval(reactivateInterval)
+    }, [submitted, user, id])
 
     // Poll for pengawas approval when waiting
     useEffect(() => {
@@ -632,6 +665,39 @@ function TakeExamPage() {
         }
 
         saveExamResult()
+    }
+
+    // Cheating auto-submit: same as handleSubmit but marks status as 'cheating_submitted'
+    const handleCheatingAutoSubmit = () => {
+        setSubmitted(true)
+        setShowConfirmSubmit(false)
+
+        // Save to Supabase with cheating_submitted status
+        const saveCheatingResult = async () => {
+            if (!isSupabaseConfigured() || !examData?.id || !user?.id) return
+
+            try {
+                const answerSnapshot = questions.map(q => ({
+                    questionId: q.id,
+                    type: q.type,
+                    answer: answers[q.id] ?? null
+                }))
+
+                await hasilUjianService.upsert({
+                    jadwal_id: examData.id,
+                    mahasiswa_id: user.id,
+                    waktu_selesai: new Date().toISOString(),
+                    status: 'cheating_submitted',
+                    answers_detail: JSON.stringify(answerSnapshot),
+                    jumlah_pelanggaran: warningCount
+                })
+                console.log('[TakeExam] Cheating auto-submit saved')
+            } catch (err) {
+                console.error('[TakeExam] Error saving cheating auto-submit:', err)
+            }
+        }
+
+        saveCheatingResult()
     }
 
     // Calculate score for display

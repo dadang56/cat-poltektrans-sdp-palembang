@@ -45,6 +45,7 @@ function MonitorUjian() {
   const getDerivedStatus = (hasil) => {
     if (hasil.status === 'graded') return 'submitted'
     if (hasil.status === 'submitted') return 'submitted'
+    if (hasil.status === 'cheating_submitted') return 'cheating_submitted'
     if (hasil.status === 'kicked') return 'kicked'
     if (hasil.status === 'needs_approval') return 'needs_approval'
     if (hasil.waktu_selesai) return 'submitted'
@@ -52,13 +53,13 @@ function MonitorUjian() {
   }
 
   const getDerivedProgress = (hasil) => {
-    if (hasil.status === 'graded' || hasil.status === 'submitted' || hasil.waktu_selesai) return 100
-    // Estimate progress if answer count is available (would need BE update to really track this)
-    return 5 // Default started progress
+    if (hasil.status === 'graded' || hasil.status === 'submitted' || hasil.status === 'cheating_submitted' || hasil.waktu_selesai) return 100
+    return 5
   }
 
   const getDetailedActivityStatus = (hasil) => {
     if (hasil.status === 'graded') return 'Selesai & Dinilai'
+    if (hasil.status === 'cheating_submitted') return '⚠️ Auto-submit (Kecurangan)'
     if (hasil.status === 'submitted') return 'Sudah Mengumpulkan'
     if (hasil.waktu_selesai) return 'Selesai'
     return 'Sedang Mengerjakan'
@@ -102,9 +103,11 @@ function MonitorUjian() {
           // Group by ruangan — each room can have multiple exams
           const roomMap = {}
           activeExams.forEach(j => {
-            const roomId = j.ruangan_id || j.ruanganId || 'default'
-            const ruang = ruangLookup[roomId] || j.ruangan || {}
-            const roomName = ruang.nama || j.ruangan?.nama || 'Ruang Ujian'
+            // Supabase replaces ruangan_id with nested object j.ruangan
+            const roomId = j.ruangan?.id || j.ruangan_id || j.ruanganId || 'default'
+            const ruang = ruangLookup[roomId] || {}
+            // Priority: nested join name > lookup name > fallback
+            const roomName = j.ruangan?.nama || ruang.nama || 'Ruang Ujian'
             const waktuMulai = j.waktu_mulai || j.waktuMulai
             const waktuSelesai = j.waktu_selesai || j.waktuSelesai
             const matkulName = j.matkul?.nama || 'Ujian'
@@ -298,18 +301,56 @@ function MonitorUjian() {
         }))
 
         // Detect new violations by comparing with old participants
-        roomParticipants.forEach(newP => {
+        roomParticipants.forEach((newP, idx) => {
           const oldP = participants.find(p => p.id === newP.id)
+          const hasil = combinedResults[idx]
+          
           if (oldP && newP.warnings > oldP.warnings) {
+            // Try to get violation detail from violation_log
+            let violationDetail = `Melakukan kecurangan (peringatan ke-${newP.warnings})`
+            try {
+              const vLog = typeof hasil.violation_log === 'string' 
+                ? JSON.parse(hasil.violation_log) 
+                : (hasil.violation_log || [])
+              if (Array.isArray(vLog) && vLog.length > 0) {
+                const latest = vLog[vLog.length - 1]
+                const typeMap = {
+                  'tab_switch': 'Pindah Tab',
+                  'window_blur': 'Keluar Jendela',
+                  'visibility_change': 'Menyembunyikan Halaman',
+                  'copy_paste': 'Copy/Paste',
+                  'right_click': 'Klik Kanan',
+                  'devtools': 'Membuka DevTools',
+                  'screenshot': 'Screenshot',
+                  'unknown': 'Pelanggaran'
+                }
+                const typeName = typeMap[latest.type] || latest.type || 'Pelanggaran'
+                violationDetail = `${typeName} (peringatan ke-${newP.warnings})`
+              }
+            } catch (e) { /* ignore parse error */ }
+
             setAlerts(prev => [{
               id: Date.now() + Math.random(),
               studentId: newP.studentId,
               student: newP.name,
-              action: `Melakukan kecurangan (peringatan ke-${newP.warnings})`,
+              action: violationDetail,
               time: new Date().toLocaleTimeString('id-ID'),
               severity: 'error'
             }, ...prev])
           }
+
+          // Detect cheating_submitted
+          if (newP.status === 'cheating_submitted' && (!oldP || oldP.status !== 'cheating_submitted')) {
+            setAlerts(prev => [{
+              id: Date.now() + Math.random(),
+              studentId: newP.studentId,
+              student: newP.name,
+              action: '⚠️ Auto-submit karena mencapai batas kecurangan',
+              time: new Date().toLocaleTimeString('id-ID'),
+              severity: 'error'
+            }, ...prev])
+          }
+
           // Detect needs_approval (student requesting re-entry)
           if (newP.status === 'needs_approval' && (!oldP || oldP.status !== 'needs_approval')) {
             setAlerts(prev => [{
@@ -430,6 +471,41 @@ function MonitorUjian() {
           action: 'Ditolak masuk kembali dan dikeluarkan',
           time: new Date().toLocaleTimeString('id-ID'),
           severity: 'error'
+        }, ...prev])
+      }
+    })
+  }
+
+  // Reactivate exam for a student (after auto-submit from cheating)
+  const handleReactivate = async (studentId) => {
+    showConfirm({
+      title: 'Aktifkan Ulang Ujian',
+      message: 'Mahasiswa ini akan bisa melanjutkan ujian kembali. Yakin ingin mengaktifkan ulang?',
+      onConfirm: async () => {
+        const student = participants.find(p => p.id === studentId)
+        setParticipants(prev => prev.map(p =>
+          p.id === studentId ? { ...p, status: 'active', lastActivity: 'Diaktifkan ulang oleh pengawas' } : p
+        ))
+        try {
+          await hasilUjianService.update(studentId, {
+            status: 'in_progress',
+            waktu_selesai: null,
+            waktu_mulai: new Date().toISOString()
+          })
+          console.log('[MonitorUjian] Exam reactivated for:', studentId)
+        } catch (error) {
+          console.error('[MonitorUjian] Error reactivating exam:', error)
+          setParticipants(prev => prev.map(p =>
+            p.id === studentId ? { ...p, status: 'cheating_submitted' } : p
+          ))
+        }
+        setAlerts(prev => [{
+          id: Date.now(),
+          studentId,
+          student: student?.name,
+          action: 'Ujian diaktifkan ulang oleh pengawas',
+          time: new Date().toLocaleTimeString('id-ID'),
+          severity: 'info'
         }, ...prev])
       }
     })
@@ -684,6 +760,26 @@ function MonitorUjian() {
                               <XCircle size={14} />
                             </button>
                           </>
+                        ) : (participant.status === 'cheating_submitted' || participant.status === 'submitted') ? (
+                          <>
+                            <button
+                              className="action-btn"
+                              title="Aktifkan Ulang Ujian"
+                              onClick={(e) => { e.stopPropagation(); handleReactivate(participant.id); }}
+                              style={{ background: 'var(--primary-500)', color: 'white' }}
+                            >
+                              <Unlock size={14} />
+                            </button>
+                            <button
+                              className="action-btn danger"
+                              title="Keluarkan Permanen"
+                              onClick={(e) => { e.stopPropagation(); handleKickStudent(participant.id); }}
+                            >
+                              <Ban size={14} />
+                            </button>
+                          </>
+                        ) : participant.status === 'kicked' ? (
+                          <span style={{ fontSize: '0.75rem', color: 'var(--danger-500)', fontWeight: 600 }}>Dikeluarkan</span>
                         ) : (
                           <>
                             <button

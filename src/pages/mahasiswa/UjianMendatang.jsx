@@ -192,6 +192,7 @@ function UjianPage() {
     const [usersList, setUsersList] = useState([])
     const [soalList, setSoalList] = useState([])
     const [ruangList, setRuangList] = useState([])
+    const [completedExamIds, setCompletedExamIds] = useState([])
     const [confirmModal, setConfirmModal] = useState({ open: false, exam: null })
 
     useEffect(() => {
@@ -212,32 +213,33 @@ function UjianPage() {
                     setUsersList(users)
                     setSoalList(soal)
                     setRuangList(ruang)
-                } else {
-                    if (jadwal) setJadwalList(JSON.parse(jadwal))
-                    if (matkul) setMatkulList(JSON.parse(matkul))
-                    if (kelas) setKelasList(JSON.parse(kelas))
-                    if (users) setUsersList(JSON.parse(users))
-                    if (soal) setSoalList(JSON.parse(soal))
+
+                    // Load completed exams from Supabase
+                    if (user?.id) {
+                        try {
+                            const { hasilUjianService } = await import('../../services/supabaseService')
+                            const results = await hasilUjianService.getByMahasiswa(user.id)
+                            const doneIds = (results || [])
+                                .filter(r => r.status === 'submitted' || r.status === 'graded')
+                                .map(r => String(r.jadwal_id))
+                            setCompletedExamIds(doneIds)
+                        } catch (e) {
+                            console.error('[UjianMendatang] Error loading exam results:', e)
+                        }
+                    }
                 }
             } catch (err) {
                 console.error('[UjianMendatang] Error loading data:', err)
-                if (jadwal) setJadwalList(JSON.parse(jadwal))
-                if (matkul) setMatkulList(JSON.parse(matkul))
-                if (kelas) setKelasList(JSON.parse(kelas))
-                if (users) setUsersList(JSON.parse(users))
-                if (soal) setSoalList(JSON.parse(soal))
             }
         }
         loadData()
-    }, [])
+    }, [user])
 
     // Get mahasiswa's kelas
     const mahasiswaKelasId = user?.kelasId || user?.kelas_id
     const now = new Date()
     const oneDayMs = 24 * 60 * 60 * 1000
 
-    // Load exam results to check completed exams
-    const examResults = examResultsData ? JSON.parse(examResultsData) : []
 
     // Filter jadwal for this mahasiswa's kelas, hide expired more than 1 day
     const exams = jadwalList
@@ -288,9 +290,7 @@ function UjianPage() {
             })
 
             // Check if mahasiswa already completed this exam
-            const alreadySubmitted = examResults.some(r =>
-                String(r.examId) === String(j.id) && String(r.mahasiswaId) === String(user?.id)
-            )
+            const alreadySubmitted = completedExamIds.includes(String(j.id))
 
             // Dosen Name Resolution
             // Priority: 1. Nested relation, 2. Lookup by id, 3. Match by matkul_ids
