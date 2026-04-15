@@ -54,7 +54,30 @@ function MonitorUjian() {
 
   const getDerivedProgress = (hasil) => {
     if (hasil.status === 'graded' || hasil.status === 'submitted' || hasil.status === 'cheating_submitted' || hasil.waktu_selesai) return 100
-    return 5
+    // Calculate from answers_detail if available
+    try {
+      const answers = typeof hasil.answers_detail === 'string'
+        ? JSON.parse(hasil.answers_detail)
+        : (hasil.answers_detail || [])
+      if (Array.isArray(answers) && answers.length > 0) {
+        const answered = answers.filter(a => a.answer !== null && a.answer !== undefined).length
+        return Math.round((answered / answers.length) * 100)
+      }
+    } catch (e) { /* ignore */ }
+    return 0
+  }
+
+  const getAnsweredCount = (hasil) => {
+    try {
+      const answers = typeof hasil.answers_detail === 'string'
+        ? JSON.parse(hasil.answers_detail)
+        : (hasil.answers_detail || [])
+      if (Array.isArray(answers) && answers.length > 0) {
+        const answered = answers.filter(a => a.answer !== null && a.answer !== undefined).length
+        return `${answered}/${answers.length}`
+      }
+    } catch (e) { /* ignore */ }
+    return '0/?'
   }
 
   const getDetailedActivityStatus = (hasil) => {
@@ -103,11 +126,22 @@ function MonitorUjian() {
           // Group by ruangan — each room can have multiple exams
           const roomMap = {}
           activeExams.forEach(j => {
-            // Supabase replaces ruangan_id with nested object j.ruangan
+            // Supabase replaces ruangan_id with nested object j.ruangan when FK exists
+            // But if ruangan_id is null, j.ruangan becomes null (FK join returns null)
             const roomId = j.ruangan?.id || j.ruangan_id || j.ruanganId || 'default'
             const ruang = ruangLookup[roomId] || {}
-            // Priority: nested join name > lookup name > fallback
-            const roomName = j.ruangan?.nama || ruang.nama || 'Ruang Ujian'
+            // Priority: nested join name > lookup name > text field > fallback
+            let roomName = j.ruangan?.nama || ruang.nama
+            if (!roomName) {
+              // If ruangan is stored as text (not FK), check if any ruang matches by name
+              const textRuangan = typeof j.ruangan === 'string' ? j.ruangan : (j.ruang || '')
+              if (textRuangan) {
+                const matchedRuang = allRuang.find(r => r.nama === textRuangan)
+                roomName = matchedRuang?.nama || textRuangan
+              } else {
+                roomName = 'Ruang Ujian'
+              }
+            }
             const waktuMulai = j.waktu_mulai || j.waktuMulai
             const waktuSelesai = j.waktu_selesai || j.waktuSelesai
             const matkulName = j.matkul?.nama || 'Ujian'
@@ -209,6 +243,7 @@ function MonitorUjian() {
           examNumber: `UJIAN-${String(idx + 1).padStart(3, '0')}`,
           status: getDerivedStatus(hasil),
           progress: getDerivedProgress(hasil),
+          answeredCount: getAnsweredCount(hasil),
           currentQuestion: 0,
           warnings: hasil.jumlah_pelanggaran || 0,
           lastActivity: getDetailedActivityStatus(hasil)
@@ -295,6 +330,7 @@ function MonitorUjian() {
           examNumber: `UJIAN-${String(idx + 1).padStart(3, '0')}`,
           status: getDerivedStatus(hasil),
           progress: getDerivedProgress(hasil),
+          answeredCount: getAnsweredCount(hasil),
           currentQuestion: 0,
           warnings: hasil.jumlah_pelanggaran || 0,
           lastActivity: getDetailedActivityStatus(hasil)
@@ -583,7 +619,7 @@ function MonitorUjian() {
                     <div className="room-header">
                       <MapPin size={20} />
                       <div>
-                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Ruang Ujian</span>
+                        <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{room.name}</span>
                         <h3 style={{ margin: 0 }}>{room.name}</h3>
                       </div>
                       {room.status === 'occupied' && <Lock size={16} className="lock-icon" />}
@@ -722,7 +758,7 @@ function MonitorUjian() {
                           )}
                         </div>
                         <div className="participant-meta">
-                          {participant.nim} • Soal {participant.currentQuestion}/50
+                          {participant.nim} • Soal {participant.answeredCount || '0/?'}
                         </div>
                       </div>
                       <div className="participant-progress">

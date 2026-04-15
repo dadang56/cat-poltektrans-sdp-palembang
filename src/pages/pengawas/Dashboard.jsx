@@ -71,7 +71,7 @@ function PengawasDashboard() {
   const startTime = firstJadwal?.waktu_mulai || firstJadwal?.waktuMulai || '08:00'
   const endTime = firstJadwal?.waktu_selesai || firstJadwal?.waktuSelesai || '10:00'
 
-  // Show allocated rooms
+  // Show allocated rooms (unused currently, activeJadwal is used instead)
   const activeExams = examRooms.map(room => ({
     id: room.id,
     name: room.nama || room.name || `Ruangan ${room.id}`,
@@ -80,6 +80,19 @@ function PengawasDashboard() {
     startTime: startTime,
     endTime: endTime
   }))
+
+  // Helper: get room name for a jadwal
+  const getRoomName = (j) => {
+    const roomId = j.ruangan?.id || j.ruangan_id
+    if (roomId) {
+      const room = examRooms.find(r => String(r.id) === String(roomId))
+      if (room) return room.nama || room.name
+    }
+    // Fallback to text field (if ruangan is a string, not an object)
+    if (typeof j.ruangan === 'string' && j.ruangan) return j.ruangan
+    if (j.ruangan?.nama) return j.ruangan.nama
+    return '-'
+  }
 
   // Calculate stats dynamically
   const totalParticipants = examRooms.reduce((sum, room) => sum + (room.kapasitas || room.students?.length || 0), 0)
@@ -146,7 +159,7 @@ function PengawasDashboard() {
                             <div className="monitor-card-header">
                               <div>
                                 <h4 className="monitor-exam-name">{matkulName}</h4>
-                                <p className="monitor-exam-room">{jadwal.tipe_ujian || 'UTS'}</p>
+                                <p className="monitor-exam-room">{jadwal.tipe || jadwal.tipe_ujian || 'UTS'} • {getRoomName(jadwal)}</p>
                               </div>
                               <span className="badge badge-success animate-pulse">LIVE</span>
                             </div>

@@ -448,12 +448,35 @@ function TakeExamPage() {
 
         const checkKickedStatus = async () => {
             try {
-                const results = await hasilUjianService.getByMahasiswa(user.id)
-                const currentResult = results.find(r => String(r.jadwal_id) === String(id))
+                const currentResult = await hasilUjianService.getByJadwalAndMahasiswa(id, user.id)
 
                 if (currentResult?.status === 'kicked') {
-                    alert('Anda telah dikeluarkan dari ujian oleh pengawas.')
-                    navigate('/mahasiswa/dashboard')
+                    console.log('[TakeExam] Student was kicked by pengawas')
+                    setIsKicked(true)
+                    setSubmitted(true)
+                    
+                    // Auto-save current answers before showing kicked screen
+                    if (existingHasilId && questions.length > 0) {
+                        const answerSnapshot = questions.map(q => ({
+                            questionId: q.id,
+                            type: q.type,
+                            answer: answers[q.id] ?? null
+                        }))
+                        try {
+                            await hasilUjianService.update(existingHasilId, {
+                                answers_detail: JSON.stringify(answerSnapshot),
+                                waktu_selesai: new Date().toISOString()
+                            })
+                        } catch (e) {
+                            console.error('[TakeExam] Error saving answers on kick:', e)
+                        }
+                    }
+                }
+                // If status changed from kicked to in_progress, reactivate
+                if (currentResult?.status === 'in_progress' && isKicked) {
+                    console.log('[TakeExam] Pengawas un-kicked student, reactivating')
+                    sessionStorage.setItem(`active_exam_${id}_${user.id}`, 'true')
+                    window.location.reload()
                 }
             } catch (error) {
                 console.error('[TakeExam] Error checking kicked status:', error)
@@ -463,11 +486,11 @@ function TakeExamPage() {
         // Check immediately
         checkKickedStatus()
 
-        // Then check every 10 seconds
-        const kickCheckInterval = setInterval(checkKickedStatus, 10000)
+        // Then check every 5 seconds
+        const kickCheckInterval = setInterval(checkKickedStatus, 5000)
 
         return () => clearInterval(kickCheckInterval)
-    }, [submitted, user, id, navigate])
+    }, [submitted, user, id, isKicked, existingHasilId, questions, answers])
 
     // Poll for reactivation (pengawas can reactivate a submitted exam)
     useEffect(() => {
