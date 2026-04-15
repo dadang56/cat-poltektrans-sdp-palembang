@@ -138,42 +138,6 @@ function MonitorUjian() {
           })
 
           setRooms(Object.values(roomMap))
-        } else {
-
-          if (matkul) setMatkulList(JSON.parse(matkul))
-          if (jadwal) setJadwalList(JSON.parse(jadwal))
-
-          if (savedRooms) {
-            const roomData = JSON.parse(savedRooms)
-            const allocatedRooms = roomData.rooms || []
-            const activeJadwal = jadwal ? JSON.parse(jadwal).filter(j => {
-              const examStart = new Date(`${j.tanggal}T${j.waktuMulai}`)
-              let examEnd = new Date(`${j.tanggal}T${j.waktuSelesai}`)
-              // Handle cross-midnight exams
-              if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
-              const thirtyMinsBefore = new Date(examStart.getTime() - 30 * 60 * 1000)
-              return now >= thirtyMinsBefore && now <= examEnd
-            }) : []
-
-            const firstJadwal = activeJadwal[0]
-            const startTime = firstJadwal?.waktuMulai || '08:00'
-            const endTime = firstJadwal?.waktuSelesai || '10:00'
-
-            const monitorRooms = allocatedRooms.map(room => ({
-              id: room.id,
-              name: room.name,
-              exam: 'Ujian Bersama',
-              startTime: startTime,
-              endTime: endTime,
-              participants: room.students?.length || 0,
-              students: room.students || [],
-              status: 'available',
-              pengawas: null,
-              pengawasName: null
-            }))
-
-            setRooms(monitorRooms)
-          }
         }
       } catch (error) {
         console.error('[MonitorUjian] Error loading exams:', error)

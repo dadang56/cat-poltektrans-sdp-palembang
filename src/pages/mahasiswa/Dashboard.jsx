@@ -27,21 +27,14 @@ function MahasiswaDashboard() {
   useEffect(() => {
     const loadData = async () => {
       try {
-        if (isSupabaseConfigured()) {
-          const [jadwal, matkul] = await Promise.all([
-            jadwalService.getAll(),
-            matkulService.getAll()
-          ])
-          setJadwalList(jadwal)
-          setMatkulList(matkul)
-        } else {
-          if (jadwal) setJadwalList(JSON.parse(jadwal))
-          if (matkul) setMatkulList(JSON.parse(matkul))
-        }
+        const [jadwalData, matkulData] = await Promise.all([
+          jadwalService.getAll(),
+          matkulService.getAll()
+        ])
+        setJadwalList(jadwalData || [])
+        setMatkulList(matkulData || [])
       } catch (err) {
         console.error('[MahasiswaDashboard] Error loading data:', err)
-        if (jadwal) setJadwalList(JSON.parse(jadwal))
-        if (matkul) setMatkulList(JSON.parse(matkul))
       }
     }
     loadData()

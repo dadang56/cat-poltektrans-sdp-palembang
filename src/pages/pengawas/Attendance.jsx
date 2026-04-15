@@ -99,31 +99,6 @@ function AttendancePage() {
                         }
                     })
                     setRooms(Object.values(roomMap))
-                } else {
-
-                    jadwalData = jadwal ? JSON.parse(jadwal) : []
-                    matkulData = matkul ? JSON.parse(matkul) : []
-                    setMatkulList(matkulData)
-                    if (prodi) setProdiList(JSON.parse(prodi))
-                    if (users) setUsersList(JSON.parse(users))
-
-                    // Simple fallback: each jadwal = one "room"
-                    const now = new Date()
-                    const today = now.toISOString().split('T')[0]
-                    const todayJadwal = jadwalData.filter(j => j.tanggal === today)
-                    const fallbackRooms = todayJadwal.map(j => {
-                        const mk = matkulData.find(m => m.id === (j.matkulId || j.matkul_id))
-                        return {
-                            id: j.id,
-                            name: j.ruang || 'Ruang Ujian',
-                            exams: [`${j.tipeUjian || j.tipe || 'UTS'} - ${mk?.nama || 'Ujian'}`],
-                            jadwalIds: [j.id],
-                            tanggal: j.tanggal,
-                            waktuMulai: j.waktuMulai || j.waktu_mulai,
-                            waktuSelesai: j.waktuSelesai || j.waktu_selesai
-                        }
-                    })
-                    setRooms(fallbackRooms)
                 }
             } catch (err) {
                 console.error('[Attendance] Error loading data:', err)

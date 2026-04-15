@@ -91,31 +91,6 @@ function BeritaAcaraPage() {
                         }
                     })
                     setRooms(Object.values(roomMap))
-                } else {
-
-                    if (users) setUsersList(JSON.parse(users))
-
-                    if (jadwal) {
-                        const jadwalList = JSON.parse(jadwal)
-                        const matkulData = matkul ? JSON.parse(matkul) : []
-                        const now = new Date()
-                        const today = now.toISOString().split('T')[0]
-
-                        const todayJadwal = jadwalList.filter(j => j.tanggal === today)
-                        const fallbackRooms = todayJadwal.map(j => {
-                            const mk = matkulData.find(m => m.id === (j.matkulId || j.matkul_id))
-                            return {
-                                id: j.id,
-                                name: j.ruang || 'Ruang Ujian',
-                                exams: [`${j.tipeUjian || j.tipe || 'UTS'} - ${mk?.nama || 'Ujian'}`],
-                                jadwalIds: [j.id],
-                                tanggal: j.tanggal,
-                                waktuMulai: j.waktuMulai || j.waktu_mulai,
-                                waktuSelesai: j.waktuSelesai || j.waktu_selesai
-                            }
-                        })
-                        setRooms(fallbackRooms)
-                    }
                 }
             } catch (error) {
                 console.error('[BeritaAcara] Error loading data:', error)
