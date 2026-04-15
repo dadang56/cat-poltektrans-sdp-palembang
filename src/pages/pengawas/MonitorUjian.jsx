@@ -33,7 +33,12 @@ function MonitorUjian() {
   const [matkulList, setMatkulList] = useState([])
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [participants, setParticipants] = useState([])
-  const [alerts, setAlerts] = useState([])
+  const [alerts, setAlerts] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pengawas_activity_log')
+      return saved ? JSON.parse(saved) : []
+    } catch { return [] }
+  })
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState('all')
   const [selectedStudent, setSelectedStudent] = useState(null)
@@ -87,6 +92,13 @@ function MonitorUjian() {
     if (hasil.waktu_selesai) return 'Selesai'
     return 'Sedang Mengerjakan'
   }
+
+  // Persist alerts to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem('pengawas_activity_log', JSON.stringify(alerts.slice(0, 100)))
+    } catch { /* ignore */ }
+  }, [alerts])
 
   // Load active exams from Supabase jadwal_ujian
   useEffect(() => {
@@ -815,7 +827,18 @@ function MonitorUjian() {
                             </button>
                           </>
                         ) : participant.status === 'kicked' ? (
-                          <span style={{ fontSize: '0.75rem', color: 'var(--danger-500)', fontWeight: 600 }}>Dikeluarkan</span>
+                          <>
+                            <button
+                              className="action-btn"
+                              title="Aktifkan Ulang (Un-kick)"
+                              onClick={(e) => { e.stopPropagation(); handleReactivate(participant.id); }}
+                              style={{ background: 'var(--primary-500)', color: 'white' }}
+                            >
+                              <Unlock size={14} />
+                            </button>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--error-500)', fontWeight: 600 }}>Dikeluarkan</span>
+                          </>
+
                         ) : (
                           <>
                             <button

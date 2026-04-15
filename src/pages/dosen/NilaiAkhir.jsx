@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
-import { hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, kelasService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -78,8 +78,11 @@ function NilaiAkhirPage() {
     const [editingStudent, setEditingStudent] = useState(null)
     const [editValues, setEditValues] = useState({})
     const [saving, setSaving] = useState(false)
+    const [kelasList, setKelasList] = useState([])
+    const [kelasFilter, setKelasFilter] = useState('all')
 
-    // Storage key for manual grades
+    // Manual grade storage (in-memory fallback)
+    const manualGrades = {}
 
     // Load matkul and exam results from Supabase
     useEffect(() => {
@@ -87,6 +90,10 @@ function NilaiAkhirPage() {
             if (!user?.id) return
 
             try {
+                // Load kelas list
+                const kelasData = await kelasService.getAll()
+                setKelasList(kelasData || [])
+
                 // 1. Get all exam results for this lecturer
                 const results = await hasilUjianService.getByDosen(user.id)
                 console.log('NilaiAkhir results:', results)
@@ -96,7 +103,10 @@ function NilaiAkhirPage() {
                 results.forEach(r => {
                     const m = r.jadwal?.matkul
                     if (m && !matkulMap.has(m.id)) {
-                        matkulMap.set(m.id, m)
+                        matkulMap.set(m.id, {
+                            ...m,
+                            kelas_id: r.jadwal?.kelas_id || null
+                        })
                     }
                 })
                 const uniqueMatkuls = Array.from(matkulMap.values())
@@ -124,16 +134,16 @@ function NilaiAkhirPage() {
 
                     // Init student entry if not exists
                     if (!gradesByMatkul[matkulId][mahasiswaId]) {
-                        const savedGrade = manualGrades[matkulId]?.[mahasiswaId] || {}
                         gradesByMatkul[matkulId][mahasiswaId] = {
                             id: mahasiswaId,
                             resultId: r.id,
                             nim: r.mahasiswa?.nim_nip || '-',
                             name: r.mahasiswa?.nama || 'Unknown',
-                            nt: r.nilai_tugas ?? savedGrade.nt ?? null,
-                            nuts: savedGrade.nuts ?? null, // Only from manual input, DB score applied below
-                            np: r.nilai_praktek ?? savedGrade.np ?? null,
-                            uas: savedGrade.uas ?? null, // Only from manual input, DB score applied below
+                            kelas_id: r.jadwal?.kelas_id || null,
+                            nt: r.nilai_tugas ?? null,
+                            nuts: null,
+                            np: r.nilai_praktek ?? null,
+                            uas: null,
                             nak: null,
                             nh: null
                         }
@@ -183,10 +193,12 @@ function NilaiAkhirPage() {
 
     const currentGrades = selectedMatkul ? (grades[selectedMatkul.id] || []) : []
 
-    const filteredGrades = currentGrades.filter(s =>
-        s.name.toLowerCase().includes(search.toLowerCase()) ||
-        s.nim.includes(search)
-    )
+    const filteredGrades = currentGrades.filter(s => {
+        const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
+            s.nim.includes(search)
+        const matchesKelas = kelasFilter === 'all' || String(s.kelas_id) === String(kelasFilter)
+        return matchesSearch && matchesKelas
+    })
 
     const handleMatkulChange = (matkulId) => {
         const matkul = matkulList.find(m => m.id === parseInt(matkulId))
@@ -236,9 +248,6 @@ function NilaiAkhirPage() {
         setGrades(updatedGrades)
         setEditingStudent(null)
         setSaving(false)
-
-        if (!savedGrades[selectedMatkul.id]) savedGrades[selectedMatkul.id] = {}
-        savedGrades[selectedMatkul.id][String(student.id)] = { nt, nuts, np, uas }
     }
 
     const handleCancelEdit = () => {
@@ -354,7 +363,7 @@ function NilaiAkhirPage() {
                 {/* Matkul Selector */}
                 <div className="card mb-4">
                     <div className="card-body">
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                             <label style={{ fontWeight: '500' }}>Mata Kuliah:</label>
                             <select
                                 className="form-input"
@@ -366,6 +375,18 @@ function NilaiAkhirPage() {
                                     <option key={mk.id} value={mk.id}>
                                         {mk.nama} - {mk.kode}
                                     </option>
+                                ))}
+                            </select>
+                            <label style={{ fontWeight: '500' }}>Kelas:</label>
+                            <select
+                                className="form-input"
+                                value={kelasFilter}
+                                onChange={e => setKelasFilter(e.target.value)}
+                                style={{ minWidth: '160px' }}
+                            >
+                                <option value="all">Semua Kelas</option>
+                                {kelasList.map(k => (
+                                    <option key={k.id} value={k.id}>{k.nama} ({k.angkatan})</option>
                                 ))}
                             </select>
                         </div>

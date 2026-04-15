@@ -291,15 +291,32 @@ function KoreksiUjianPage() {
                         }
 
                         // Enrich answers with maxPoints from soal if missing
-                        const enrichedAnswers = answers.map(a => {
+                        let enrichedAnswers = answers.map(a => {
                             if (a.maxPoints != null && a.maxPoints !== undefined) return a
-                            // Lookup max points from soal data
+                            // Lookup max points and type from soal data
                             const soal = soalData.find(s => String(s.id) === String(a.questionId))
                             return {
                                 ...a,
+                                type: a.type || soal?.tipe_soal || 'pilihan_ganda',
                                 maxPoints: soal?.bobot || soal?.points || a.maxPoints || 10
                             }
                         })
+
+                        // If answers_detail is empty but exam was taken, build stubs from soal
+                        if (enrichedAnswers.length === 0 && jadwal?.matkul_id) {
+                            const examSoal = soalData.filter(s =>
+                                String(s.matkul_id) === String(jadwal.matkul_id) &&
+                                (s.tipe_ujian?.toUpperCase() === (jadwal.tipe || jadwal.tipe_ujian || '').toUpperCase())
+                            )
+                            enrichedAnswers = examSoal.map(s => ({
+                                questionId: s.id,
+                                type: s.tipe_soal || 'pilihan_ganda',
+                                answer: null,
+                                maxPoints: s.bobot || 10,
+                                earnedPoints: null,
+                                isCorrect: false
+                            }))
+                        }
 
                         const hasEssay = enrichedAnswers.some(a => a.type === 'essay' || a.type === 'uraian')
                         const hasEssayPending = enrichedAnswers.some(a =>

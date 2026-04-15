@@ -23,12 +23,21 @@ export const SEBService = {
     // Check for SEB JavaScript API
     const hasSEBAPI = typeof window.SafeExamBrowser !== 'undefined'
 
-    // Check for Exam Browser (Android alternative)
+    // Check for Exam Browser / CBT Browser (Android alternatives)
     const isExamBrowser = userAgent.includes('exambrowser') ||
       userAgent.includes('fully kiosk') ||
-      userAgent.includes('exambro')
+      userAgent.includes('exambro') ||
+      userAgent.includes('cbt browser') ||
+      userAgent.includes('cbtbrowser') ||
+      userAgent.includes('exam browser') ||
+      userAgent.includes('kiosk') ||
+      userAgent.includes('examlock')
 
-    return isSEB || hasSEBAPI || isExamBrowser
+    // Check for Android WebView-based exam apps (standalone mode)
+    const isAndroidWebView = (userAgent.includes('wv') && userAgent.includes('android')) ||
+      (window.navigator.standalone === true)
+
+    return isSEB || hasSEBAPI || isExamBrowser || isAndroidWebView
   },
 
   /**
