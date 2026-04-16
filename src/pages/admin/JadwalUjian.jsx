@@ -42,14 +42,22 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
             if (jadwal) {
                 setFormData({
                     ...jadwal,
-                    matkul_id: jadwal.matkul_id || jadwal.matkulId || '',
-                    kelas_id: jadwal.kelas_id || jadwal.kelasId || '',
+                    matkul_id: jadwal.matkul?.id || jadwal.matkul_id || jadwal.matkulId || '',
+                    kelas_id: jadwal.kelas?.id || jadwal.kelas_id || jadwal.kelasId || '',
                     tipe_ujian: jadwal.tipe_ujian || jadwal.tipeUjian || jadwal.tipe || '',
                     waktu_mulai: jadwal.waktu_mulai || jadwal.waktuMulai || '',
                     waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '',
                     durasi: jadwal.durasi || '',
                     ruangan_id: jadwal.ruangan?.id || jadwal.ruangan_id || '',
                     dosen_id: jadwal.dosen?.id || jadwal.dosen_id || ''
+                })
+                console.log('[JadwalModal] Init edit form:', {
+                    ruangan: jadwal.ruangan,
+                    ruangan_id_set: jadwal.ruangan?.id || jadwal.ruangan_id || '',
+                    dosen: jadwal.dosen,
+                    dosen_id_set: jadwal.dosen?.id || jadwal.dosen_id || '',
+                    matkul: jadwal.matkul,
+                    matkul_id_set: jadwal.matkul?.id || jadwal.matkul_id || ''
                 })
             } else {
                 setFormData(getDefaultFormData())
