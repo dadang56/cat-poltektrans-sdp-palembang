@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../App'
 import { SEBService, AntiCheat } from '../../services/SEBService'
@@ -48,6 +48,7 @@ function TakeExamPage() {
     const [answers, setAnswers] = useState({})
     const [flagged, setFlagged] = useState(new Set())
     const [timeLeft, setTimeLeft] = useState(0)
+    const timeLeftRef = useRef(0)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [showWarning, setShowWarning] = useState(false)
     const [warningCount, setWarningCount] = useState(0)
@@ -403,6 +404,8 @@ function TakeExamPage() {
 
         const timer = setInterval(() => {
             setTimeLeft(prev => {
+                const next = prev - 1
+                timeLeftRef.current = next
                 if (prev <= 1) {
                     handleSubmit()
                     return 0
@@ -452,6 +455,11 @@ function TakeExamPage() {
 
                 if (currentResult?.status === 'kicked') {
                     console.log('[TakeExam] Student was kicked by pengawas')
+                    // Save remaining time before showing kicked screen
+                    const currentTimeLeft = document.querySelector('.exam-timer')?.textContent
+                    if (timeLeftRef.current > 0) {
+                        localStorage.setItem(`kicked_time_left_${id}_${user.id}`, String(timeLeftRef.current))
+                    }
                     setIsKicked(true)
                     setSubmitted(true)
                     
@@ -475,6 +483,15 @@ function TakeExamPage() {
                 // If status changed from kicked to in_progress, reactivate
                 if (currentResult?.status === 'in_progress' && isKicked) {
                     console.log('[TakeExam] Pengawas un-kicked student, reactivating')
+                    // Restore saved time and adjust start time so timer resumes correctly
+                    const savedTimeLeft = localStorage.getItem(`kicked_time_left_${id}_${user.id}`)
+                    if (savedTimeLeft) {
+                        const restoredSeconds = parseInt(savedTimeLeft)
+                        // Set a fake start time so elapsed = totalDuration - savedTimeLeft
+                        const fakeStart = new Date(Date.now() - ((examData?.duration || 90) * 60 - restoredSeconds) * 1000)
+                        sessionStorage.setItem(`exam_start_${id}_${user.id}`, fakeStart.toISOString())
+                        localStorage.removeItem(`kicked_time_left_${id}_${user.id}`)
+                    }
                     sessionStorage.setItem(`active_exam_${id}_${user.id}`, 'true')
                     window.location.reload()
                 }

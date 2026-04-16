@@ -91,7 +91,7 @@ function EksporDataPage() {
             let prodi = []
 
             if (isSupabaseConfigured()) {
-                // Load jadwal with SERVER-SIDE filter by tahun_akademik
+                // Load jadwal - first try with tahun_akademik filter
                 const filters = { tahun_akademik: tahunAkademik }
                 if (tipeUjian !== 'all') filters.tipe = tipeUjian
 
@@ -103,7 +103,18 @@ function EksporDataPage() {
                     userService.getAll()
                 ])
 
-                jadwal = jadwalRes || []
+                // If no jadwal found with tahun_akademik filter, load ALL jadwal
+                // (existing jadwal may not have tahun_akademik set)
+                let jadwalResult = jadwalRes || []
+                if (jadwalResult.length === 0) {
+                    console.log('[EksporData] No jadwal with tahun_akademik filter, loading all...')
+                    const fallbackFilters = {}
+                    if (tipeUjian !== 'all') fallbackFilters.tipe = tipeUjian
+                    const allJadwal = await jadwalService.getAll(fallbackFilters)
+                    jadwalResult = allJadwal || []
+                }
+
+                jadwal = jadwalResult
                 matkul = matkulRes || []
                 kelas = kelasRes || []
                 prodi = prodiRes || []

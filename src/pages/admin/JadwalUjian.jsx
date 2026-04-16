@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { jadwalService, matkulService, prodiService, kelasService, ruangService, userService, isSupabaseConfigured } from '../../services/supabaseService'
+import { useSettings } from '../../contexts/SettingsContext'
 import {
     Calendar,
     Plus,
@@ -294,6 +295,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
 
 function JadwalUjianPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
     const { showConfirm } = useConfirm()
 
     // State
@@ -418,7 +420,8 @@ function JadwalUjianPage() {
                 waktu_selesai: data.waktu_selesai || data.waktuSelesai,
                 durasi: parseInt(data.durasi) || 90,
                 ruangan_id: data.ruangan_id || null,
-                dosen_id: data.dosen_id || null
+                dosen_id: data.dosen_id || null,
+                tahun_akademik: settings?.tahunAkademik || null
             }
 
             if (useSupabase) {

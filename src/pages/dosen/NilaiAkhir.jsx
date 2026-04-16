@@ -139,7 +139,7 @@ function NilaiAkhirPage() {
                             resultId: r.id,
                             nim: r.mahasiswa?.nim_nip || '-',
                             name: r.mahasiswa?.nama || 'Unknown',
-                            kelas_id: r.jadwal?.kelas_id || null,
+                            kelas_id: r.mahasiswa?.kelas?.id || r.mahasiswa?.kelas_id || r.jadwal?.kelas?.id || null,
                             nt: r.nilai_tugas ?? null,
                             nuts: null,
                             np: r.nilai_praktek ?? null,
