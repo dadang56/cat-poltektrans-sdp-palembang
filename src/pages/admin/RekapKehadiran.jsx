@@ -31,6 +31,7 @@ function RekapKehadiranPage() {
     const [kehadiranPerMahasiswa, setKehadiranPerMahasiswa] = useState([])
     const [prodiList, setProdiList] = useState([])
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
     // Load data from Supabase
     useEffect(() => {
@@ -42,6 +43,7 @@ function RekapKehadiranPage() {
             }
 
             setLoading(true)
+            setError(null)
             try {
                 // Get prodi list for filters
                 const prodiData = await prodiService.getAll()
@@ -119,8 +121,9 @@ function RekapKehadiranPage() {
                 })
                 setKehadiranPerMahasiswa(Object.values(mahasiswaAttendance))
 
-            } catch (error) {
-                console.error('[RekapKehadiran] Error loading data:', error)
+            } catch (err) {
+                console.error('[RekapKehadiran] Error loading data:', err)
+                setError(err.message || 'Gagal memuat data')
             } finally {
                 setLoading(false)
             }
@@ -398,6 +401,21 @@ function RekapKehadiranPage() {
 
     return (
         <DashboardLayout>
+            {loading ? (
+                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                    <div className="spinner-lg"></div>
+                </div>
+            ) : error ? (
+                <div className="dashboard-page animate-fadeIn">
+                    <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
+                        <h3>Gagal Memuat Data</h3>
+                        <p style={{ color: 'var(--text-muted)' }}>{error}</p>
+                        <button className="btn btn-primary" onClick={() => window.location.reload()} style={{ marginTop: '1rem' }}>
+                            <RefreshCw size={16} /> Coba Lagi
+                        </button>
+                    </div>
+                </div>
+            ) : (
             <div className="dashboard-page animate-fadeIn">
                 <div className="page-header">
                     <div>
@@ -647,6 +665,7 @@ function RekapKehadiranPage() {
                     </div>
                 )}
             </div>
+            )}
 
             <style>{`
                 .mb-4 {
