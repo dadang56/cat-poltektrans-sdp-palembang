@@ -41,14 +41,14 @@ function AdminProdiSettings() {
     // Load Ka.Prodi from Supabase prodi table
     useEffect(() => {
         const loadProdiSettings = async () => {
-            if (!user?.prodiId) {
+            if (!user?.prodi_id) {
                 setLoading(false)
                 return
             }
 
             try {
                 if (isSupabaseConfigured()) {
-                    const prodi = await prodiService.getById(user.prodiId)
+                    const prodi = await prodiService.getById(user.prodi_id)
                     if (prodi) {
                         setLocalSettings({
                             kaprodiNama: prodi.ketua_prodi_nama || '',
@@ -63,7 +63,7 @@ function AdminProdiSettings() {
         }
 
         loadProdiSettings()
-    }, [user?.prodiId])
+    }, [user?.prodi_id])
 
     // Load tahun akademik from app settings
     useEffect(() => {
@@ -87,8 +87,8 @@ function AdminProdiSettings() {
 
         try {
             // Save Ka.Prodi to Supabase prodi table
-            if (isSupabaseConfigured() && user?.prodiId) {
-                await prodiService.update(user.prodiId, {
+            if (isSupabaseConfigured() && user?.prodi_id) {
+                await prodiService.update(user.prodi_id, {
                     ketua_prodi_nama: localSettings.kaprodiNama,
                     ketua_prodi_nip: localSettings.kaprodiNip
                 })

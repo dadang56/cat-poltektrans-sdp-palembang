@@ -50,16 +50,27 @@ function RekapKehadiranPage() {
                 setProdiList(prodiData || [])
 
                 // Get all jadwal with related data
-                const jadwalData = await jadwalService.getAll()
+                let jadwalData = await jadwalService.getAll()
                 console.log('[RekapKehadiran] Jadwal loaded:', jadwalData?.length)
 
-                // Get all hasil ujian (exam results = attendance)
-                const hasilData = await hasilUjianService.getAll()
-                console.log('[RekapKehadiran] Hasil ujian loaded:', hasilData?.length)
+                // Filter by prodi for admin_prodi
+                if (user?.role !== 'superadmin' && user?.prodi_id) {
+                    jadwalData = (jadwalData || []).filter(j => {
+                        const jProdiId = j.matkul?.prodi_id || j.prodi_id
+                        return !jProdiId || String(jProdiId) === String(user.prodi_id)
+                    })
+                }
 
                 // Get all mahasiswa
                 const mahasiswaData = await userService.getAll({ role: 'mahasiswa' })
                 console.log('[RekapKehadiran] Mahasiswa loaded:', mahasiswaData?.length)
+
+                // Load hasil per jadwal (same pattern as EksporData)
+                const jadwalIds = (jadwalData || []).map(j => j.id)
+                const hasilPromises = jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
+                const hasilResults = await Promise.all(hasilPromises)
+                const hasilData = hasilResults.flat().filter(Boolean)
+                console.log('[RekapKehadiran] Hasil ujian loaded:', hasilData?.length)
 
                 // Group by exam - per ujian view
                 const examGroups = {}
@@ -401,12 +412,12 @@ function RekapKehadiranPage() {
 
     return (
         <DashboardLayout>
-            {loading ? (
-                <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-                    <div className="spinner-lg"></div>
-                </div>
-            ) : error ? (
-                <div className="dashboard-page animate-fadeIn">
+            <div className="dashboard-page animate-fadeIn">
+                {loading ? (
+                    <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
+                        <div className="spinner-lg"></div>
+                    </div>
+                ) : error ? (
                     <div className="card" style={{ padding: '2rem', textAlign: 'center' }}>
                         <h3>Gagal Memuat Data</h3>
                         <p style={{ color: 'var(--text-muted)' }}>{error}</p>
@@ -414,9 +425,8 @@ function RekapKehadiranPage() {
                             <RefreshCw size={16} /> Coba Lagi
                         </button>
                     </div>
-                </div>
-            ) : (
-            <div className="dashboard-page animate-fadeIn">
+                ) : (
+                <>
                 <div className="page-header">
                     <div>
                         <h1 className="page-title">Rekap Kehadiran</h1>
@@ -664,8 +674,9 @@ function RekapKehadiranPage() {
                         </div>
                     </div>
                 )}
+            </>
+                )}
             </div>
-            )}
 
             <style>{`
                 .mb-4 {

@@ -14,6 +14,7 @@ import {
     CheckSquare,
     Square
 } from 'lucide-react'
+import '../admin/Dashboard.css'
 
 
 function StudentCardPage() {
@@ -179,7 +180,7 @@ function StudentCardPage() {
 
     return (
         <DashboardLayout>
-            <div className="student-card-page animate-fadeIn">
+            <div className="dashboard-page animate-fadeIn">
                 <div className="page-header">
                     <div>
                         <h1 className="page-title">Cetak Kartu Mahasiswa</h1>

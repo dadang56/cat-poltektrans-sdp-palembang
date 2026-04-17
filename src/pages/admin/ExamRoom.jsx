@@ -17,6 +17,7 @@ import {
     Save,
     X
 } from 'lucide-react'
+import '../admin/Dashboard.css'
 
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
@@ -345,7 +346,7 @@ function ExamRoomPage() {
 
     return (
         <DashboardLayout>
-            <div className="exam-room-page animate-fadeIn">
+            <div className="dashboard-page animate-fadeIn">
                 <div className="page-header">
                     <div>
                         <h1 className="page-title">Ruang Ujian</h1>

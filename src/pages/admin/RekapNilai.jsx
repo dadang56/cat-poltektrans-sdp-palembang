@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { exportToXLSX } from '../../utils/excelUtils'
-import { hasilUjianService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, jadwalService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Download,
@@ -55,25 +55,45 @@ function RekapNilaiPage() {
                 const prodiData = await prodiService.getAll()
                 setProdiList(prodiData || [])
 
-                // Get all hasil ujian with related data
-                const results = await hasilUjianService.getAll()
-                console.log('[RekapNilai] Loaded results:', results?.length)
+                // Load jadwal first (same approach as EksporData which works)
+                let jadwalData = await jadwalService.getAll()
+                console.log('[RekapNilai] Loaded jadwal:', jadwalData?.length)
+
+                // Filter by prodi for admin_prodi
+                if (user?.role !== 'superadmin' && user?.prodi_id) {
+                    jadwalData = (jadwalData || []).filter(j => {
+                        const jProdiId = j.matkul?.prodi_id || j.prodi_id
+                        return !jProdiId || String(jProdiId) === String(user.prodi_id)
+                    })
+                }
+
+                // Load hasil per jadwal (same as EksporData)
+                const jadwalIds = (jadwalData || []).map(j => j.id)
+                const hasilPromises = jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
+                const hasilResults = await Promise.all(hasilPromises)
+                const allHasil = hasilResults.flat().filter(Boolean)
+                console.log('[RekapNilai] Loaded hasil:', allHasil.length)
 
                 // Group results by jadwal (exam)
                 const examGroups = {}
-                results?.forEach(r => {
-                    const jadwal = r.jadwal || {}
+                
+                // Build a jadwal lookup
+                const jadwalMap = {}
+                jadwalData.forEach(j => { jadwalMap[j.id] = j })
+
+                allHasil.forEach(r => {
+                    const jadwalId = r.jadwal_id
+                    const jadwal = jadwalMap[jadwalId] || {}
                     const matkul = jadwal.matkul || {}
                     const kelas = jadwal.kelas || {}
                     const dosen = jadwal.dosen || {}
                     const mahasiswa = r.mahasiswa || {}
 
-                    const examKey = jadwal.id
-                    if (!examKey) return
+                    if (!jadwalId) return
 
-                    if (!examGroups[examKey]) {
-                        examGroups[examKey] = {
-                            id: jadwal.id,
+                    if (!examGroups[jadwalId]) {
+                        examGroups[jadwalId] = {
+                            id: jadwalId,
                             matkul: matkul.nama || 'N/A',
                             matkulKode: matkul.kode || '',
                             kelas: kelas.nama || mahasiswa.kelas?.nama || 'N/A',
@@ -89,7 +109,7 @@ function RekapNilaiPage() {
                     // Calculate percentage score
                     const percentScore = r.nilai_total || 0
 
-                    examGroups[examKey].students.push({
+                    examGroups[jadwalId].students.push({
                         nim: mahasiswa.nim_nip || '-',
                         name: mahasiswa.nama || 'Unknown',
                         nilai: Math.round(percentScore),
@@ -111,9 +131,10 @@ function RekapNilaiPage() {
 
     // Filter based on admin prodi or show all for superadmin
     const filteredData = nilaiData.filter(item => {
+        // For superadmin, allow dropdown filter
         const matchesProdi = user?.role === 'superadmin'
             ? (prodiFilter === 'all' || String(item.prodiId) === String(prodiFilter))
-            : !item.prodiId || String(item.prodiId) === String(user?.prodi_id)
+            : true // admin_prodi already filtered during load
         const matchesExamType = examTypeFilter === 'all' || item.examType === examTypeFilter
         return matchesProdi && matchesExamType
     })
