@@ -303,7 +303,7 @@ export const jadwalService = {
             .from('jadwal_ujian')
             .select(`
         *,
-        matkul:matkul_id(id, nama, kode),
+        matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
         kelas:kelas_id(id, nama),
         ruangan:ruangan_id(id, nama),
         dosen:dosen_id(id, nama),
@@ -326,7 +326,7 @@ export const jadwalService = {
             .from('jadwal_ujian')
             .select(`
         *,
-        matkul:matkul_id(id, nama, kode),
+        matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
         kelas:kelas_id(id, nama),
         ruangan:ruangan_id(id, nama),
         dosen:dosen_id(id, nama),

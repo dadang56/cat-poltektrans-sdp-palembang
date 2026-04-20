@@ -390,8 +390,10 @@ function formatUserProfile(profile, session) {
         role: profile.role,
         status: profile.status,
         prodiId: profile.prodi_id,
+        prodi_id: profile.prodi_id, // snake_case alias for consistency
         prodi: profile.prodi,
         kelasId: profile.kelas_id,
+        kelas_id: profile.kelas_id, // snake_case alias for consistency
         kelas: profile.kelas,
         // Dosen-specific fields
         matkulIds: parseJsonField(profile.matkul_ids),

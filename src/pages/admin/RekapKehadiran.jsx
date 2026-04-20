@@ -54,10 +54,11 @@ function RekapKehadiranPage() {
                 console.log('[RekapKehadiran] Jadwal loaded:', jadwalData?.length)
 
                 // Filter by prodi for admin_prodi
-                if (user?.role !== 'superadmin' && user?.prodi_id) {
+                const userProdiId = user?.prodiId || user?.prodi_id
+                if (user?.role !== 'superadmin' && userProdiId) {
                     jadwalData = (jadwalData || []).filter(j => {
                         const jProdiId = j.matkul?.prodi_id || j.prodi_id
-                        return !jProdiId || String(jProdiId) === String(user.prodi_id)
+                        return !jProdiId || String(jProdiId) === String(userProdiId)
                     })
                 }
 
@@ -76,7 +77,7 @@ function RekapKehadiranPage() {
                 const examGroups = {}
                 jadwalData?.forEach(j => {
                     const matkul = j.matkul || {}
-                    const ruangan = j.ruang_ujian || {}
+                    const ruangan = j.ruangan || {}
                     const pengawas = j.pengawas || {}
                     const kelas = j.kelas || {}
 
@@ -89,7 +90,7 @@ function RekapKehadiranPage() {
                     examGroups[j.id] = {
                         id: j.id,
                         examName: `${j.tipe || 'UJIAN'} ${matkul.nama || 'Ujian'}`,
-                        room: ruangan.nama || j.ruangan || '-',
+                        room: ruangan.nama || '-',
                         date: j.tanggal,
                         time: `${j.waktu_mulai || '08:00'} - ${j.waktu_selesai || '10:00'}`,
                         pengawas: pengawas.nama || 'Pengawas',
@@ -147,7 +148,7 @@ function RekapKehadiranPage() {
     const filteredData = kehadiranData.filter(item => {
         const matchesProdi = user?.role === 'superadmin'
             ? (prodiFilter === 'all' || String(item.prodiId) === String(prodiFilter))
-            : String(item.prodiId) === String(user?.prodi_id)  // Fixed: was user?.prodiId
+            : true // admin_prodi already filtered during data load
         const matchesSearch = (item.examName || '').toLowerCase().includes(search.toLowerCase()) ||
             (item.pengawas || '').toLowerCase().includes(search.toLowerCase())
         const matchesDate = !dateFilter || item.date === dateFilter

@@ -60,10 +60,11 @@ function RekapNilaiPage() {
                 console.log('[RekapNilai] Loaded jadwal:', jadwalData?.length)
 
                 // Filter by prodi for admin_prodi
-                if (user?.role !== 'superadmin' && user?.prodi_id) {
+                const userProdiId = user?.prodiId || user?.prodi_id
+                if (user?.role !== 'superadmin' && userProdiId) {
                     jadwalData = (jadwalData || []).filter(j => {
                         const jProdiId = j.matkul?.prodi_id || j.prodi_id
-                        return !jProdiId || String(jProdiId) === String(user.prodi_id)
+                        return !jProdiId || String(jProdiId) === String(userProdiId)
                     })
                 }
 

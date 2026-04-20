@@ -41,14 +41,15 @@ function AdminProdiSettings() {
     // Load Ka.Prodi from Supabase prodi table
     useEffect(() => {
         const loadProdiSettings = async () => {
-            if (!user?.prodi_id) {
+            const userProdiId = user?.prodiId || user?.prodi_id
+            if (!userProdiId) {
                 setLoading(false)
                 return
             }
 
             try {
                 if (isSupabaseConfigured()) {
-                    const prodi = await prodiService.getById(user.prodi_id)
+                    const prodi = await prodiService.getById(userProdiId)
                     if (prodi) {
                         setLocalSettings({
                             kaprodiNama: prodi.ketua_prodi_nama || '',
@@ -63,7 +64,7 @@ function AdminProdiSettings() {
         }
 
         loadProdiSettings()
-    }, [user?.prodi_id])
+    }, [user?.prodiId, user?.prodi_id])
 
     // Load tahun akademik from app settings
     useEffect(() => {
@@ -86,12 +87,16 @@ function AdminProdiSettings() {
         setSaveStatus('saving')
 
         try {
-            // Save Ka.Prodi to Supabase prodi table
-            if (isSupabaseConfigured() && user?.prodi_id) {
-                await prodiService.update(user.prodi_id, {
+            const saveProdiId = user?.prodiId || user?.prodi_id
+            if (isSupabaseConfigured() && saveProdiId) {
+                console.log('[Settings] Saving Ka.Prodi to prodi:', saveProdiId)
+                await prodiService.update(saveProdiId, {
                     ketua_prodi_nama: localSettings.kaprodiNama,
                     ketua_prodi_nip: localSettings.kaprodiNip
                 })
+                console.log('[Settings] Ka.Prodi saved successfully')
+            } else {
+                console.warn('[Settings] Cannot save Ka.Prodi - no prodi_id found. User:', JSON.stringify({prodiId: user?.prodiId, prodi_id: user?.prodi_id}))
             }
 
             // Save tahun akademik to SettingsContext (syncs across app)
