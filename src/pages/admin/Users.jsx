@@ -1145,7 +1145,7 @@ function UsersPage() {
                                 >
                                     <option value="all">Semua Kelas</option>
                                     {kelasList
-                                        .filter(k => prodiFilter === 'all' || k.prodiId === prodiFilter)
+                                        .filter(k => prodiFilter === 'all' || String(k.prodi_id || k.prodiId) === String(prodiFilter))
                                         .map(k => (
                                             <option key={k.id} value={k.id}>{k.nama}</option>
                                         ))}
