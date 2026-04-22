@@ -140,7 +140,7 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
         } else {
             // For Admin Prodi, auto-assign their prodi to new mahasiswa
             const defaultProdiId = currentUser?.role === 'admin_prodi'
-                ? currentUser.prodiId
+                ? (currentUser.prodiId || currentUser.prodi_id)
                 : prodiList[0]?.id || ''
             setFormData({
                 name: '',
@@ -161,11 +161,11 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
     }, [user, isOpen, currentUser])
 
     // Get filtered kelas based on selected prodi (for mahasiswa)
-    const filteredKelas = kelasList.filter(k => (k.prodiId || k.prodi_id) === formData.prodiId)
+    const filteredKelas = kelasList.filter(k => String(k.prodiId || k.prodi_id) === String(formData.prodiId))
 
     // Get filtered kelas and matkul based on selected prodiIds (for dosen)
-    const filteredKelasForDosen = kelasList.filter(k => formData.prodiIds?.includes(k.prodiId || k.prodi_id))
-    const filteredMatkulForDosen = matkulList.filter(m => formData.prodiIds?.includes(m.prodiId || m.prodi_id))
+    const filteredKelasForDosen = kelasList.filter(k => formData.prodiIds?.map(String).includes(String(k.prodiId || k.prodi_id)))
+    const filteredMatkulForDosen = matkulList.filter(m => formData.prodiIds?.map(String).includes(String(m.prodiId || m.prodi_id)))
 
     const handlePhotoChange = (e) => {
         const file = e.target.files[0]
@@ -363,10 +363,10 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                                 <input
                                                     type="text"
                                                     className="form-input"
-                                                    value={prodiList.find(p => p.id === currentUser?.prodiId)?.nama || 'Prodi Anda'}
+                                                    value={prodiList.find(p => String(p.id) === String(currentUser?.prodiId || currentUser?.prodi_id))?.nama || 'Prodi Anda'}
                                                     disabled
                                                 />
-                                                <input type="hidden" value={currentUser?.prodiId || formData.prodiId} />
+                                                <input type="hidden" value={currentUser?.prodiId || currentUser?.prodi_id || formData.prodiId} />
                                             </>
                                         ) : (
                                             <select
