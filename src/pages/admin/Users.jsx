@@ -161,11 +161,20 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
     }, [user, isOpen, currentUser])
 
     // Get filtered kelas based on selected prodi (for mahasiswa)
-    const filteredKelas = kelasList.filter(k => String(k.prodiId || k.prodi_id) === String(formData.prodiId))
+    const filteredKelas = kelasList.filter(k => {
+        const kProdiId = k.prodi_id || k.prodi?.id || k.prodiId
+        return String(kProdiId) === String(formData.prodiId)
+    })
 
     // Get filtered kelas and matkul based on selected prodiIds (for dosen)
-    const filteredKelasForDosen = kelasList.filter(k => formData.prodiIds?.map(String).includes(String(k.prodiId || k.prodi_id)))
-    const filteredMatkulForDosen = matkulList.filter(m => formData.prodiIds?.map(String).includes(String(m.prodiId || m.prodi_id)))
+    const filteredKelasForDosen = kelasList.filter(k => {
+        const kProdiId = String(k.prodi_id || k.prodi?.id || k.prodiId)
+        return formData.prodiIds?.map(String).includes(kProdiId)
+    })
+    const filteredMatkulForDosen = matkulList.filter(m => {
+        const mProdiId = String(m.prodi_id || m.prodi?.id || m.prodiId)
+        return formData.prodiIds?.map(String).includes(mProdiId)
+    })
 
     const handlePhotoChange = (e) => {
         const file = e.target.files[0]
@@ -554,6 +563,7 @@ function UsersPage() {
                 setUsers(mappedUsers)
                 setProdiList(prodiData)
                 setKelasList(kelasData)
+                console.log('[Users] Kelas data sample:', kelasData?.[0] ? JSON.stringify({id: kelasData[0].id, nama: kelasData[0].nama, prodi_id: kelasData[0].prodi_id, prodi: kelasData[0].prodi}) : 'empty')
                 setMatkulList(matkulData)
                 setUseSupabase(true)
             } else {
@@ -1145,7 +1155,11 @@ function UsersPage() {
                                 >
                                     <option value="all">Semua Kelas</option>
                                     {kelasList
-                                        .filter(k => prodiFilter === 'all' || String(k.prodi_id || k.prodiId) === String(prodiFilter))
+                                        .filter(k => {
+                                            if (prodiFilter === 'all') return true
+                                            const kelasProdiId = k.prodi_id || k.prodi?.id || k.prodiId
+                                            return String(kelasProdiId) === String(prodiFilter)
+                                        })
                                         .map(k => (
                                             <option key={k.id} value={k.id}>{k.nama}</option>
                                         ))}
