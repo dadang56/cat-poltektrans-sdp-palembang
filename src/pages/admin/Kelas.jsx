@@ -56,7 +56,7 @@ function KelasModal({ isOpen, onClose, kelas, onSave, prodiList, isLoading }) {
         // Sanitize: only send DB columns, not nested join objects
         const cleanData = {
             nama: formData.nama,
-            prodi_id: parseInt(formData.prodi_id),
+            prodi_id: formData.prodi_id,
             angkatan: Number(formData.angkatan),
             semester: Number(formData.semester || 1)
         }
@@ -197,16 +197,16 @@ function KelasPage() {
         }
     }, [kelasList])
 
-    const effectiveProdiFilter = user?.role === 'admin_prodi' ? user.prodiId : prodiFilter
+    const effectiveProdiFilter = user?.role === 'admin_prodi' ? (user.prodiId || user.prodi_id) : prodiFilter
     const availableProdiList = user?.role === 'admin_prodi'
-        ? prodiList.filter(p => p.id === user.prodiId)
+        ? prodiList.filter(p => String(p.id) === String(user.prodiId || user.prodi_id))
         : prodiList
 
     const filteredKelas = kelasList.filter(k => {
         const prodi = k.prodi || prodiList.find(p => p.id === k.prodi_id)
         const matchesSearch = k.nama.toLowerCase().includes(search.toLowerCase()) ||
             prodi?.nama?.toLowerCase().includes(search.toLowerCase())
-        const matchesProdi = effectiveProdiFilter === 'all' || k.prodi_id === effectiveProdiFilter
+        const matchesProdi = effectiveProdiFilter === 'all' || String(k.prodi_id) === String(effectiveProdiFilter)
         return matchesSearch && matchesProdi
     })
 
