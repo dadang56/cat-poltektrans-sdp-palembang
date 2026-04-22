@@ -129,7 +129,7 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
                                     value={formData.sks_teori}
                                     onChange={e => setFormData({ ...formData, sks_teori: e.target.value })}
                                     min={0}
-                                    max={6}
+                                    max={20}
                                     required
                                 />
                             </div>
@@ -141,7 +141,7 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
                                     value={formData.sks_praktek}
                                     onChange={e => setFormData({ ...formData, sks_praktek: e.target.value })}
                                     min={0}
-                                    max={6}
+                                    max={20}
                                 />
                             </div>
                         </div>
