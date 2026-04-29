@@ -226,7 +226,7 @@ function EksporDataPage() {
             kodeMatkul: getMatkulKode(j.matkul_id || j.matkulId),
             kelas: getKelasName(j.kelas_id || j.kelasId),
             tipe: j.tipe || j.tipeUjian,
-            ruangan: j.ruangan || j.ruang || '-',
+            ruangan: j.ruangan?.nama || (typeof j.ruangan === 'string' ? j.ruangan : null) || j.ruang || '-',
             status: j.status || 'scheduled'
         }))
 

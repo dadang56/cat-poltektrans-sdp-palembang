@@ -381,7 +381,7 @@ function JadwalUjianPage() {
     const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian || j.tipe
     const getJadwalWaktuMulai = (j) => j.waktu_mulai || j.waktuMulai
     const getJadwalWaktuSelesai = (j) => j.waktu_selesai || j.waktuSelesai
-    const getJadwalRuang = (j) => j.ruangan || j.ruang || '-'
+    const getJadwalRuang = (j) => j.ruangan?.nama || (typeof j.ruangan === 'string' ? j.ruangan : null) || j.ruang || '-'
 
     // Filter berdasarkan prodi untuk stats
     const prodiFilteredJadwal = jadwalList.filter(j => {
