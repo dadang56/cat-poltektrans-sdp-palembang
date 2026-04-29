@@ -119,18 +119,12 @@ function MonitorUjian() {
           const ruangLookup = {}
           allRuang.forEach(r => { ruangLookup[r.id] = r })
 
-          // Filter for active/upcoming exams (30 mins before to end time)
+          // Filter for today's exams (show all exams for today, regardless of exact time)
+          const today = now.toISOString().split('T')[0]
           const activeExams = allJadwal.filter(j => {
-            const waktuMulai = j.waktu_mulai || j.waktuMulai
-            const waktuSelesai = j.waktu_selesai || j.waktuSelesai
-            if (!j.tanggal || !waktuMulai || !waktuSelesai) return false
-
-            const examStart = new Date(`${j.tanggal}T${waktuMulai}`)
-            let examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
-            // Handle cross-midnight exams (e.g. 20:18 - 00:18)
-            if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
-            const thirtyMinsBefore = new Date(examStart.getTime() - 30 * 60 * 1000)
-            return now >= thirtyMinsBefore && now <= examEnd
+            if (!j.tanggal) return false
+            // Show all exams scheduled for today
+            return j.tanggal === today
           })
 
           console.log('[MonitorUjian] Active exams from Supabase:', activeExams.length)
