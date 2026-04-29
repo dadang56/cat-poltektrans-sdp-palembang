@@ -68,7 +68,7 @@ function AdminProdiDashboard() {
     const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian
     const getJadwalWaktuMulai = (j) => j.waktu_mulai || j.waktuMulai
     const getJadwalWaktuSelesai = (j) => j.waktu_selesai || j.waktuSelesai
-    const getJadwalRuang = (j) => j.ruangan || j.ruang || 'Lab'
+    const getJadwalRuang = (j) => j.ruangan?.nama || (typeof j.ruangan === 'string' ? j.ruangan : null) || j.ruang || 'Lab'
     const getJadwalTahunAkademik = (j) => j.tahun_akademik || j.tahunAkademik
 
     // Load dynamic data
