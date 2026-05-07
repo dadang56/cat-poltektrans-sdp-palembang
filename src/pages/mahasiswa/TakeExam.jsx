@@ -118,7 +118,10 @@ function TakeExamPage() {
                         type: s.tipe_soal || s.type,
                         text: s.pertanyaan || s.text,
                         points: s.bobot || s.points || 10,
-                        options: (s.pilihan || s.options || []).map(o => typeof o === 'string' ? o : o.text),
+                        options: (s.pilihan || s.options || []).map(o => {
+                            if (typeof o === 'string') return { text: o, image: null }
+                            return { text: o.text || '', image: o.image || null }
+                        }),
                         correctAnswer: s.jawaban_benar || s.correctAnswer,
                         image: s.gambar || null
                     }))
@@ -1167,24 +1170,33 @@ function TakeExamPage() {
                         <div className="answer-area">
                             {question.type === 'pilihan_ganda' && (
                                 <div className="options-list">
-                                    {question.options.map((option, index) => (
-                                        <label
-                                            key={index}
-                                            className={`option-item ${answers[question.id] === index ? 'selected' : ''}`}
-                                        >
-                                            <input
-                                                type="radio"
-                                                name={`question-${question.id}`}
-                                                checked={answers[question.id] === index}
-                                                onChange={() => handleAnswer(index)}
-                                            />
-                                            <span className="option-letter">{String.fromCharCode(65 + index)}</span>
-                                            <span className="option-text">{option}</span>
-                                            {answers[question.id] === index && (
-                                                <CheckCircle size={20} className="option-check" />
-                                            )}
-                                        </label>
-                                    ))}
+                                    {question.options.map((option, index) => {
+                                        const optText = typeof option === 'string' ? option : (option?.text || '')
+                                        const optImage = typeof option === 'object' ? option?.image : null
+                                        return (
+                                            <label
+                                                key={index}
+                                                className={`option-item ${answers[question.id] === index ? 'selected' : ''} ${optImage ? 'has-image' : ''}`}
+                                            >
+                                                <input
+                                                    type="radio"
+                                                    name={`question-${question.id}`}
+                                                    checked={answers[question.id] === index}
+                                                    onChange={() => handleAnswer(index)}
+                                                />
+                                                <span className="option-letter">{String.fromCharCode(65 + index)}</span>
+                                                <div className="option-content">
+                                                    {optText && <span className="option-text">{optText}</span>}
+                                                    {optImage && (
+                                                        <img src={optImage} alt={`Pilihan ${String.fromCharCode(65 + index)}`} className="option-image" />
+                                                    )}
+                                                </div>
+                                                {answers[question.id] === index && (
+                                                    <CheckCircle size={20} className="option-check" />
+                                                )}
+                                            </label>
+                                        )
+                                    })}
                                 </div>
                             )}
 
