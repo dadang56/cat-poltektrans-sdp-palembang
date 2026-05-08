@@ -556,7 +556,7 @@ export const hasilUjianService = {
             .from('hasil_ujian')
             .select(`
         *,
-        jadwal:jadwal_id(*, matkul:matkul_id(nama, kode))
+        jadwal:jadwal_id(*, matkul:matkul_id(nama, kode), dosen:dosen_id(id, nama))
       `)
             .eq('mahasiswa_id', mahasiswaId)
             .order('created_at', { ascending: false })

@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
-import { jadwalService, matkulService, userService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -34,63 +34,69 @@ function HasilUjianPage() {
     const academicYear = settings?.academicYear || '2025/2026'
     const semester = settings?.semester || 'Ganjil'
 
-    // Load exam results
+    // Load exam results from Supabase
     useEffect(() => {
         const loadData = async () => {
+            if (!user?.id || !isSupabaseConfigured()) return
+
             try {
-                let matkul = []
-                let jadwal = []
-                let users = []
+                // Fetch this mahasiswa's results directly from Supabase
+                const results = await hasilUjianService.getByMahasiswa(user.id)
+                console.log('[HasilUjian] Loaded', results?.length || 0, 'results for', user.id)
 
-                if (isSupabaseConfigured()) {
-                    const [matkulData, jadwalData, usersData] = await Promise.all([
-                        matkulService.getAll(),
-                        jadwalService.getAll(),
-                        userService.getAll({ role: 'dosen' })
-                    ])
-                    matkul = matkulData
-                    jadwal = jadwalData
-                    users = usersData
-                } else {
-                    matkul = matkulData ? JSON.parse(matkulData) : []
-                    jadwal = jadwalData ? JSON.parse(jadwalData) : []
-                    users = usersData ? JSON.parse(usersData) : []
-                }
+                if (results && results.length > 0) {
+                    const myResults = results.map(r => {
+                        const jadwal = r.jadwal || {}
+                        const matkul = jadwal.matkul || {}
+                        const tipeUjian = (jadwal.tipe || 'UTS').toUpperCase()
 
+                        // Calculate percentage score
+                        const rawScore = r.nilai_total ?? 0
+                        const maxScore = r.max_score || null
+                        const percentScore = maxScore && maxScore > 0
+                            ? Math.round((rawScore / maxScore) * 100)
+                            : rawScore  // If no max_score, assume nilai_total is already the final score
 
-                if (examResults && user?.id) {
-                    const results = JSON.parse(examResults)
-                    // Filter only this mahasiswa's results using String comparison
-                    const myResults = results
-                        .filter(r => String(r.mahasiswaId) === String(user.id))
-                        .map(r => {
-                            // Link through jadwal to get matkulId and tipeUjian
-                            const examJadwal = jadwal.find(j => String(j.id) === String(r.examId))
-                            const matkulId = getField(examJadwal, 'matkul_id', 'matkulId')
-                            const matkulItem = matkul.find(m => m.id === matkulId)
-                            const dosenId = getField(examJadwal, 'dosen_id', 'dosenId')
-                            const dosen = users.find(u => u.id === dosenId)
+                        // Determine status
+                        let status = 'pending'
+                        if (r.status === 'graded') status = 'graded'
+                        else if (r.status === 'submitted') status = 'pending'
+                        else if (r.status === 'in_progress') status = 'in_progress'
 
-                            // Calculate percentage score
-                            const percentScore = r.maxScore > 0 ? Math.round((r.totalScore / r.maxScore) * 100) : null
-                            const tipeUjian = getField(examJadwal, 'tipe_ujian', 'tipeUjian') || 'UAS'
+                        // Parse answers detail for stats
+                        let answersDetail = []
+                        try {
+                            answersDetail = r.answers_detail
+                                ? (typeof r.answers_detail === 'string' ? JSON.parse(r.answers_detail) : r.answers_detail)
+                                : []
+                        } catch (e) { /* ignore parse errors */ }
 
-                            return {
-                                id: r.id,
-                                name: r.examName || `${tipeUjian} ${matkulItem?.nama || 'Ujian'}`,
-                                matkul: matkulItem?.nama || r.matkulName || '-',
-                                dosen: dosen?.nama || dosen?.name || 'Dosen',
-                                date: examJadwal?.tanggal || r.submittedAt?.split('T')[0] || '-',
-                                type: tipeUjian,
-                                totalQuestions: r.answers?.length || 0,
-                                correctAnswers: r.answers?.filter(a => a.isCorrect).length || null,
-                                score: percentScore,
-                                status: r.isFullyCorrected ? 'graded' : 'pending',
-                                rawScore: r.totalScore,
-                                maxScore: r.maxScore
-                            }
-                        })
-                    setHasilUjian(myResults)
+                        return {
+                            id: r.id,
+                            name: `${tipeUjian} ${matkul.nama || 'Ujian'}`,
+                            matkul: matkul.nama || '-',
+                            dosen: jadwal.dosen?.nama || '-',
+                            date: jadwal.tanggal || r.waktu_mulai?.split('T')[0] || '-',
+                            type: tipeUjian,
+                            totalQuestions: answersDetail.length || 0,
+                            correctAnswers: r.jumlah_benar ?? null,
+                            score: percentScore,
+                            status: status,
+                            rawScore: rawScore,
+                            maxScore: maxScore,
+                            // Additional fields for NAK/NH display
+                            nak: r.nak ?? null,
+                            nh: r.nh ?? null,
+                            nt: r.nt ?? null,
+                            nuts: r.nuts ?? null,
+                            np: r.np ?? null,
+                            uas: r.uas ?? null
+                        }
+                    })
+
+                    // Filter out in_progress (exam still being taken)
+                    const completedResults = myResults.filter(r => r.status !== 'in_progress')
+                    setHasilUjian(completedResults)
                 }
             } catch (err) {
                 console.error('[HasilUjian] Error loading data:', err)
