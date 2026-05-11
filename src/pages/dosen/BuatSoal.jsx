@@ -872,12 +872,15 @@ function BuatSoalPage() {
                 bobot: questionData.points || 10,
                 pilihan: questionData.options || [],
                 jawaban_benar: questionData.correctAnswer,
-                dosen_id: user?.id,
-                kelas_ids: questionData.kelasIds || [],
-                gambar: questionData.image || null,
-                cluster_id: resolvedClusterId,
-                cluster_label: questionData.clusterLabel || null
+                dosen_id: user?.id
             }
+
+            // These columns may not exist if migrations haven't been run
+            // Only include them if they have values to avoid insert errors
+            if (questionData.kelasIds && questionData.kelasIds.length > 0) supabaseData.kelas_ids = questionData.kelasIds
+            if (questionData.image) supabaseData.gambar = questionData.image
+            if (resolvedClusterId) supabaseData.cluster_id = resolvedClusterId
+            if (questionData.clusterLabel) supabaseData.cluster_label = questionData.clusterLabel
 
             if (editingQuestion && !editingQuestion._isNewVariant) {
                 // Update existing question in Supabase
@@ -1008,12 +1011,18 @@ function BuatSoalPage() {
                     bobot: q.points || 10,
                     pilihan: pilihan,
                     jawaban_benar: q.correctAnswer ?? orig.jawaban_benar,
-                    dosen_id: user?.id,
-                    kelas_ids: (q.kelasIds && q.kelasIds.length > 0) ? q.kelasIds : (orig.kelas_ids || []),
-                    gambar: q.image || orig.gambar || null,
-                    cluster_id: q.clusterId || orig.cluster_id || null,
-                    cluster_label: q.clusterLabel || orig.cluster_label || null
+                    dosen_id: user?.id
                 }
+
+                // Optional columns (may not exist if migration not run)
+                const kelasIds = (q.kelasIds && q.kelasIds.length > 0) ? q.kelasIds : (orig.kelas_ids || [])
+                if (kelasIds.length > 0) supabaseData.kelas_ids = kelasIds
+                const gambar = q.image || orig.gambar || null
+                if (gambar) supabaseData.gambar = gambar
+                const clusterId = q.clusterId || orig.cluster_id || null
+                if (clusterId) supabaseData.cluster_id = clusterId
+                const clusterLabel = q.clusterLabel || orig.cluster_label || null
+                if (clusterLabel) supabaseData.cluster_label = clusterLabel
                 const created = await soalService.create(supabaseData)
                 newQuestions.push({
                     id: created.id,
@@ -1203,8 +1212,7 @@ function BuatSoalPage() {
                         bobot: bobot,
                         pilihan: pilihan,
                         jawaban_benar: jawabanBenar,
-                        dosen_id: user?.id,
-                        kelas_ids: []
+                        dosen_id: user?.id
                     }
 
                     const result = await soalService.create(supabaseData)
