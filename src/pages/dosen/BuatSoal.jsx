@@ -53,7 +53,7 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
                         examType: (s.tipe_ujian || 'UTS').toUpperCase(),
                         points: s.bobot || s.poin || 1,
                         matkul: s.matkul?.nama || '-',
-                        options: s.pilihan || s.opsi || s.options || [],
+                        options: (s.pilihan && s.pilihan.length > 0) ? s.pilihan : (s.opsi || s.options || []),
                         correctAnswer: s.jawaban_benar || s.correct_answer,
                         image: s.gambar || null,
                         kelasIds: s.kelas_ids || [],
@@ -994,16 +994,22 @@ function BuatSoalPage() {
             for (const q of importedQuestions) {
                 // Use _original data for reliable field access
                 const orig = q._original || {}
+
+                // Get pilihan: prefer mapped options if non-empty, else fall back to original DB data
+                const pilihan = (q.options && q.options.length > 0) ? q.options : (orig.pilihan || [])
+
+                console.log('[BuatSoal] Importing question:', q.text?.substring(0, 50), 'pilihan count:', pilihan.length, 'from q.options:', q.options?.length, 'from orig.pilihan:', orig.pilihan?.length)
+
                 const supabaseData = {
                     pertanyaan: q.text,
                     tipe_soal: mapTipeSoal(q.type),
                     matkul_id: targetMatkulId,
                     tipe_ujian: targetExamType,
                     bobot: q.points || 10,
-                    pilihan: q.options || orig.pilihan || [],
+                    pilihan: pilihan,
                     jawaban_benar: q.correctAnswer ?? orig.jawaban_benar,
                     dosen_id: user?.id,
-                    kelas_ids: q.kelasIds || orig.kelas_ids || [],
+                    kelas_ids: (q.kelasIds && q.kelasIds.length > 0) ? q.kelasIds : (orig.kelas_ids || []),
                     gambar: q.image || orig.gambar || null,
                     cluster_id: q.clusterId || orig.cluster_id || null,
                     cluster_label: q.clusterLabel || orig.cluster_label || null
