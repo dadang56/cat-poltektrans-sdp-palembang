@@ -198,7 +198,29 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
             if (question) {
                 // Ensure kelasIds is always an array (migrate from old kelasId format)
                 const kelasIds = question.kelasIds || (question.kelasId ? [question.kelasId] : [])
-                setFormData({ ...question, kelasIds })
+
+                // Normalize options to {text, image} format
+                // Options from DB may be plain strings, {id, text}, or {text, image}
+                const rawOptions = question.options || []
+                const normalizedOptions = rawOptions.length > 0
+                    ? rawOptions.map(opt => {
+                        if (typeof opt === 'string') return { text: opt, image: null }
+                        return { text: opt.text || opt.label || '', image: opt.image || null }
+                    })
+                    : [
+                        { text: '', image: null },
+                        { text: '', image: null },
+                        { text: '', image: null },
+                        { text: '', image: null },
+                        { text: '', image: null }
+                    ]
+
+                // Ensure at least 5 options for pilihan_ganda
+                while (normalizedOptions.length < 5 && (question.type === 'pilihan_ganda' || question.type === 'pilihan_ganda_kompleks')) {
+                    normalizedOptions.push({ text: '', image: null })
+                }
+
+                setFormData({ ...question, kelasIds, options: normalizedOptions })
             } else {
                 setFormData(getDefaultFormData())
             }
@@ -703,7 +725,9 @@ function BuatSoalPage() {
                     matkulId: s.matkul_id,
                     examType: s.tipe_ujian?.toUpperCase() || 'UTS',
                     points: s.bobot || 10,
-                    options: s.pilihan || [],
+                    options: (s.pilihan || []).map(opt =>
+                        typeof opt === 'string' ? { text: opt, image: null } : { text: opt.text || '', image: opt.image || null }
+                    ),
                     correctAnswer: s.jawaban_benar,
                     dosenId: s.dosen_id,
                     kelasIds: s.kelas_ids || [],
@@ -992,7 +1016,9 @@ function BuatSoalPage() {
                     matkulId: created.matkul_id,
                     examType: created.tipe_ujian?.toUpperCase() || 'UTS',
                     points: created.bobot || 10,
-                    options: created.pilihan || [],
+                    options: (created.pilihan || []).map(opt =>
+                        typeof opt === 'string' ? { text: opt, image: null } : { text: opt.text || '', image: opt.image || null }
+                    ),
                     correctAnswer: created.jawaban_benar,
                     dosenId: created.dosen_id,
                     kelasIds: created.kelas_ids || []
