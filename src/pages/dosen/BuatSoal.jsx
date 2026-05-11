@@ -53,8 +53,12 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
                         examType: (s.tipe_ujian || 'UTS').toUpperCase(),
                         points: s.bobot || s.poin || 1,
                         matkul: s.matkul?.nama || '-',
-                        options: s.opsi || s.options || [],
+                        options: s.pilihan || s.opsi || s.options || [],
                         correctAnswer: s.jawaban_benar || s.correct_answer,
+                        image: s.gambar || null,
+                        kelasIds: s.kelas_ids || [],
+                        clusterId: s.cluster_id || null,
+                        clusterLabel: s.cluster_label || '',
                         // Keep original data for import
                         _original: s
                     }))
@@ -964,16 +968,21 @@ function BuatSoalPage() {
 
             const newQuestions = []
             for (const q of importedQuestions) {
+                // Use _original data for reliable field access
+                const orig = q._original || {}
                 const supabaseData = {
                     pertanyaan: q.text,
                     tipe_soal: mapTipeSoal(q.type),
                     matkul_id: targetMatkulId,
                     tipe_ujian: targetExamType,
                     bobot: q.points || 10,
-                    pilihan: q.options || [],
-                    jawaban_benar: q.correctAnswer,
+                    pilihan: q.options || orig.pilihan || [],
+                    jawaban_benar: q.correctAnswer ?? orig.jawaban_benar,
                     dosen_id: user?.id,
-                    kelas_ids: q.kelasIds || []
+                    kelas_ids: q.kelasIds || orig.kelas_ids || [],
+                    gambar: q.image || orig.gambar || null,
+                    cluster_id: q.clusterId || orig.cluster_id || null,
+                    cluster_label: q.clusterLabel || orig.cluster_label || null
                 }
                 const created = await soalService.create(supabaseData)
                 newQuestions.push({
