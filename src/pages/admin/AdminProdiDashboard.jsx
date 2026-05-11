@@ -98,9 +98,12 @@ function AdminProdiDashboard() {
 
                 // Filter by prodi for admin_prodi
                 if (user?.prodiId) {
-                    jadwalList = jadwalList.filter(j =>
-                        !getJadwalProdi(j) || String(getJadwalProdi(j)) === String(user.prodiId)
-                    )
+                    jadwalList = jadwalList.filter(j => {
+                        // jadwal doesn't have prodi_id directly - check via matkul relation
+                        const matkulProdiId = j.matkul?.prodi_id
+                        if (!matkulProdiId) return true // include if no prodi info (legacy data)
+                        return String(matkulProdiId) === String(user.prodiId)
+                    })
                 }
 
                 // Filter by tahun akademik (strict: only match, never include NULL)
@@ -148,9 +151,10 @@ function AdminProdiDashboard() {
                     .slice(0, 5)
                     .map(j => {
                         const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
-                        return {
+                        const tipe = j.tipe || j.tipe_ujian || 'Ujian'
+                            return {
                             id: j.id,
-                            name: `${getJadwalTipe(j)} ${mk?.nama || 'Ujian'}`,
+                            name: `${tipe.toUpperCase()} ${mk?.nama || 'Ujian'}`,
                             date: j.tanggal,
                             time: `${getJadwalWaktuMulai(j)} - ${getJadwalWaktuSelesai(j)}`,
                             room: getJadwalRuang(j),
@@ -166,9 +170,10 @@ function AdminProdiDashboard() {
                     return now >= examStart && now <= examEnd
                 }).map(j => {
                     const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
+                    const tipe = j.tipe || j.tipe_ujian || 'Ujian'
                     return {
                         id: j.id,
-                        name: `${getJadwalTipe(j)} ${mk?.nama || 'Ujian'}`,
+                        name: `${tipe.toUpperCase()} ${mk?.nama || 'Ujian'}`,
                         startTime: getJadwalWaktuMulai(j),
                         endTime: getJadwalWaktuSelesai(j),
                         room: getJadwalRuang(j),
