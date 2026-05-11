@@ -113,7 +113,7 @@ function TakeExamPage() {
                     const durasiMenit = jadwal.durasi || 90 // personal duration in minutes
 
                     // Map soal to questions format
-                    const examSoal = allSoal.map(s => ({
+                    const allExamSoal = allSoal.map(s => ({
                         id: s.id,
                         type: s.tipe_soal || s.type,
                         text: s.pertanyaan || s.text,
@@ -123,10 +123,54 @@ function TakeExamPage() {
                             return { text: o.text || '', image: o.image || null }
                         }),
                         correctAnswer: s.jawaban_benar || s.correctAnswer,
-                        image: s.gambar || null
+                        image: s.gambar || null,
+                        clusterId: s.cluster_id || null
                     }))
 
-                    console.log('TakeExam: Processed', examSoal.length, 'questions')
+                    // ========================================
+                    // CLUSTER SELECTION: Pick 1 variant per cluster
+                    // ========================================
+                    // Seeded random for consistent question assignment per student
+                    const seedString = `${user?.id || 'anon'}-${id}`
+                    let seedHash = 0
+                    for (let i = 0; i < seedString.length; i++) {
+                        const char = seedString.charCodeAt(i)
+                        seedHash = ((seedHash << 5) - seedHash) + char
+                        seedHash |= 0
+                    }
+                    const seededRandom = (max) => {
+                        seedHash = (seedHash * 1103515245 + 12345) & 0x7fffffff
+                        return seedHash % max
+                    }
+
+                    // Group by cluster
+                    const clusters = {}
+                    const standalone = []
+                    allExamSoal.forEach(q => {
+                        if (q.clusterId) {
+                            if (!clusters[q.clusterId]) clusters[q.clusterId] = []
+                            clusters[q.clusterId].push(q)
+                        } else {
+                            standalone.push(q)
+                        }
+                    })
+
+                    // Pick 1 random variant per cluster
+                    const selectedFromClusters = Object.values(clusters).map(variants => {
+                        const idx = seededRandom(variants.length)
+                        return variants[idx]
+                    })
+
+                    // Combine and shuffle
+                    const combined = [...selectedFromClusters, ...standalone]
+                    // Fisher-Yates shuffle with seeded random
+                    for (let i = combined.length - 1; i > 0; i--) {
+                        const j = seededRandom(i + 1)
+                        ;[combined[i], combined[j]] = [combined[j], combined[i]]
+                    }
+
+                    const examSoal = combined
+                    console.log('TakeExam: Processed', allExamSoal.length, 'total questions,', Object.keys(clusters).length, 'clusters,', standalone.length, 'standalone → selected', examSoal.length, 'for this student')
 
                     // ========================================
                     // RESUME LOGIC: Check for existing session

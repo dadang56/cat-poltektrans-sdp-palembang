@@ -97,7 +97,7 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
                         <X size={20} />
                     </button>
                 </div>
-                <div className="modal-body">
+                <div className="modal-body" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
                     <div className="bank-soal-filters">
                         <select
                             className="form-input"
@@ -180,7 +180,9 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
             { left: '', right: '' },
             { left: '', right: '' }
         ],
-        examType: currentExamType || 'uts'
+        examType: currentExamType || 'uts',
+        clusterId: null,
+        clusterLabel: ''
     })
 
     const [formData, setFormData] = useState(question || getDefaultFormData())
@@ -411,6 +413,22 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                                     </button>
                                 ))}
                             </div>
+                        </div>
+
+                        {/* Cluster Soal (Varian) */}
+                        <div className="form-group">
+                            <label className="form-label">Cluster Soal (Opsional)</label>
+                            <input
+                                type="text"
+                                className="form-input"
+                                value={formData.clusterLabel || ''}
+                                onChange={e => setFormData({ ...formData, clusterLabel: e.target.value })}
+                                placeholder="Misal: Soal 1 - Hitung Volume Kapal"
+                            />
+                            <p className="form-hint">
+                                Soal dengan cluster yang sama akan diacak — setiap mahasiswa mendapat 1 varian per cluster.
+                                Kosongkan jika soal ini tidak memiliki varian.
+                            </p>
                         </div>
 
                         {/* Pertanyaan */}
@@ -686,7 +704,9 @@ function BuatSoalPage() {
                     dosenId: s.dosen_id,
                     kelasIds: s.kelas_ids || [],
                     image: s.gambar || null,
-                    matkul: s.matkul
+                    matkul: s.matkul,
+                    clusterId: s.cluster_id || null,
+                    clusterLabel: s.cluster_label || ''
                 })))
 
                 setIsInitialized(true)
@@ -797,6 +817,24 @@ function BuatSoalPage() {
                 return mapping[type] || 'pilihan_ganda'
             }
 
+            // Resolve cluster_id: if clusterLabel is set, find or create a cluster_id
+            let resolvedClusterId = questionData.clusterId || null
+            if (questionData.clusterLabel && questionData.clusterLabel.trim()) {
+                const label = questionData.clusterLabel.trim()
+                // Find existing question with the same cluster label
+                const existing = questions.find(q =>
+                    q.clusterLabel && q.clusterLabel.trim() === label && q.clusterId
+                )
+                if (existing) {
+                    resolvedClusterId = existing.clusterId
+                } else if (!resolvedClusterId) {
+                    // Generate new UUID for new cluster
+                    resolvedClusterId = crypto.randomUUID()
+                }
+            } else {
+                resolvedClusterId = null // No cluster
+            }
+
             // Map to Supabase format
             const supabaseData = {
                 pertanyaan: questionData.text,
@@ -808,10 +846,12 @@ function BuatSoalPage() {
                 jawaban_benar: questionData.correctAnswer,
                 dosen_id: user?.id,
                 kelas_ids: questionData.kelasIds || [],
-                gambar: questionData.image || null  // Save question image
+                gambar: questionData.image || null,
+                cluster_id: resolvedClusterId,
+                cluster_label: questionData.clusterLabel || null
             }
 
-            if (editingQuestion) {
+            if (editingQuestion && !editingQuestion._isNewVariant) {
                 // Update existing question in Supabase
                 const updated = await soalService.update(editingQuestion.id, supabaseData)
                 // Update local state
@@ -825,7 +865,9 @@ function BuatSoalPage() {
                         points: questionData.points,
                         options: questionData.options,
                         correctAnswer: questionData.correctAnswer,
-                        image: questionData.image
+                        image: questionData.image,
+                        clusterId: resolvedClusterId,
+                        clusterLabel: questionData.clusterLabel
                     } : q
                 )
                 setQuestions(updatedQuestions)
@@ -844,7 +886,9 @@ function BuatSoalPage() {
                     options: created.pilihan || [],
                     correctAnswer: created.jawaban_benar,
                     dosenId: created.dosen_id,
-                    kelasIds: created.kelas_ids || []
+                    kelasIds: created.kelas_ids || [],
+                    clusterId: created.cluster_id || null,
+                    clusterLabel: created.cluster_label || ''
                 }
                 setQuestions([...questions, newQuestion])
                 console.log('[BuatSoal] Question created:', created)
@@ -1406,58 +1450,156 @@ function BuatSoalPage() {
                                         return matchesSearch && matchesType
                                     })
 
-                                    return packageQuestions.length === 0 ? (
-                                        <div className="empty-state">
-                                            <BookOpen size={48} />
-                                            <h3>Belum ada soal dalam paket ini</h3>
-                                            <p>Klik tombol "Tambah Soal" untuk menambahkan soal</p>
-                                        </div>
-                                    ) : (
-                                        packageQuestions.map((question, index) => (
-                                            <div key={question.id} className="question-card">
-                                                <div className="question-header">
-                                                    <div className="question-meta">
-                                                        <span className="question-number">#{index + 1}</span>
-                                                        <span className={`badge badge-${question.type === 'pilihan_ganda' ? 'primary' :
-                                                            question.type === 'essay' ? 'accent' :
-                                                                question.type === 'benar_salah' ? 'success' : 'info'
-                                                            }`}>
-                                                            {typeLabels[question.type]}
-                                                        </span>
-                                                    </div>
-                                                    <span className="question-points">{question.points} poin</span>
-                                                </div>
-                                                <p className="question-text">{question.text}</p>
-                                                {question.image && (
-                                                    <div className="question-image-thumb">
-                                                        <img src={question.image} alt="Question" />
-                                                    </div>
-                                                )}
-                                                <div className="question-actions">
-                                                    <button
-                                                        className="btn btn-ghost btn-sm"
-                                                        onClick={() => setPreviewQuestion(question)}
-                                                    >
-                                                        <Eye size={16} />
-                                                        Preview
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost btn-sm"
-                                                        onClick={() => handleEditQuestion(question)}
-                                                    >
-                                                        <Edit2 size={16} />
-                                                        Edit
-                                                    </button>
-                                                    <button
-                                                        className="btn btn-ghost btn-sm text-error"
-                                                        onClick={() => handleDeleteQuestion(question.id)}
-                                                    >
-                                                        <Trash2 size={16} />
-                                                        Hapus
-                                                    </button>
-                                                </div>
+                                    if (packageQuestions.length === 0) {
+                                        return (
+                                            <div className="empty-state">
+                                                <BookOpen size={48} />
+                                                <h3>Belum ada soal dalam paket ini</h3>
+                                                <p>Klik tombol "Tambah Soal" untuk menambahkan soal</p>
                                             </div>
-                                        ))
+                                        )
+                                    }
+
+                                    // Group questions: clustered vs standalone
+                                    const clusters = {}
+                                    const standalone = []
+                                    packageQuestions.forEach(q => {
+                                        if (q.clusterId) {
+                                            if (!clusters[q.clusterId]) {
+                                                clusters[q.clusterId] = {
+                                                    id: q.clusterId,
+                                                    label: q.clusterLabel || 'Cluster',
+                                                    variants: []
+                                                }
+                                            }
+                                            clusters[q.clusterId].variants.push(q)
+                                        } else {
+                                            standalone.push(q)
+                                        }
+                                    })
+
+                                    // Render function for a single question card
+                                    const renderQuestion = (question, index, variantLabel = null) => (
+                                        <div key={question.id} className="question-card">
+                                            <div className="question-header">
+                                                <div className="question-meta">
+                                                    <span className="question-number">#{index + 1}</span>
+                                                    <span className={`badge badge-${question.type === 'pilihan_ganda' ? 'primary' :
+                                                        question.type === 'essay' ? 'accent' :
+                                                            question.type === 'benar_salah' ? 'success' : 'info'
+                                                        }`}>
+                                                        {typeLabels[question.type]}
+                                                    </span>
+                                                    {variantLabel && (
+                                                        <span className="badge badge-warning">{variantLabel}</span>
+                                                    )}
+                                                </div>
+                                                <span className="question-points">{question.points} poin</span>
+                                            </div>
+                                            <p className="question-text">{question.text}</p>
+                                            {question.image && (
+                                                <div className="question-image-thumb">
+                                                    <img src={question.image} alt="Question" />
+                                                </div>
+                                            )}
+                                            <div className="question-actions">
+                                                <button
+                                                    className="btn btn-ghost btn-sm"
+                                                    onClick={() => setPreviewQuestion(question)}
+                                                >
+                                                    <Eye size={16} />
+                                                    Preview
+                                                </button>
+                                                <button
+                                                    className="btn btn-ghost btn-sm"
+                                                    onClick={() => handleEditQuestion(question)}
+                                                >
+                                                    <Edit2 size={16} />
+                                                    Edit
+                                                </button>
+                                                <button
+                                                    className="btn btn-ghost btn-sm text-error"
+                                                    onClick={() => handleDeleteQuestion(question.id)}
+                                                >
+                                                    <Trash2 size={16} />
+                                                    Hapus
+                                                </button>
+                                            </div>
+                                        </div>
+                                    )
+
+                                    let globalIndex = 0
+
+                                    return (
+                                        <>
+                                            {/* Render clustered questions */}
+                                            {Object.values(clusters).map(cluster => {
+                                                const clusterStartIndex = globalIndex
+                                                globalIndex += 1 // Cluster counts as 1 question slot
+                                                return (
+                                                    <div key={cluster.id} className="cluster-group">
+                                                        <div className="cluster-header">
+                                                            <div className="cluster-info">
+                                                                <span className="cluster-label">🔀 {cluster.label}</span>
+                                                                <span className="badge badge-outline">{cluster.variants.length} varian</span>
+                                                            </div>
+                                                            <button
+                                                                className="btn btn-outline btn-sm"
+                                                                onClick={() => {
+                                                                    const ref = cluster.variants[0]
+                                                                    setEditingQuestion(null)
+                                                                    // Pre-fill with cluster info
+                                                                    setModalOpen(true)
+                                                                    // We'll use a timeout to set the editing question after modal opens
+                                                                    setTimeout(() => {
+                                                                        const modal = document.querySelector('.modal form')
+                                                                        if (modal) {
+                                                                            // The modal will open with defaults, the cluster label will be inherited
+                                                                        }
+                                                                    }, 100)
+                                                                    // Set a special editing state to pre-fill cluster
+                                                                    setEditingQuestion({
+                                                                        text: '',
+                                                                        type: ref.type,
+                                                                        matkulId: ref.matkulId,
+                                                                        kelasIds: ref.kelasIds || [],
+                                                                        points: ref.points,
+                                                                        image: null,
+                                                                        options: [
+                                                                            { text: '', image: null },
+                                                                            { text: '', image: null },
+                                                                            { text: '', image: null },
+                                                                            { text: '', image: null },
+                                                                            { text: '', image: null }
+                                                                        ],
+                                                                        correctAnswer: 0,
+                                                                        pairs: [{ left: '', right: '' }, { left: '', right: '' }],
+                                                                        examType: ref.examType,
+                                                                        clusterId: cluster.id,
+                                                                        clusterLabel: cluster.label,
+                                                                        _isNewVariant: true // Flag to not treat as edit
+                                                                    })
+                                                                }}
+                                                            >
+                                                                <Plus size={14} />
+                                                                Tambah Varian
+                                                            </button>
+                                                        </div>
+                                                        <div className="cluster-variants">
+                                                            {cluster.variants.map((q, vi) =>
+                                                                renderQuestion(q, clusterStartIndex, `Varian ${String.fromCharCode(65 + vi)}`)
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+
+                                            {/* Render standalone questions */}
+                                            {standalone.map(q => {
+                                                globalIndex += 1
+                                                return renderQuestion(q, globalIndex)
+                                            })}
+                                        </>
                                     )
                                 })()}
                             </div>
@@ -1697,6 +1839,39 @@ function BuatSoalPage() {
                     padding: var(--space-1) var(--space-3);
                     border-radius: var(--radius-full);
                 }
+                .cluster-group {
+                    border: 2px solid var(--warning-200);
+                    border-radius: var(--radius-xl);
+                    overflow: hidden;
+                    background: var(--warning-50);
+                }
+                .cluster-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: var(--space-3) var(--space-4);
+                    background: var(--warning-100);
+                    border-bottom: 1px solid var(--warning-200);
+                }
+                .cluster-info {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--space-3);
+                }
+                .cluster-label {
+                    font-weight: var(--font-semibold);
+                    font-size: var(--font-size-sm);
+                    color: var(--warning-800);
+                }
+                .cluster-variants {
+                    padding: var(--space-3);
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-3);
+                }
+                .cluster-variants .question-card {
+                    border-left: 3px solid var(--warning-400);
+                }
                 .question-text {
                     font-size: var(--font-size-base);
                     color: var(--text-primary);
@@ -1737,6 +1912,58 @@ function BuatSoalPage() {
                 }
                 .modal-lg {
                     max-width: 700px;
+                }
+                .bank-soal-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-3);
+                }
+                .bank-soal-item {
+                    display: flex;
+                    gap: var(--space-3);
+                    padding: var(--space-3);
+                    background: var(--bg-tertiary);
+                    border-radius: var(--radius-lg);
+                    border: 2px solid var(--border-color);
+                    cursor: pointer;
+                    transition: all var(--transition-fast);
+                }
+                .bank-soal-item:hover {
+                    border-color: var(--primary-300);
+                }
+                .bank-soal-item.selected {
+                    border-color: var(--primary-500);
+                    background: var(--primary-50);
+                }
+                .bank-soal-check {
+                    flex-shrink: 0;
+                    color: var(--text-muted);
+                }
+                .bank-soal-item.selected .bank-soal-check {
+                    color: var(--primary-600);
+                }
+                .bank-soal-content {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .bank-soal-content p {
+                    font-size: var(--font-size-sm);
+                    margin-bottom: var(--space-2);
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    display: -webkit-box;
+                    -webkit-line-clamp: 2;
+                    -webkit-box-orient: vertical;
+                }
+                .bank-soal-meta {
+                    display: flex;
+                    gap: var(--space-2);
+                    flex-wrap: wrap;
+                    align-items: center;
+                    font-size: var(--font-size-xs);
+                }
+                .bank-soal-filters {
+                    margin-bottom: var(--space-4);
                 }
                 .form-row-2 {
                     display: grid;
