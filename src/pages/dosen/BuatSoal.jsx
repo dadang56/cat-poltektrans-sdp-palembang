@@ -758,8 +758,11 @@ function BuatSoalPage() {
     const typeLabels = {
         pilihan_ganda: 'Pilihan Ganda',
         essay: 'Essay',
+        uraian: 'Essay',
         benar_salah: 'Benar/Salah',
-        mencocokan: 'Mencocokan'
+        mencocokan: 'Mencocokan',
+        menjodohkan: 'Mencocokan',
+        pilihan_ganda_kompleks: 'Pilihan Ganda Kompleks'
     }
 
     // Filter questions
@@ -910,16 +913,19 @@ function BuatSoalPage() {
                 const newQuestion = {
                     id: created.id,
                     text: created.pertanyaan,
-                    type: created.tipe_soal,
+                    type: questionData.type, // Use form value ('essay') not DB value ('uraian')
                     matkulId: created.matkul_id,
                     examType: created.tipe_ujian?.toUpperCase() || 'UTS',
                     points: created.bobot || 10,
-                    options: created.pilihan || [],
+                    options: (created.pilihan || []).map(opt =>
+                        typeof opt === 'string' ? { text: opt, image: null } : { text: opt.text || '', image: opt.image || null }
+                    ),
                     correctAnswer: created.jawaban_benar,
                     dosenId: created.dosen_id,
                     kelasIds: created.kelas_ids || [],
-                    clusterId: created.cluster_id || null,
-                    clusterLabel: created.cluster_label || ''
+                    image: created.gambar || questionData.image || null,
+                    clusterId: resolvedClusterId,
+                    clusterLabel: questionData.clusterLabel || ''
                 }
                 setQuestions([...questions, newQuestion])
                 console.log('[BuatSoal] Question created:', created)
