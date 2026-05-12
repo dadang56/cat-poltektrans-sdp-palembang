@@ -54,7 +54,7 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
                         points: s.bobot || s.poin || 1,
                         matkul: s.matkul?.nama || '-',
                         options: (s.pilihan && s.pilihan.length > 0) ? s.pilihan : (s.opsi || s.options || []),
-                        correctAnswer: s.jawaban_benar || s.correct_answer,
+                        correctAnswer: s.jawaban_benar ?? s.correct_answer,
                         image: s.gambar || null,
                         kelasIds: s.kelas_ids || [],
                         clusterId: s.cluster_id || null,

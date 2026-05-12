@@ -122,7 +122,7 @@ function TakeExamPage() {
                             if (typeof o === 'string') return { text: o, image: null }
                             return { text: o.text || '', image: o.image || null }
                         }),
-                        correctAnswer: s.jawaban_benar || s.correctAnswer,
+                        correctAnswer: s.jawaban_benar ?? s.correctAnswer,
                         image: s.gambar || null,
                         clusterId: s.cluster_id || null
                     }))
