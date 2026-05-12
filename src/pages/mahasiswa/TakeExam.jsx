@@ -673,13 +673,29 @@ function TakeExamPage() {
             let earned = 0
             let isCorrect = false
 
-            if (q.type === 'pilihan_ganda' && answers[q.id] !== undefined) {
-                if (answers[q.id] === q.correctAnswer) {
+            // Normalize comparison: ensure both sides are the same type
+            // answers[q.id] is always a number (from handleAnswer(index))
+            // q.correctAnswer from JSONB could be number, string, or even "A"/"B" format
+            const normalizeAnswer = (val) => {
+                if (val === null || val === undefined) return null
+                // If it's a letter like "A", "B", convert to index
+                if (typeof val === 'string' && /^[A-E]$/i.test(val)) {
+                    return { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 }[val.toUpperCase()]
+                }
+                return Number(val)
+            }
+
+            const studentAnswer = normalizeAnswer(answers[q.id])
+            const correctAns = normalizeAnswer(q.correctAnswer)
+
+            if (q.type === 'pilihan_ganda' && studentAnswer !== null) {
+                if (studentAnswer === correctAns) {
                     earned = q.points
                     isCorrect = true
                 }
             } else if (q.type === 'benar_salah' && answers[q.id] !== undefined) {
-                if (answers[q.id] === q.correctAnswer) {
+                // For benar_salah, compare directly (boolean or string)
+                if (String(answers[q.id]) === String(q.correctAnswer)) {
                     earned = q.points
                     isCorrect = true
                 }
