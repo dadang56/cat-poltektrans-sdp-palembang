@@ -13,7 +13,8 @@ import {
     ChevronRight,
     Edit2,
     Eye,
-    FileText
+    FileText,
+    RefreshCw
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -459,6 +460,109 @@ function KoreksiUjianPage() {
         }
     }
 
+    // ========================================
+    // REGRADE: Re-evaluate all answers against actual correct answers
+    // ========================================
+    const [regrading, setRegrading] = useState(false)
+
+    const normalizeAnswer = (val) => {
+        if (val === null || val === undefined) return null
+        // If it's a letter like "A", "B", convert to index
+        if (typeof val === 'string' && /^[A-E]$/i.test(val)) {
+            return { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 }[val.toUpperCase()]
+        }
+        return Number(val)
+    }
+
+    const handleRegradeAll = async () => {
+        if (!confirm('Regrade semua hasil ujian? Ini akan menghitung ulang nilai berdasarkan kunci jawaban terbaru.')) return
+        setRegrading(true)
+        try {
+            // Fetch ALL soal for correct answers
+            const allSoal = await soalService.getAll()
+            const soalMap = {}
+            allSoal.forEach(s => {
+                soalMap[s.id] = s
+            })
+
+            // Fetch ALL hasil ujian
+            let allHasil = []
+            if (user.role === 'dosen') {
+                allHasil = await hasilUjianService.getByDosen(user.id)
+            } else {
+                allHasil = await hasilUjianService.getAll()
+            }
+
+            let changedCount = 0
+            for (const hasil of allHasil) {
+                if (!hasil.answers_detail) continue
+                let answers = typeof hasil.answers_detail === 'string'
+                    ? JSON.parse(hasil.answers_detail)
+                    : hasil.answers_detail
+                if (!Array.isArray(answers) || answers.length === 0) continue
+
+                let newTotal = 0
+                let changed = false
+                const newAnswers = answers.map(a => {
+                    // Skip essay/manual grading
+                    if (a.needsManualGrading || a.type === 'essay' || a.type === 'uraian') {
+                        newTotal += (a.earnedPoints || 0)
+                        return a
+                    }
+
+                    const soal = soalMap[a.questionId]
+                    if (!soal) return a
+
+                    const studentAns = normalizeAnswer(a.answer)
+                    const correctAns = normalizeAnswer(soal.jawaban_benar)
+
+                    let isCorrect = false
+                    let earned = 0
+
+                    if (studentAns !== null && correctAns !== null) {
+                        if (a.type === 'benar_salah') {
+                            isCorrect = String(a.answer) === String(soal.jawaban_benar)
+                        } else {
+                            isCorrect = studentAns === correctAns
+                        }
+                        if (isCorrect) {
+                            earned = a.maxPoints || soal.bobot || 10
+                        }
+                    }
+
+                    if (a.isCorrect !== isCorrect || a.earnedPoints !== earned) {
+                        changed = true
+                    }
+
+                    newTotal += earned
+                    return {
+                        ...a,
+                        correctAnswer: soal.jawaban_benar,
+                        isCorrect,
+                        earnedPoints: earned
+                    }
+                })
+
+                if (changed) {
+                    await hasilUjianService.update(hasil.id, {
+                        answers_detail: newAnswers,
+                        nilai_total: newTotal,
+                        status: newAnswers.some(a => a.needsManualGrading) ? 'submitted' : 'graded'
+                    })
+                    changedCount++
+                }
+            }
+
+            alert(`Regrade selesai! ${changedCount} hasil ujian diperbarui.`)
+            // Reload page to see changes
+            window.location.reload()
+        } catch (error) {
+            console.error('Regrade error:', error)
+            alert('Gagal regrade: ' + error.message)
+        }
+        setRegrading(false)
+    }
+
     return (
         <DashboardLayout>
             <div className="dashboard-page animate-fadeIn">
@@ -467,6 +571,15 @@ function KoreksiUjianPage() {
                         <h1 className="page-title">Koreksi Ujian</h1>
                         <p className="page-subtitle">Koreksi jawaban ujian mahasiswa</p>
                     </div>
+                    <button
+                        className="btn btn-warning"
+                        onClick={handleRegradeAll}
+                        disabled={regrading}
+                        style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
+                    >
+                        <RefreshCw size={16} className={regrading ? 'spin' : ''} />
+                        {regrading ? 'Regrading...' : 'Regrade Semua Hasil'}
+                    </button>
                 </div>
 
                 {!selectedExam ? (
@@ -647,6 +760,29 @@ function KoreksiUjianPage() {
             </div>
 
             <style>{`
+                @keyframes spin {
+                    from { transform: rotate(0deg); }
+                    to { transform: rotate(360deg); }
+                }
+                .spin {
+                    animation: spin 1s linear infinite;
+                }
+                .btn-warning {
+                    background: var(--warning-500, #f59e0b);
+                    color: white;
+                    border: none;
+                    padding: 8px 16px;
+                    border-radius: var(--radius-md, 8px);
+                    cursor: pointer;
+                    font-weight: 600;
+                }
+                .btn-warning:hover {
+                    background: var(--warning-600, #d97706);
+                }
+                .btn-warning:disabled {
+                    opacity: 0.6;
+                    cursor: not-allowed;
+                }
                 .page-header {
                     display: flex;
                     justify-content: space-between;
