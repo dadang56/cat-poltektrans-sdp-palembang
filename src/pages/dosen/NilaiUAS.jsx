@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
 import { hasilUjianService } from '../../services/supabaseService'
 import {
@@ -79,6 +80,7 @@ function EditScoreModal({ isOpen, onClose, student, onSave }) {
 
 function NilaiUASPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
     const [exams, setExams] = useState([])
     const [expandedExam, setExpandedExam] = useState(null)
     const [search, setSearch] = useState('')
@@ -258,45 +260,145 @@ function NilaiUASPage() {
     }
 
     const handlePrint = (exam) => {
+        const dosenName = user?.nama || ''
+        const dosenNip = user?.nim_nip || ''
         const printContent = `
             <html>
             <head>
                 <title>Nilai ${exam.examType.toUpperCase()} - ${exam.matkul}</title>
                 <style>
-                    body { font-family: Arial, sans-serif; padding: 20px; }
-                    h1 { font-size: 18px; margin-bottom: 5px; }
-                    h2 { font-size: 14px; color: #666; margin-bottom: 20px; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                    th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                    th { background: #f5f5f5; }
-                    .mengulang { color: red; font-weight: bold; }
+                    @page { size: A4 portrait; margin: 15mm; }
+                    body { font-family: 'Times New Roman', serif; padding: 20px; font-size: 12pt; }
+                    .letterhead {
+                        display: flex;
+                        align-items: center;
+                        gap: 20px;
+                        border-bottom: 3px double #000;
+                        padding-bottom: 15px;
+                        margin-bottom: 25px;
+                    }
+                    .letterhead-logo {
+                        width: 70px;
+                        height: 70px;
+                        border: 2px solid #1e3a5f;
+                        border-radius: 50%;
+                        display: flex;
+                        align-items: center;
+                        justify-content: center;
+                        flex-direction: column;
+                        background: white;
+                    }
+                    .letterhead-logo .logo-icon {
+                        font-size: 24pt;
+                        line-height: 1;
+                    }
+                    .letterhead-logo .logo-text {
+                        font-size: 6pt;
+                        color: #1e3a5f;
+                        font-weight: bold;
+                    }
+                    .letterhead-text {
+                        flex: 1;
+                        text-align: center;
+                    }
+                    .letterhead-text h2 {
+                        margin: 0;
+                        font-size: 14pt;
+                        text-transform: uppercase;
+                    }
+                    .letterhead-text h1 {
+                        margin: 5px 0;
+                        font-size: 18pt;
+                        text-transform: uppercase;
+                    }
+                    .letterhead-text p {
+                        margin: 3px 0;
+                        font-size: 10pt;
+                    }
+                    .document-title {
+                        text-align: center;
+                        margin: 25px 0;
+                    }
+                    .document-title h3 {
+                        text-decoration: underline;
+                        margin: 0;
+                        font-size: 14pt;
+                    }
+                    .exam-info {
+                        margin-bottom: 15px;
+                        font-size: 11pt;
+                    }
+                    .exam-info p {
+                        margin: 3px 0;
+                    }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+                    th, td { border: 1px solid #000; padding: 6px 8px; text-align: left; font-size: 11pt; }
+                    th { background: #f0f0f0; font-weight: bold; }
+                    .text-center { text-align: center; }
+                    .lulus { color: #166534; font-weight: bold; }
+                    .mengulang { color: #dc2626; font-weight: bold; }
+                    .signature-section { margin-top: 50px; display: flex; justify-content: flex-end; }
+                    .signature-box { text-align: center; width: 250px; }
+                    .signature-line { margin-top: 60px; padding-top: 5px; }
                 </style>
             </head>
             <body>
-                <h1>${exam.examName}</h1>
-                <h2>${exam.matkul} - Kelas ${exam.kelas} | Tanggal: ${exam.date}</h2>
+                <div class="letterhead">
+                    ${settings?.logoUrl
+                        ? `<img src="${settings.logoUrl}" alt="Logo" style="width: 70px; height: 70px; object-fit: contain;"/>`
+                        : `<div class="letterhead-logo">
+                                <span class="logo-icon">⚓</span>
+                                <span class="logo-text">POLTEKTRANS</span>
+                            </div>`
+                    }
+                    <div class="letterhead-text">
+                        <h1>${settings?.institution || 'Politeknik Transportasi SDP Palembang'}</h1>
+                        <p>${settings?.address || 'Jl. Residen Abdul Rozak, Palembang, Sumatera Selatan'}</p>
+                        <p>Telp: ${settings?.phone || '(0711) 123456'} | Email: ${settings?.email || 'info@poltektrans.ac.id'}</p>
+                    </div>
+                </div>
+                <div class="document-title">
+                    <h3>DAFTAR NILAI ${exam.examType.toUpperCase()}</h3>
+                    <p>Tahun Akademik ${settings?.tahunAkademik || ''}</p>
+                </div>
+                <div class="exam-info">
+                    <p><strong>Mata Kuliah:</strong> ${exam.matkul}</p>
+                    <p><strong>Kelas:</strong> ${exam.kelas}</p>
+                    <p><strong>Dosen Pengampu:</strong> ${dosenName}</p>
+                    <p><strong>Tanggal Ujian:</strong> ${exam.date}</p>
+                </div>
                 <table>
                     <thead>
                         <tr>
-                            <th>No</th>
+                            <th class="text-center" style="width:40px">No</th>
                             <th>NIM</th>
-                            <th>Nama</th>
-                            <th>Nilai</th>
-                            <th>Keterangan</th>
+                            <th>Nama Mahasiswa</th>
+                            <th class="text-center" style="width:60px">Nilai</th>
+                            <th class="text-center" style="width:100px">Keterangan</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${exam.students.map((s, i) => `
                             <tr>
-                                <td>${i + 1}</td>
+                                <td class="text-center">${i + 1}</td>
                                 <td>${s.nim}</td>
                                 <td>${s.name}</td>
-                                <td>${s.score}</td>
-                                <td class="${s.score < 70 ? 'mengulang' : ''}">${s.score < 70 ? 'MENGULANG' : 'LULUS'}</td>
+                                <td class="text-center ${s.score >= 70 ? 'lulus' : 'mengulang'}">${s.score}</td>
+                                <td class="text-center ${s.score < 70 ? 'mengulang' : 'lulus'}">${s.score < 70 ? 'Mengulang' : 'Lulus'}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
+                <div class="signature-section">
+                    <div class="signature-box">
+                        <p>Palembang, ${new Date().toLocaleDateString('id-ID')}</p>
+                        <p>Dosen Pengampu</p>
+                        <div class="signature-line">
+                            <p><strong>${dosenName || '_________________________'}</strong></p>
+                            <p>NIP. ${dosenNip || '_______________'}</p>
+                        </div>
+                    </div>
+                </div>
             </body>
             </html>
         `
