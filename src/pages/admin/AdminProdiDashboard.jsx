@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
-import { userService, jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
+import { userService, jadwalService, matkulService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Users,
     FileText,
@@ -14,7 +14,10 @@ import {
     Clock,
     ChevronRight,
     Eye,
-    Play
+    Play,
+    BookOpen,
+    CheckCircle2,
+    XCircle
 } from 'lucide-react'
 import './Dashboard.css'
 
@@ -46,6 +49,7 @@ function AdminProdiDashboard() {
     ])
     const [jadwalUjian, setJadwalUjian] = useState([])
     const [ujianBerlangsung, setUjianBerlangsung] = useState([])
+    const [soalReadiness, setSoalReadiness] = useState([])
 
     // Load tahun akademik from settings
     useEffect(() => {
@@ -82,14 +86,55 @@ function AdminProdiDashboard() {
                 if (isSupabaseConfigured()) {
                     // Load from Supabase with server-side TA filter
                     const jadwalFilters = selectedTahunAkademik ? { tahun_akademik: selectedTahunAkademik } : {}
-                    const [usersData, jadwalData, matkulData] = await Promise.all([
+                    const [usersData, jadwalData, matkulData, soalData] = await Promise.all([
                         userService.getAll(),
                         jadwalService.getAll(jadwalFilters),
-                        matkulService.getAll()
+                        matkulService.getAll(),
+                        soalService.getAll()
                     ])
                     usersList = usersData
                     jadwalList = jadwalData
                     matkulList = matkulData
+                    
+                    // Build soal readiness data
+                    const now = new Date()
+                    const upcomingJadwal = jadwalList.filter(j => {
+                        const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
+                        return examStart > now && (j.tipe === 'UTS' || j.tipe === 'UAS')
+                    })
+                    
+                    const readiness = upcomingJadwal.map(j => {
+                        const mk = matkulData.find(m => String(m.id) === String(getJadwalMatkul(j)))
+                        const dosenId = j.dosen_id || j.dosen?.id
+                        const dosenName = j.dosen?.nama || usersData.find(u => String(u.id) === String(dosenId))?.nama || '-'
+                        const tipe = (j.tipe || 'UTS').toUpperCase()
+                        
+                        // Count soal for this matkul + tipe by this dosen
+                        const matchingSoal = (soalData || []).filter(s => {
+                            return String(s.matkul_id) === String(getJadwalMatkul(j)) &&
+                                (s.tipe_ujian || '').toUpperCase() === tipe &&
+                                (!dosenId || String(s.dosen_id) === String(dosenId))
+                        })
+                        const totalSoal = matchingSoal.length
+                        const totalPoin = matchingSoal.reduce((sum, s) => sum + (s.bobot || 0), 0)
+                        
+                        return {
+                            id: j.id,
+                            matkul: mk?.nama || '-',
+                            tipe,
+                            tanggal: j.tanggal,
+                            dosenName,
+                            dosenId,
+                            totalSoal,
+                            totalPoin,
+                            isReady: totalSoal > 0 && totalPoin === 100
+                        }
+                    }).sort((a, b) => {
+                        // Sort: not ready first, then by date
+                        if (a.isReady !== b.isReady) return a.isReady ? 1 : -1
+                        return a.tanggal.localeCompare(b.tanggal)
+                    })
+                    setSoalReadiness(readiness)
                 } else {
                     usersList = users ? JSON.parse(users) : []
                     jadwalList = jadwal ? JSON.parse(jadwal) : []
@@ -363,6 +408,63 @@ function AdminProdiDashboard() {
                             )}
                         </div>
                     </div>
+
+                    {/* Kesiapan Soal Dosen */}
+                    <div className="card card-wide">
+                        <div className="card-header">
+                            <div className="flex items-center gap-3">
+                                <BookOpen size={20} className="text-warning" />
+                                <h3 className="font-semibold">Kesiapan Soal Dosen</h3>
+                                <span className="badge badge-warning">
+                                    {soalReadiness.filter(s => !s.isReady).length} Belum Siap
+                                </span>
+                            </div>
+                        </div>
+                        <div className="card-body">
+                            {soalReadiness.length > 0 ? (
+                                <div className="soal-readiness-list">
+                                    {soalReadiness.map(item => (
+                                        <div key={item.id} className={`soal-readiness-item ${item.isReady ? 'ready' : 'not-ready'}`}>
+                                            <div className="soal-readiness-status">
+                                                {item.isReady ? (
+                                                    <CheckCircle2 size={20} style={{ color: 'var(--success-500)' }} />
+                                                ) : (
+                                                    <XCircle size={20} style={{ color: 'var(--error-500)' }} />
+                                                )}
+                                            </div>
+                                            <div className="soal-readiness-info">
+                                                <h4>{item.tipe} {item.matkul}</h4>
+                                                <p>
+                                                    <span>Dosen: {item.dosenName}</span>
+                                                    <span>• {item.tanggal}</span>
+                                                </p>
+                                            </div>
+                                            <div className="soal-readiness-detail">
+                                                <span className="soal-count">{item.totalSoal} soal</span>
+                                                <span className={`soal-points ${item.totalPoin === 100 ? 'complete' : item.totalPoin > 0 ? 'partial' : 'empty'}`}>
+                                                    {item.totalPoin}/100 poin
+                                                </span>
+                                            </div>
+                                            <div className="soal-readiness-badge">
+                                                {item.isReady ? (
+                                                    <span className="badge badge-success">Siap</span>
+                                                ) : item.totalSoal === 0 ? (
+                                                    <span className="badge badge-error">Belum Buat</span>
+                                                ) : (
+                                                    <span className="badge badge-warning">Belum Lengkap</span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="empty-state">
+                                    <BookOpen size={32} className="text-muted" />
+                                    <p>Tidak ada jadwal ujian mendatang</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -533,6 +635,69 @@ function AdminProdiDashboard() {
                 .empty-state p {
                     margin-top: var(--space-2);
                 }
+                /* Soal Readiness */
+                .soal-readiness-list {
+                    display: flex;
+                    flex-direction: column;
+                    gap: var(--space-3);
+                }
+                .soal-readiness-item {
+                    display: flex;
+                    align-items: center;
+                    gap: var(--space-3);
+                    padding: var(--space-3) var(--space-4);
+                    background: var(--bg-tertiary);
+                    border-radius: var(--radius-lg);
+                    border-left: 4px solid var(--border-color);
+                    transition: all 0.15s ease;
+                }
+                .soal-readiness-item.ready {
+                    border-left-color: var(--success-500);
+                }
+                .soal-readiness-item.not-ready {
+                    border-left-color: var(--error-500);
+                    background: var(--error-50);
+                }
+                [data-theme="dark"] .soal-readiness-item.not-ready {
+                    background: rgba(239, 68, 68, 0.08);
+                }
+                .soal-readiness-info {
+                    flex: 1;
+                    min-width: 0;
+                }
+                .soal-readiness-info h4 {
+                    margin: 0 0 2px;
+                    font-size: var(--font-size-sm);
+                    font-weight: var(--font-semibold);
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                }
+                .soal-readiness-info p {
+                    display: flex;
+                    gap: var(--space-2);
+                    margin: 0;
+                    font-size: var(--font-size-xs);
+                    color: var(--text-muted);
+                }
+                .soal-readiness-detail {
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-end;
+                    gap: 2px;
+                    min-width: 80px;
+                }
+                .soal-count {
+                    font-size: var(--font-size-xs);
+                    color: var(--text-muted);
+                }
+                .soal-points {
+                    font-size: var(--font-size-sm);
+                    font-weight: var(--font-semibold);
+                }
+                .soal-points.complete { color: var(--success-600); }
+                .soal-points.partial { color: var(--warning-600); }
+                .soal-points.empty { color: var(--error-600); }
             `}</style>
         </DashboardLayout >
     )

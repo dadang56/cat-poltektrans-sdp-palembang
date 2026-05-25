@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { jadwalService, matkulService, prodiService, kelasService, ruangService, userService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, prodiService, kelasService, ruangService, userService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import { useSettings } from '../../contexts/SettingsContext'
 import {
     Calendar,
@@ -22,7 +22,7 @@ import {
 import '../admin/Dashboard.css'
 
 
-function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], ruangList = [], dosenList = [], isLoading }) {
+function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], ruangList = [], dosenList = [], jadwalList = [], isLoading }) {
     const getDefaultFormData = () => ({
         matkul_id: '',
         kelas_id: '',
@@ -32,11 +32,16 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
         waktu_selesai: '',
         durasi: '',
         ruangan_id: '',
-        dosen_id: ''
+        dosen_id: '',
+        parent_jadwal_id: '',
+        ulang_ke: 0
     })
 
     const [formData, setFormData] = useState(jadwal || getDefaultFormData())
     const [matkulSearch, setMatkulSearch] = useState('')
+    const [mengulangStudents, setMengulangStudents] = useState([])
+    const [loadingMengulang, setLoadingMengulang] = useState(false)
+    const [maxUlangReached, setMaxUlangReached] = useState(false)
 
     useEffect(() => {
         if (isOpen) {
@@ -50,28 +55,82 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                     waktu_selesai: jadwal.waktu_selesai || jadwal.waktuSelesai || '',
                     durasi: jadwal.durasi || '',
                     ruangan_id: jadwal.ruangan?.id || jadwal.ruangan_id || '',
-                    dosen_id: jadwal.dosen?.id || jadwal.dosen_id || ''
-                })
-                console.log('[JadwalModal] Init edit form:', {
-                    ruangan: jadwal.ruangan,
-                    ruangan_id_set: jadwal.ruangan?.id || jadwal.ruangan_id || '',
-                    dosen: jadwal.dosen,
-                    dosen_id_set: jadwal.dosen?.id || jadwal.dosen_id || '',
-                    matkul: jadwal.matkul,
-                    matkul_id_set: jadwal.matkul?.id || jadwal.matkul_id || ''
+                    dosen_id: jadwal.dosen?.id || jadwal.dosen_id || '',
+                    parent_jadwal_id: jadwal.parent_jadwal_id || '',
+                    ulang_ke: jadwal.ulang_ke || 0
                 })
             } else {
                 setFormData(getDefaultFormData())
             }
             setMatkulSearch('')
+            setMengulangStudents([])
+            setMaxUlangReached(false)
         }
     }, [jadwal, isOpen, matkulList, kelasList])
 
+    // Load mengulang students when parent jadwal is selected
+    useEffect(() => {
+        const loadMengulang = async () => {
+            if (!formData.parent_jadwal_id || formData.tipe_ujian !== 'ULANG') {
+                setMengulangStudents([])
+                return
+            }
+            setLoadingMengulang(true)
+            try {
+                // Get students who scored < 70 on the parent exam
+                const students = await hasilUjianService.getMengulangStudents(formData.parent_jadwal_id)
+                setMengulangStudents(students || [])
+
+                // Check how many remedial exams already exist for this parent
+                const maxUlang = await jadwalService.getMaxUlangKe(formData.parent_jadwal_id)
+                const nextUlang = maxUlang + 1
+                if (nextUlang > 2) {
+                    setMaxUlangReached(true)
+                    setFormData(prev => ({ ...prev, ulang_ke: maxUlang }))
+                } else {
+                    setMaxUlangReached(false)
+                    setFormData(prev => ({ ...prev, ulang_ke: nextUlang }))
+                }
+
+                // Auto-fill matkul, kelas, dosen from parent
+                const parentJadwal = jadwalList.find(j => j.id === formData.parent_jadwal_id)
+                if (parentJadwal) {
+                    setFormData(prev => ({
+                        ...prev,
+                        matkul_id: parentJadwal.matkul?.id || parentJadwal.matkul_id || prev.matkul_id,
+                        kelas_id: parentJadwal.kelas?.id || parentJadwal.kelas_id || prev.kelas_id,
+                        dosen_id: parentJadwal.dosen?.id || parentJadwal.dosen_id || prev.dosen_id
+                    }))
+                }
+            } catch (err) {
+                console.error('Error loading mengulang students:', err)
+            } finally {
+                setLoadingMengulang(false)
+            }
+        }
+        loadMengulang()
+    }, [formData.parent_jadwal_id, formData.tipe_ujian])
+
     const handleSubmit = (e) => {
         e.preventDefault()
-        if (!formData.matkul_id) {
-            alert('Silakan pilih Mata Kuliah')
-            return
+        if (formData.tipe_ujian === 'ULANG') {
+            if (!formData.parent_jadwal_id) {
+                alert('Silakan pilih Jadwal Ujian Asli untuk ujian ulang')
+                return
+            }
+            if (maxUlangReached) {
+                alert('Batas ujian ulang (2 kali) sudah tercapai untuk jadwal ini')
+                return
+            }
+            if (mengulangStudents.length === 0) {
+                alert('Tidak ada mahasiswa yang mengulang pada ujian asli')
+                return
+            }
+        } else {
+            if (!formData.matkul_id) {
+                alert('Silakan pilih Mata Kuliah')
+                return
+            }
         }
         if (!formData.durasi || parseInt(formData.durasi) < 1) {
             alert('Silakan isi durasi ujian (minimal 1 menit)')
@@ -195,14 +254,109 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                             <select
                                 className="form-input"
                                 value={formData.tipe_ujian}
-                                onChange={e => setFormData({ ...formData, tipe_ujian: e.target.value })}
+                                onChange={e => {
+                                    const tipe = e.target.value
+                                    setFormData({ ...formData, tipe_ujian: tipe, parent_jadwal_id: '', ulang_ke: 0 })
+                                    setMengulangStudents([])
+                                    setMaxUlangReached(false)
+                                }}
                                 required
                             >
                                 <option value="">Pilih Tipe Ujian</option>
                                 <option value="UTS">UTS</option>
                                 <option value="UAS">UAS</option>
+                                <option value="ULANG">Ujian Ulang (Remedial)</option>
                             </select>
                         </div>
+
+                        {/* ULANG-specific fields */}
+                        {formData.tipe_ujian === 'ULANG' && (
+                            <>
+                                <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                    <label className="form-label">Jadwal Ujian Asli (yang di-ulang)</label>
+                                    <select
+                                        className="form-input"
+                                        value={formData.parent_jadwal_id}
+                                        onChange={e => setFormData({ ...formData, parent_jadwal_id: e.target.value })}
+                                        required
+                                    >
+                                        <option value="">Pilih Jadwal Ujian Asli</option>
+                                        {jadwalList
+                                            .filter(j => (j.tipe === 'UTS' || j.tipe === 'UAS') && j.status !== 'cancelled')
+                                            .map(j => {
+                                                const matkulName = j.matkul?.nama || matkulList.find(m => m.id === j.matkul_id)?.nama || ''
+                                                const kelasName = j.kelas?.nama || kelasList.find(k => k.id === j.kelas_id)?.nama || ''
+                                                return (
+                                                    <option key={j.id} value={j.id}>
+                                                        {j.tipe} - {matkulName} - Kelas {kelasName} ({j.tanggal})
+                                                    </option>
+                                                )
+                                            })}
+                                    </select>
+                                </div>
+
+                                {formData.parent_jadwal_id && (
+                                    <>
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label className="form-label">Ujian Ulang ke-</label>
+                                            <input
+                                                type="text"
+                                                className="form-input"
+                                                value={formData.ulang_ke}
+                                                readOnly
+                                                style={{ background: 'var(--bg-tertiary)', fontWeight: 'bold' }}
+                                            />
+                                            {maxUlangReached && (
+                                                <small style={{ color: 'var(--error-600)', fontWeight: '600' }}>
+                                                    ⚠️ Batas ujian ulang (2 kali) sudah tercapai!
+                                                </small>
+                                            )}
+                                        </div>
+
+                                        <div className="form-group" style={{ marginBottom: '1rem' }}>
+                                            <label className="form-label">
+                                                Mahasiswa yang Mengulang
+                                                {!loadingMengulang && <span style={{ marginLeft: '8px', color: 'var(--text-muted)' }}>({mengulangStudents.length} mahasiswa)</span>}
+                                            </label>
+                                            {loadingMengulang ? (
+                                                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--text-muted)' }}>Memuat data...</div>
+                                            ) : mengulangStudents.length === 0 ? (
+                                                <div style={{ padding: '1rem', textAlign: 'center', color: 'var(--warning-600)', background: 'var(--warning-50)', borderRadius: 'var(--radius-md)' }}>
+                                                    Tidak ada mahasiswa yang mengulang (nilai &lt; 70)
+                                                </div>
+                                            ) : (
+                                                <div style={{
+                                                    maxHeight: '150px',
+                                                    overflowY: 'auto',
+                                                    border: '1px solid var(--border-color)',
+                                                    borderRadius: 'var(--radius-md)',
+                                                    background: 'var(--bg-primary)',
+                                                    fontSize: '0.85rem'
+                                                }}>
+                                                    {mengulangStudents.map((s, idx) => (
+                                                        <div key={s.id} style={{
+                                                            padding: '0.5rem 0.75rem',
+                                                            borderBottom: idx < mengulangStudents.length - 1 ? '1px solid var(--border-color)' : 'none',
+                                                            display: 'flex',
+                                                            justifyContent: 'space-between',
+                                                            alignItems: 'center'
+                                                        }}>
+                                                            <span>{s.mahasiswa?.nim_nip} — {s.mahasiswa?.nama}</span>
+                                                            <span style={{ color: 'var(--error-600)', fontWeight: '600' }}>
+                                                                Nilai: {Math.round(s.nilai_total)}
+                                                            </span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+                                            <small style={{ color: 'var(--text-muted)', marginTop: '4px', display: 'block' }}>
+                                                ℹ️ Nilai maksimal ujian ulang: 70. Batas ujian ulang: 2 kali.
+                                            </small>
+                                        </div>
+                                    </>
+                                )}
+                            </>
+                        )}
                         <div className="form-group">
                             <label className="form-label">Tanggal</label>
                             <input
@@ -421,7 +575,9 @@ function JadwalUjianPage() {
                 durasi: parseInt(data.durasi) || 90,
                 ruangan_id: data.ruangan_id || null,
                 dosen_id: data.dosen_id || null,
-                tahun_akademik: settings?.tahunAkademik || null
+                tahun_akademik: settings?.tahunAkademik || null,
+                parent_jadwal_id: data.parent_jadwal_id || null,
+                ulang_ke: data.ulang_ke || 0
             }
 
             if (useSupabase) {
@@ -507,6 +663,7 @@ function JadwalUjianPage() {
         switch (tipe) {
             case 'UAS': return 'error'
             case 'UTS': return 'warning'
+            case 'ULANG': return 'accent'
             default: return 'info'
         }
     }
@@ -716,7 +873,9 @@ function JadwalUjianPage() {
                                                         </td>
                                                     )}
                                                     <td>
-                                                        <span className={`badge badge-${getTipeBadge(getJadwalTipe(j))}`}>{getJadwalTipe(j)}</span>
+                                                        <span className={`badge badge-${getTipeBadge(getJadwalTipe(j))}`}>
+                                                            {getJadwalTipe(j) === 'ULANG' ? `ULANG-${j.ulang_ke || 1}` : getJadwalTipe(j)}
+                                                        </span>
                                                     </td>
 
                                                     {!isSuperAdmin && (
@@ -769,6 +928,7 @@ function JadwalUjianPage() {
                     kelasList={user?.role === 'superadmin' ? kelasList : kelasList.filter(k => (k.prodi_id || k.prodiId) === user?.prodiId)}
                     ruangList={ruangList}
                     dosenList={user?.role === 'superadmin' ? dosenList : dosenList.filter(d => (d.prodi_id || d.prodiId) === user?.prodiId)}
+                    jadwalList={prodiFilteredJadwal}
                 />
             </div>
 

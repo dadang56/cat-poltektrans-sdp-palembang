@@ -71,20 +71,29 @@ function HasilUjianPage() {
                                 : []
                         } catch (e) { /* ignore parse errors */ }
 
+                        // Handle ULANG exams
+                        const isUlang = tipeUjian === 'ULANG' || r.is_ulang
+                        const nilaiFinal = r.nilai_final != null ? Number(r.nilai_final) : percentScore
+                        const ulangKe = jadwal.ulang_ke || 0
+
                         return {
                             id: r.id,
-                            name: `${tipeUjian} ${matkul.nama || 'Ujian'}`,
+                            name: isUlang
+                                ? `Ujian Ulang ke-${ulangKe} ${matkul.nama || 'Ujian'}`
+                                : `${tipeUjian} ${matkul.nama || 'Ujian'}`,
                             matkul: matkul.nama || '-',
                             dosen: jadwal.dosen?.nama || '-',
                             date: jadwal.tanggal || r.waktu_mulai?.split('T')[0] || '-',
                             type: tipeUjian,
+                            isUlang: isUlang,
+                            ulangKe: ulangKe,
+                            nilaiFinal: nilaiFinal,
                             totalQuestions: answersDetail.length || 0,
                             correctAnswers: r.jumlah_benar ?? null,
                             score: percentScore,
                             status: status,
                             rawScore: rawScore,
                             maxScore: maxScore,
-                            // Additional fields for NAK/NH display
                             nak: r.nak ?? null,
                             nh: r.nh ?? null,
                             nt: r.nt ?? null,
@@ -376,6 +385,7 @@ function HasilUjianPage() {
                                     <option value="all">Semua Jenis</option>
                                     <option value="UTS">UTS</option>
                                     <option value="UAS">UAS</option>
+                                    <option value="ULANG">Ujian Ulang</option>
                                 </select>
                             </div>
                             <div className="filter-group">
@@ -402,8 +412,8 @@ function HasilUjianPage() {
                                     <div className="result-main">
                                         <div className="result-info">
                                             <div className="result-header">
-                                                <span className={`badge badge-${result.type === 'UTS' ? 'primary' : result.type === 'UAS' ? 'error' : 'info'}`}>
-                                                    {result.type}
+                                                <span className={`badge badge-${result.type === 'UTS' ? 'primary' : result.type === 'UAS' ? 'error' : result.type === 'ULANG' ? 'accent' : 'info'}`}>
+                                                    {result.isUlang ? `ULANG-${result.ulangKe}` : result.type}
                                                 </span>
                                                 {getStatusBadge(result.status)}
                                             </div>
@@ -411,13 +421,23 @@ function HasilUjianPage() {
                                             <p className="result-matkul">{result.matkul} • {result.dosen}</p>
                                             <div className="result-meta">
                                                 <span><Calendar size={14} /> {result.date}</span>
+                                                {result.isUlang && (
+                                                    <span style={{ color: 'var(--warning-600)', fontWeight: '500' }}>
+                                                        ⚠️ Nilai maks: 70
+                                                    </span>
+                                                )}
                                             </div>
                                         </div>
                                         <div className="result-score-section">
                                             {result.status === 'graded' ? (
-                                                <div className={`result-score ${getScoreColor(result.score)}`}>
-                                                    <span className="score-number">{result.score}</span>
-                                                    <span className="score-label">Nilai</span>
+                                                <div className={`result-score ${getScoreColor(result.isUlang ? result.nilaiFinal : result.score)}`}>
+                                                    <span className="score-number">{result.isUlang ? result.nilaiFinal : result.score}</span>
+                                                    <span className="score-label">{result.isUlang ? 'Nilai Final' : 'Nilai'}</span>
+                                                    {result.isUlang && result.score !== result.nilaiFinal && (
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: '2px' }}>
+                                                            Asli: {result.score}
+                                                        </span>
+                                                    )}
                                                 </div>
                                             ) : (
                                                 <div className="result-score score-pending">

@@ -822,6 +822,17 @@ function BuatSoalPage() {
     }
 
     const handleSaveQuestion = async (data) => {
+        // Validate total points won't exceed 100 when inside a package
+        if (selectedPackage) {
+            const pkgQuestions = getPackageQuestions()
+            const currentPoints = pkgQuestions.reduce((sum, q) => sum + (q.points || 0), 0)
+            const editingPoints = editingQuestion ? (editingQuestion.points || 0) : 0
+            const newTotal = currentPoints - editingPoints + (data.points || 0)
+            if (newTotal > 100) {
+                alert(`Total poin akan menjadi ${newTotal}/100. Maksimal total poin adalah 100. Sisa poin yang tersedia: ${100 - currentPoints + editingPoints}`)
+                return
+            }
+        }
         try {
             // If inside a package, auto-set matkulId and examType
             const questionData = selectedPackage ? {
@@ -879,11 +890,23 @@ function BuatSoalPage() {
             }
 
             // These columns may not exist if migrations haven't been run
-            // Only include them if they have values to avoid insert errors
-            if (questionData.kelasIds && questionData.kelasIds.length > 0) supabaseData.kelas_ids = questionData.kelasIds
-            if (questionData.image) supabaseData.gambar = questionData.image
-            if (resolvedClusterId) supabaseData.cluster_id = resolvedClusterId
-            if (questionData.clusterLabel) supabaseData.cluster_label = questionData.clusterLabel
+            // For UPDATES: always include to allow clearing values
+            // For CREATES: only include if they have values to avoid insert errors on missing columns
+            const isUpdate = editingQuestion && !editingQuestion._isNewVariant
+
+            if (isUpdate) {
+                // Always set these for updates so clearing works
+                supabaseData.kelas_ids = (questionData.kelasIds && questionData.kelasIds.length > 0) ? questionData.kelasIds : []
+                supabaseData.gambar = questionData.image || null
+                supabaseData.cluster_id = resolvedClusterId || null
+                supabaseData.cluster_label = questionData.clusterLabel || null
+            } else {
+                // Only include for creates if they have values
+                if (questionData.kelasIds && questionData.kelasIds.length > 0) supabaseData.kelas_ids = questionData.kelasIds
+                if (questionData.image) supabaseData.gambar = questionData.image
+                if (resolvedClusterId) supabaseData.cluster_id = resolvedClusterId
+                if (questionData.clusterLabel) supabaseData.cluster_label = questionData.clusterLabel
+            }
 
             if (editingQuestion && !editingQuestion._isNewVariant) {
                 // Update existing question in Supabase
@@ -1283,7 +1306,19 @@ function BuatSoalPage() {
                                     ← Kembali ke Paket Soal
                                 </button>
                                 <h1 className="page-title">{getMatkulName(selectedPackage?.matkulId)} - {selectedPackage?.examType}</h1>
-                                <p className="page-subtitle">Kelola soal dalam paket ini</p>
+                                {(() => {
+                                    const pkgQ = getPackageQuestions()
+                                    const totalPts = pkgQ.reduce((sum, q) => sum + (q.points || 0), 0)
+                                    const color = totalPts === 100 ? 'var(--success-600)' : totalPts > 100 ? 'var(--error-600)' : 'var(--text-muted)'
+                                    return (
+                                        <p className="page-subtitle">
+                                            Kelola soal dalam paket ini • 
+                                            <span style={{ fontWeight: '600', color, marginLeft: '4px' }}>
+                                                Total Poin: {totalPts}/100 {totalPts === 100 ? '✓' : totalPts > 100 ? '⚠ Kelebihan!' : `(Sisa: ${100 - totalPts})`}
+                                            </span>
+                                        </p>
+                                    )
+                                })()}
                             </>
                         )}
                     </div>
@@ -1323,6 +1358,18 @@ function BuatSoalPage() {
                         <span>📝 Skala nilai: 0-100</span>
                         <span className="divider">|</span>
                         <span>✓ Batas nilai lulus ujian: 70</span>
+                        {selectedPackage && (() => {
+                            const pkgQ = getPackageQuestions()
+                            const totalPts = pkgQ.reduce((sum, q) => sum + (q.points || 0), 0)
+                            return (
+                                <>
+                                    <span className="divider">|</span>
+                                    <span style={{ fontWeight: '600', color: totalPts === 100 ? 'var(--success-600)' : totalPts > 100 ? 'var(--error-600)' : 'var(--warning-600)' }}>
+                                        Akumulasi Poin: {totalPts}/100 {totalPts === 100 ? '✅' : totalPts > 100 ? '❌ Kelebihan!' : `⚠️ Kurang ${100 - totalPts}`}
+                                    </span>
+                                </>
+                            )
+                        })()}
                     </div>
                 </div>
 
@@ -1425,6 +1472,27 @@ function BuatSoalPage() {
                                                         )
                                                     }
                                                     return null
+                                                })()}
+                                                {/* Points Progress */}
+                                                {(() => {
+                                                    const totalPoints = pkg.questions.reduce((sum, q) => sum + (q.points || 0), 0)
+                                                    const percentage = Math.min((totalPoints / 100) * 100, 100)
+                                                    const barColor = totalPoints === 100 ? 'var(--success-500)' : totalPoints > 100 ? 'var(--error-500)' : 'var(--warning-500)'
+                                                    return (
+                                                        <div style={{ marginTop: '0.75rem' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                                                <span style={{ fontSize: '0.8rem', fontWeight: '600', color: barColor }}>
+                                                                    {totalPoints}/100 poin
+                                                                </span>
+                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                                                                    {totalPoints === 100 ? '✓ Lengkap' : totalPoints > 100 ? `⚠ Kelebihan ${totalPoints - 100}` : `Sisa: ${100 - totalPoints}`}
+                                                                </span>
+                                                            </div>
+                                                            <div style={{ height: '6px', background: 'var(--bg-tertiary)', borderRadius: '3px', overflow: 'hidden' }}>
+                                                                <div style={{ height: '100%', width: `${percentage}%`, background: barColor, borderRadius: '3px', transition: 'width 0.3s ease' }} />
+                                                            </div>
+                                                        </div>
+                                                    )
                                                 })()}
                                                 <div style={{
                                                     display: 'flex',

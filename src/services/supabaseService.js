@@ -339,6 +339,36 @@ export const jadwalService = {
         return data
     },
 
+    // Get remedial exams linked to a parent jadwal
+    async getUlangByParent(parentJadwalId) {
+        const { data, error } = await supabase
+            .from('jadwal_ujian')
+            .select(`
+                *,
+                matkul:matkul_id(id, nama, kode, prodi_id),
+                kelas:kelas_id(id, nama),
+                dosen:dosen_id(id, nama)
+            `)
+            .eq('parent_jadwal_id', parentJadwalId)
+            .order('ulang_ke', { ascending: true })
+
+        if (error) throw error
+        return data || []
+    },
+
+    // Get the max ulang_ke for a parent jadwal
+    async getMaxUlangKe(parentJadwalId) {
+        const { data, error } = await supabase
+            .from('jadwal_ujian')
+            .select('ulang_ke')
+            .eq('parent_jadwal_id', parentJadwalId)
+            .order('ulang_ke', { ascending: false })
+            .limit(1)
+
+        if (error) throw error
+        return data?.[0]?.ulang_ke || 0
+    },
+
     async create(jadwalData) {
         const { data, error } = await supabase
             .from('jadwal_ujian')
@@ -702,6 +732,47 @@ export const hasilUjianService = {
 
         if (error) throw error
         return data
+    },
+
+    // Get students who failed (< 70) on a specific jadwal — candidates for remedial
+    async getMengulangStudents(jadwalId) {
+        const { data, error } = await supabase
+            .from('hasil_ujian')
+            .select(`
+                *,
+                mahasiswa:mahasiswa_id(id, nama, nim_nip, kelas:kelas_id(id, nama))
+            `)
+            .eq('jadwal_id', jadwalId)
+            .lt('nilai_total', 70)
+            .in('status', ['submitted', 'graded'])
+
+        if (error) throw error
+        return data || []
+    },
+
+    // Count how many remedial attempts a student has done for a parent jadwal
+    async getUlangCount(parentJadwalId, mahasiswaId) {
+        // First get all remedial jadwal IDs for this parent
+        const { data: ulangJadwal, error: e1 } = await supabase
+            .from('jadwal_ujian')
+            .select('id, ulang_ke')
+            .eq('parent_jadwal_id', parentJadwalId)
+
+        if (e1) throw e1
+        if (!ulangJadwal || ulangJadwal.length === 0) return 0
+
+        const jadwalIds = ulangJadwal.map(j => j.id)
+
+        // Count how many hasil_ujian records exist for this student across those jadwal
+        const { data: hasil, error: e2 } = await supabase
+            .from('hasil_ujian')
+            .select('id')
+            .eq('mahasiswa_id', mahasiswaId)
+            .in('jadwal_id', jadwalIds)
+            .in('status', ['submitted', 'graded'])
+
+        if (e2) throw e2
+        return hasil?.length || 0
     }
 }
 

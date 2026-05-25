@@ -115,13 +115,18 @@ function NilaiUASPage() {
                     if (!examId) return
 
                     if (!examGroups[examId]) {
+                        const isUlang = jadwal.tipe === 'ULANG'
                         examGroups[examId] = {
                             id: examId,
-                            examName: `${jadwal.tipe || 'UJIAN'} ${matkul.nama || ''}`,
+                            examName: isUlang
+                                ? `Ujian Ulang ke-${jadwal.ulang_ke || 1} ${matkul.nama || ''}`
+                                : `${jadwal.tipe || 'UJIAN'} ${matkul.nama || ''}`,
                             examType: jadwal.tipe?.toLowerCase() || 'uas',
                             matkul: matkul.nama || 'N/A',
                             kelas: kelas.nama || 'N/A',
                             date: jadwal.tanggal || 'N/A',
+                            isUlang: isUlang,
+                            ulangKe: jadwal.ulang_ke || 0,
                             students: []
                         }
                     }
@@ -139,15 +144,17 @@ function NilaiUASPage() {
                     // Let's verify TakeExam logic later if needed.
 
                     examGroups[examId].students.push({
-                        id: r.id, // ID hasil_ujian
+                        id: r.id,
                         resultId: r.id,
                         mahasiswaId: r.mahasiswa_id,
                         name: mahasiswa.nama || 'Unknown',
                         nim: mahasiswa.nim_nip || '-',
                         score: Number(r.nilai_total || 0),
+                        nilaiFinal: r.nilai_final != null ? Number(r.nilai_final) : Number(r.nilai_total || 0),
+                        isUlang: r.is_ulang || false,
                         rawScore: r.nilai_total,
-                        maxScore: 100, // Assumed
-                        isFullyCorrected: true // Auto-graded usually
+                        maxScore: 100,
+                        isFullyCorrected: true
                     })
                 })
 
@@ -444,6 +451,12 @@ function NilaiUASPage() {
                     >
                         UAS
                     </button>
+                    <button
+                        className={`tab-btn ${examTypeFilter === 'ulang' ? 'active' : ''}`}
+                        onClick={() => setExamTypeFilter('ulang')}
+                    >
+                        Ujian Ulang
+                    </button>
                 </div>
 
                 {/* Exam List */}
@@ -563,13 +576,20 @@ function NilaiUASPage() {
                                                             <td className="font-medium">{student.name}</td>
                                                             <td>{student.nim}</td>
                                                             <td>
-                                                                <span className={`score-badge score-${getScoreColor(student.score)}`}>
-                                                                    {student.score}
+                                                                <span className={`score-badge score-${getScoreColor(student.isUlang ? student.nilaiFinal : student.score)}`}>
+                                                                    {student.isUlang ? student.nilaiFinal : student.score}
                                                                 </span>
+                                                                {student.isUlang && student.score !== student.nilaiFinal && (
+                                                                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', marginLeft: '4px' }}>
+                                                                        (asli: {student.score})
+                                                                    </span>
+                                                                )}
                                                             </td>
                                                             <td>
                                                                 {student.score < 70 ? (
                                                                     <span className="badge badge-error">MENGULANG</span>
+                                                                ) : student.isUlang ? (
+                                                                    <span className="badge badge-warning">LULUS (Maks 70)</span>
                                                                 ) : (
                                                                     <span className="badge badge-success">LULUS</span>
                                                                 )}

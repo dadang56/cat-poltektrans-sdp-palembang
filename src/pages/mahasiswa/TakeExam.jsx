@@ -90,7 +90,20 @@ function TakeExamPage() {
 
                     if (jadwal) {
                         const matkulId = jadwal.matkul_id || jadwal.matkulId
-                        const examType = (jadwal.tipe || jadwal.tipe_ujian || jadwal.tipeUjian || '').toUpperCase()
+                        let examType = (jadwal.tipe || jadwal.tipe_ujian || jadwal.tipeUjian || '').toUpperCase()
+
+                        // For ULANG exams, load soal based on the parent jadwal's tipe (UTS/UAS)
+                        if (examType === 'ULANG' && jadwal.parent_jadwal_id) {
+                            try {
+                                const parentJadwal = await jadwalService.getById(jadwal.parent_jadwal_id)
+                                if (parentJadwal) {
+                                    examType = (parentJadwal.tipe || 'UTS').toUpperCase()
+                                    console.log('TakeExam: ULANG exam, using parent tipe:', examType)
+                                }
+                            } catch (e) {
+                                console.error('TakeExam: Error loading parent jadwal:', e)
+                            }
+                        }
 
                         allSoal = await soalService.getAll({ matkul_id: matkulId })
                         allSoal = allSoal.filter(s => {
@@ -293,10 +306,13 @@ function TakeExamPage() {
                     // Set exam data
                     setExamData({
                         id: jadwal.id,
-                        name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
+                        name: `${tipeUjian === 'ULANG' ? `Ujian Ulang ke-${jadwal.ulang_ke || 1}` : tipeUjian} ${matkul?.nama || 'Ujian'}`,
                         duration: durasiMenit,
                         matkulName: matkul?.nama || 'N/A',
-                        dosenName: jadwal.dosen?.nama || '-'
+                        dosenName: jadwal.dosen?.nama || '-',
+                        tipeUjian: tipeUjian,
+                        ulangKe: jadwal.ulang_ke || 0,
+                        parentJadwalId: jadwal.parent_jadwal_id || null
                     })
                     setQuestions(examSoal)
 
@@ -745,11 +761,21 @@ function TakeExamPage() {
             const jumlahKosong = answerDetails.filter(a => a.answer === null).length
 
             try {
+                // Determine if this is an ULANG exam and apply score capping
+                const isUlang = examData.tipeUjian === 'ULANG'
+                let nilaiFinal = totalScore
+                if (isUlang && totalScore >= 70) {
+                    nilaiFinal = 70 // Cap at 70 for remedial exams
+                    console.log('[TakeExam] ULANG exam: score capped from', totalScore, 'to', nilaiFinal)
+                }
+
                 // Save to hasil_ujian table
                 const hasilData = {
                     jadwal_id: examData.id,
                     mahasiswa_id: user?.id,
                     nilai_total: totalScore,
+                    nilai_final: nilaiFinal,
+                    is_ulang: isUlang,
                     jumlah_benar: jumlahBenar,
                     jumlah_salah: jumlahSalah,
                     jumlah_kosong: jumlahKosong,

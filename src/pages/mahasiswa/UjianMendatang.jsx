@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
-import { jadwalService, matkulService, kelasService, userService, soalService, ruangService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, kelasService, userService, soalService, ruangService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardList,
     Calendar,
@@ -193,6 +193,7 @@ function UjianPage() {
     const [soalList, setSoalList] = useState([])
     const [ruangList, setRuangList] = useState([])
     const [completedExamIds, setCompletedExamIds] = useState([])
+    const [ulangEligibility, setUlangEligibility] = useState({}) // { jadwalId: true/false }
     const [confirmModal, setConfirmModal] = useState({ open: false, exam: null })
 
     useEffect(() => {
@@ -217,12 +218,27 @@ function UjianPage() {
                     // Load completed exams from Supabase
                     if (user?.id) {
                         try {
-                            const { hasilUjianService } = await import('../../services/supabaseService')
                             const results = await hasilUjianService.getByMahasiswa(user.id)
                             const doneIds = (results || [])
                                 .filter(r => r.status === 'submitted' || r.status === 'graded')
                                 .map(r => String(r.jadwal_id))
                             setCompletedExamIds(doneIds)
+
+                            // Check ULANG eligibility for each ULANG jadwal
+                            const ulangJadwal = jadwal.filter(j => j.tipe === 'ULANG' && j.parent_jadwal_id)
+                            const eligibility = {}
+                            for (const uj of ulangJadwal) {
+                                // Check if student scored < 70 on parent exam
+                                const parentResult = results?.find(r => String(r.jadwal_id) === String(uj.parent_jadwal_id))
+                                if (parentResult && parentResult.nilai_total < 70) {
+                                    // Check if student hasn't exceeded max retakes (2)
+                                    const ulangCount = await hasilUjianService.getUlangCount(uj.parent_jadwal_id, user.id)
+                                    eligibility[uj.id] = ulangCount < 2
+                                } else {
+                                    eligibility[uj.id] = false
+                                }
+                            }
+                            setUlangEligibility(eligibility)
                         } catch (e) {
                             console.error('[UjianMendatang] Error loading exam results:', e)
                         }
@@ -247,6 +263,10 @@ function UjianPage() {
             // Must match kelas
             const jKelasId = getField(j, 'kelas_id', 'kelasId')
             if (jKelasId !== mahasiswaKelasId) return false
+            // For ULANG exams, check eligibility
+            if (j.tipe === 'ULANG') {
+                if (!ulangEligibility[j.id]) return false
+            }
             // Hide exams expired more than 1 day ago
             const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
             const waktuMulaiCheck = getField(j, 'waktu_mulai', 'waktuMulai')
@@ -321,17 +341,17 @@ function UjianPage() {
                 ...j,
                 tipeUjian,
                 matkulName: matkul?.nama || 'Mata Kuliah',
+                namaUjian: tipeUjian === 'ULANG' ? `Ujian Ulang ke-${j.ulang_ke || 1} ${matkul?.nama || ''}` : undefined,
                 dosenName: finalDosenName,
                 kelasName: kelas?.nama || '-',
-                ruang: ruangan?.nama || '-', // Use room name from ruang_ujian table
-                // Calculate exam time
+                ruang: ruangan?.nama || '-',
                 date: j.tanggal,
                 time: waktuMulai,
                 endTime: waktuSelesai,
-                completed: alreadySubmitted, // Check from exam results
-                // Durasi dan jumlah soal
+                completed: alreadySubmitted,
                 durasi: j.durasi || durasiMenit,
-                jumlahSoal: examSoal.length
+                jumlahSoal: examSoal.length,
+                ulangKe: j.ulang_ke || 0
             }
         })
         .sort((a, b) => {
@@ -487,10 +507,15 @@ function UjianPage() {
                                 <div className="exam-card-header">
                                     <div className="exam-badges">
                                         <span className={`badge badge-${exam.tipeUjian === 'UTS' ? 'primary' : exam.tipeUjian === 'UAS' ? 'error' : 'accent'}`}>
-                                            {exam.tipeUjian}
+                                            {exam.tipeUjian === 'ULANG' ? `ULANG-${exam.ulangKe}` : exam.tipeUjian}
                                         </span>
                                         {getStatusBadge(exam)}
                                     </div>
+                                    {exam.tipeUjian === 'ULANG' && (
+                                        <div style={{ marginTop: '6px', fontSize: '0.75rem', color: 'var(--warning-600)', fontWeight: '500' }}>
+                                            ⚠️ Nilai maksimal ujian ulang: 70
+                                        </div>
+                                    )}
                                 </div>
 
                                 <div className="exam-card-body">
