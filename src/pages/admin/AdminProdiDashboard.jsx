@@ -100,7 +100,14 @@ function AdminProdiDashboard() {
                     const now = new Date()
                     const upcomingJadwal = jadwalList.filter(j => {
                         const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
-                        return examStart > now && (j.tipe === 'UTS' || j.tipe === 'UAS')
+                        if (examStart <= now) return false
+                        if (j.tipe !== 'UTS' && j.tipe !== 'UAS') return false
+                        // Filter by prodi - only show jadwal for this admin's prodi
+                        if (user?.prodiId) {
+                            const matkulProdiId = j.matkul?.prodi_id
+                            if (matkulProdiId && String(matkulProdiId) !== String(user.prodiId)) return false
+                        }
+                        return true
                     })
                     
                     const readiness = upcomingJadwal.map(j => {
