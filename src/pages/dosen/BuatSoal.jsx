@@ -799,6 +799,25 @@ function BuatSoalPage() {
         )
     }
 
+    // Calculate effective points: for clustered soal, only count 1 per cluster
+    // because each student only sees 1 variant per cluster during the exam
+    const calcEffectivePoints = (questionsList) => {
+        let total = 0
+        const seenClusters = new Set()
+        for (const q of questionsList) {
+            if (q.clusterId) {
+                if (!seenClusters.has(q.clusterId)) {
+                    seenClusters.add(q.clusterId)
+                    total += (q.points || 0)
+                }
+                // skip additional variants in the same cluster
+            } else {
+                total += (q.points || 0)
+            }
+        }
+        return total
+    }
+
     // Handle entering a package
     const handleEnterPackage = (pkg) => {
         setSelectedPackage({ matkulId: pkg.matkulId, examType: pkg.examType })
@@ -825,11 +844,14 @@ function BuatSoalPage() {
         // Validate total points won't exceed 100 when inside a package
         if (selectedPackage) {
             const pkgQuestions = getPackageQuestions()
-            const currentPoints = pkgQuestions.reduce((sum, q) => sum + (q.points || 0), 0)
-            const editingPoints = editingQuestion ? (editingQuestion.points || 0) : 0
-            const newTotal = currentPoints - editingPoints + (data.points || 0)
+            // For validation, simulate replacing the edited question with the new data
+            const simulatedQuestions = editingQuestion
+                ? pkgQuestions.map(q => q.id === editingQuestion.id ? { ...q, points: data.points || 0, clusterId: data.clusterId || q.clusterId, clusterLabel: data.clusterLabel } : q)
+                : [...pkgQuestions, { points: data.points || 0, clusterId: data.clusterId || null, clusterLabel: data.clusterLabel }]
+            const newTotal = calcEffectivePoints(simulatedQuestions)
             if (newTotal > 100) {
-                alert(`Total poin akan menjadi ${newTotal}/100. Maksimal total poin adalah 100. Sisa poin yang tersedia: ${100 - currentPoints + editingPoints}`)
+                const currentEffective = calcEffectivePoints(pkgQuestions)
+                alert(`Total poin efektif akan menjadi ${newTotal}/100. Maksimal total poin adalah 100. Sisa poin yang tersedia: ${100 - currentEffective + (editingQuestion ? (editingQuestion.points || 0) : 0)}`)
                 return
             }
         }
@@ -1308,7 +1330,7 @@ function BuatSoalPage() {
                                 <h1 className="page-title">{getMatkulName(selectedPackage?.matkulId)} - {selectedPackage?.examType}</h1>
                                 {(() => {
                                     const pkgQ = getPackageQuestions()
-                                    const totalPts = pkgQ.reduce((sum, q) => sum + (q.points || 0), 0)
+                                    const totalPts = calcEffectivePoints(pkgQ)
                                     const color = totalPts === 100 ? 'var(--success-600)' : totalPts > 100 ? 'var(--error-600)' : 'var(--text-muted)'
                                     return (
                                         <p className="page-subtitle">
@@ -1360,7 +1382,7 @@ function BuatSoalPage() {
                         <span>✓ Batas nilai lulus ujian: 70</span>
                         {selectedPackage && (() => {
                             const pkgQ = getPackageQuestions()
-                            const totalPts = pkgQ.reduce((sum, q) => sum + (q.points || 0), 0)
+                            const totalPts = calcEffectivePoints(pkgQ)
                             return (
                                 <>
                                     <span className="divider">|</span>
@@ -1475,7 +1497,7 @@ function BuatSoalPage() {
                                                 })()}
                                                 {/* Points Progress */}
                                                 {(() => {
-                                                    const totalPoints = pkg.questions.reduce((sum, q) => sum + (q.points || 0), 0)
+                                                    const totalPoints = calcEffectivePoints(pkg.questions)
                                                     const percentage = Math.min((totalPoints / 100) * 100, 100)
                                                     const barColor = totalPoints === 100 ? 'var(--success-500)' : totalPoints > 100 ? 'var(--error-500)' : 'var(--warning-500)'
                                                     return (
