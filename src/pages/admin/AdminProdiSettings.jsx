@@ -2,14 +2,19 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
-import { prodiService } from '../../services/supabaseService'
+import { prodiService, backupService } from '../../services/supabaseService'
 import { isSupabaseConfigured } from '../../lib/supabase'
 import {
     Building2,
     Save,
     Calendar,
     Check,
-    User
+    User,
+    Download,
+    Upload,
+    Database,
+    Loader2,
+    AlertCircle
 } from 'lucide-react'
 import './Dashboard.css'
 
@@ -111,6 +116,85 @@ function AdminProdiSettings() {
         }
     }
 
+    // Backup & Restore
+    const [backupLoading, setBackupLoading] = useState(false)
+    const [restoreLoading, setRestoreLoading] = useState(false)
+    const [backupStatus, setBackupStatus] = useState(null)
+
+    const handleBackup = async () => {
+        setBackupLoading(true)
+        setBackupStatus(null)
+        try {
+            const backup = await backupService.exportAll()
+            const json = JSON.stringify(backup, null, 2)
+            const blob = new Blob([json], { type: 'application/json' })
+            const url = URL.createObjectURL(blob)
+            const a = document.createElement('a')
+            const date = new Date().toISOString().split('T')[0]
+            a.href = url
+            a.download = `backup-sipandu-${date}.json`
+            a.click()
+            URL.revokeObjectURL(url)
+
+            // Show summary
+            const totalRows = Object.values(backup.tables).reduce((sum, t) => sum + t.length, 0)
+            const tableCount = Object.keys(backup.tables).length
+            setBackupStatus({ type: 'success', message: `Backup berhasil! ${totalRows} data dari ${tableCount} tabel.` })
+        } catch (err) {
+            console.error('Backup error:', err)
+            setBackupStatus({ type: 'error', message: 'Gagal membuat backup: ' + err.message })
+        } finally {
+            setBackupLoading(false)
+        }
+    }
+
+    const handleRestore = async (e) => {
+        const file = e.target.files[0]
+        if (!file) return
+        e.target.value = '' // Reset input
+
+        if (!confirm('⚠️ PERINGATAN: Restore akan menimpa data yang sudah ada dengan data dari file backup.\n\nLanjutkan?')) return
+
+        setRestoreLoading(true)
+        setBackupStatus(null)
+        try {
+            const text = await file.text()
+            const backup = JSON.parse(text)
+
+            if (!backup.version || !backup.tables) {
+                throw new Error('Format file backup tidak valid')
+            }
+
+            // Restore order matters: parent tables first
+            const restoreOrder = [
+                'prodi', 'ruangan', 'users', 'kelas', 'mata_kuliah',
+                'jadwal_ujian', 'soal', 'hasil_ujian', 'jawaban_mahasiswa',
+                'kehadiran', 'berita_acara', 'nilai_pusbangkatar'
+            ]
+
+            let totalInserted = 0
+            let totalErrors = 0
+
+            for (const table of restoreOrder) {
+                if (backup.tables[table] && backup.tables[table].length > 0) {
+                    const result = await backupService.restoreTable(table, backup.tables[table])
+                    totalInserted += result.inserted
+                    totalErrors += result.errors
+                }
+            }
+
+            setBackupStatus({
+                type: totalErrors > 0 ? 'warning' : 'success',
+                message: `Restore selesai! ${totalInserted} data berhasil, ${totalErrors} gagal. Backup dari: ${new Date(backup.timestamp).toLocaleString('id-ID')}`
+            })
+        } catch (err) {
+            console.error('Restore error:', err)
+            setBackupStatus({ type: 'error', message: 'Gagal restore: ' + err.message })
+        } finally {
+            setRestoreLoading(false)
+        }
+    }
+
     return (
         <DashboardLayout>
             <div className="dashboard-page animate-fadeIn">
@@ -184,6 +268,68 @@ function AdminProdiSettings() {
                                 />
                             </div>
                         </div>
+                    </div>
+                </div>
+
+                {/* Backup & Restore */}
+                <div className="card" style={{ marginBottom: '2rem' }}>
+                    <div className="card-header">
+                        <div className="flex items-center gap-3">
+                            <Database size={20} className="text-secondary" />
+                            <h3 className="font-semibold">Backup & Restore Data</h3>
+                        </div>
+                    </div>
+                    <div className="card-body">
+                        <p className="text-sm text-muted mb-4">
+                            Backup seluruh data ke file lokal (JSON). Gunakan untuk mencegah kehilangan data.
+                            Disarankan backup secara rutin sebelum menghapus data.
+                        </p>
+                        <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap', marginBottom: '1rem' }}>
+                            <button
+                                className="btn btn-primary"
+                                onClick={handleBackup}
+                                disabled={backupLoading || restoreLoading}
+                            >
+                                {backupLoading ? (
+                                    <><Loader2 size={18} className="spin" /> Membuat Backup...</>
+                                ) : (
+                                    <><Download size={18} /> Download Backup</>
+                                )}
+                            </button>
+                            <label
+                                className="btn btn-outline"
+                                style={{ cursor: restoreLoading ? 'not-allowed' : 'pointer' }}
+                            >
+                                {restoreLoading ? (
+                                    <><Loader2 size={18} className="spin" /> Memulihkan...</>
+                                ) : (
+                                    <><Upload size={18} /> Restore dari File</>
+                                )}
+                                <input
+                                    type="file"
+                                    accept=".json"
+                                    style={{ display: 'none' }}
+                                    onChange={handleRestore}
+                                    disabled={restoreLoading}
+                                />
+                            </label>
+                        </div>
+                        {backupStatus && (
+                            <div style={{
+                                padding: '0.75rem 1rem',
+                                borderRadius: '0.5rem',
+                                fontSize: '0.875rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '0.5rem',
+                                background: backupStatus.type === 'success' ? 'var(--success-50)' : backupStatus.type === 'warning' ? 'var(--warning-50)' : 'var(--error-50)',
+                                color: backupStatus.type === 'success' ? 'var(--success-700)' : backupStatus.type === 'warning' ? 'var(--warning-700)' : 'var(--error-700)',
+                                border: `1px solid ${backupStatus.type === 'success' ? 'var(--success-200)' : backupStatus.type === 'warning' ? 'var(--warning-200)' : 'var(--error-200)'}`
+                            }}>
+                                {backupStatus.type === 'success' ? <Check size={16} /> : <AlertCircle size={16} />}
+                                {backupStatus.message}
+                            </div>
+                        )}
                     </div>
                 </div>
 

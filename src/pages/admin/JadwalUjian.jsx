@@ -17,7 +17,9 @@ import {
     Filter,
     Printer,
     RefreshCw,
-    AlertCircle
+    AlertCircle,
+    RotateCcw,
+    Archive
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -613,20 +615,101 @@ function JadwalUjianPage() {
     }
 
     const handleDelete = async (id) => {
+        try {
+            // Count related data to warn user
+            let relatedInfo = ''
+            if (useSupabase) {
+                const counts = await jadwalService.countRelated(id)
+                const parts = []
+                if (counts.hasilUjian > 0) parts.push(`${counts.hasilUjian} hasil ujian`)
+                if (counts.jawaban > 0) parts.push(`${counts.jawaban} jawaban mahasiswa`)
+                if (counts.kehadiran > 0) parts.push(`${counts.kehadiran} data kehadiran`)
+                if (counts.beritaAcara > 0) parts.push(`${counts.beritaAcara} berita acara`)
+                if (parts.length > 0) {
+                    relatedInfo = `\n\n⚠️ Data terkait: ${parts.join(', ')}\n\nJadwal akan dipindahkan ke Trash dan bisa di-restore kapan saja.`
+                }
+            }
+
+            showConfirm({
+                title: 'Konfirmasi Hapus Jadwal',
+                message: `Apakah Anda yakin ingin menghapus jadwal ujian ini?${relatedInfo}`,
+                onConfirm: async () => {
+                    try {
+                        if (useSupabase) {
+                            await jadwalService.delete(id) // Soft delete
+                            await loadData()
+                        } else {
+                            setJadwalList(jadwalList.filter(j => j.id !== id))
+                        }
+                    } catch (err) {
+                        console.error('Error deleting:', err)
+                        setError('Gagal menghapus jadwal.')
+                    }
+                }
+            })
+        } catch (err) {
+            console.error('Error checking related data:', err)
+            // Fallback to simple confirm if count fails
+            showConfirm({
+                title: 'Konfirmasi Hapus',
+                message: 'Hapus jadwal ujian ini? Jadwal akan dipindahkan ke Trash.',
+                onConfirm: async () => {
+                    try {
+                        if (useSupabase) {
+                            await jadwalService.delete(id)
+                            await loadData()
+                        } else {
+                            setJadwalList(jadwalList.filter(j => j.id !== id))
+                        }
+                    } catch (err2) {
+                        console.error('Error deleting:', err2)
+                        setError('Gagal menghapus jadwal.')
+                    }
+                }
+            })
+        }
+    }
+
+    // Trash/Recovery
+    const [trashOpen, setTrashOpen] = useState(false)
+    const [deletedJadwal, setDeletedJadwal] = useState([])
+    const [loadingTrash, setLoadingTrash] = useState(false)
+
+    const loadTrash = async () => {
+        if (!useSupabase) return
+        setLoadingTrash(true)
+        try {
+            const deleted = await jadwalService.getDeleted()
+            setDeletedJadwal(deleted)
+        } catch (err) {
+            console.error('Error loading trash:', err)
+        } finally {
+            setLoadingTrash(false)
+        }
+    }
+
+    const handleRestore = async (id) => {
+        try {
+            await jadwalService.restore(id)
+            await loadTrash()
+            await loadData()
+        } catch (err) {
+            console.error('Error restoring:', err)
+            setError('Gagal memulihkan jadwal.')
+        }
+    }
+
+    const handlePermanentDelete = async (id) => {
         showConfirm({
-            title: 'Konfirmasi Hapus',
-            message: 'Hapus jadwal ujian ini?',
+            title: '⚠️ Hapus Permanen',
+            message: 'PERINGATAN: Tindakan ini TIDAK BISA DIBATALKAN!\n\nSemua data yang terkait (hasil ujian, jawaban, kehadiran, berita acara) juga akan dihapus secara permanen.\n\nLanjutkan hapus permanen?',
             onConfirm: async () => {
                 try {
-                    if (useSupabase) {
-                        await jadwalService.delete(id)
-                        await loadData()
-                    } else {
-                        setJadwalList(jadwalList.filter(j => j.id !== id))
-                    }
+                    await jadwalService.permanentDelete(id)
+                    await loadTrash()
                 } catch (err) {
-                    console.error('Error deleting:', err)
-                    setError('Gagal menghapus jadwal.')
+                    console.error('Error permanent delete:', err)
+                    setError('Gagal menghapus permanen.')
                 }
             }
         })
@@ -752,6 +835,12 @@ function JadwalUjianPage() {
                             <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
                             {isLoading ? 'Memuat...' : 'Refresh'}
                         </button>
+                        {useSupabase && (
+                            <button className="btn btn-outline" onClick={() => { setTrashOpen(true); loadTrash() }} style={{ color: 'var(--text-muted)' }}>
+                                <Archive size={18} />
+                                Trash
+                            </button>
+                        )}
                         <button className="btn btn-outline" onClick={handlePrint}>
                             <Printer size={18} />
                             Cetak
@@ -983,7 +1072,131 @@ function JadwalUjianPage() {
                     grid-template-columns: 1fr 1fr;
                     gap: var(--space-4);
                 }
+                /* Trash Modal */
+                .trash-overlay {
+                    position: fixed;
+                    inset: 0;
+                    background: rgba(0,0,0,0.5);
+                    z-index: 1000;
+                    display: flex;
+                    justify-content: center;
+                    align-items: center;
+                    padding: 2rem;
+                }
+                .trash-modal {
+                    background: var(--bg-primary);
+                    border-radius: var(--radius-xl);
+                    width: 100%;
+                    max-width: 700px;
+                    max-height: 80vh;
+                    display: flex;
+                    flex-direction: column;
+                    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+                }
+                .trash-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 1.5rem;
+                    border-bottom: 1px solid var(--border-color);
+                }
+                .trash-header h2 {
+                    margin: 0;
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    font-size: 1.1rem;
+                }
+                .trash-body {
+                    overflow-y: auto;
+                    padding: 1rem 1.5rem;
+                    flex: 1;
+                }
+                .trash-item {
+                    display: flex;
+                    align-items: center;
+                    justify-content: space-between;
+                    padding: 0.75rem 1rem;
+                    background: var(--bg-tertiary);
+                    border-radius: var(--radius-md);
+                    margin-bottom: 0.5rem;
+                    border-left: 3px solid var(--error-400);
+                }
+                .trash-item-info h4 {
+                    margin: 0 0 2px;
+                    font-size: 0.9rem;
+                }
+                .trash-item-info p {
+                    margin: 0;
+                    font-size: 0.8rem;
+                    color: var(--text-muted);
+                }
+                .trash-actions {
+                    display: flex;
+                    gap: 0.5rem;
+                }
             `}</style>
+
+            {/* Trash Modal */}
+            {trashOpen && (
+                <div className="trash-overlay" onClick={() => setTrashOpen(false)}>
+                    <div className="trash-modal" onClick={e => e.stopPropagation()}>
+                        <div className="trash-header">
+                            <h2><Archive size={20} /> Trash - Jadwal Terhapus</h2>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setTrashOpen(false)}>
+                                <X size={18} />
+                            </button>
+                        </div>
+                        <div className="trash-body">
+                            {loadingTrash ? (
+                                <div className="empty-state" style={{ padding: '2rem' }}>
+                                    <RefreshCw size={24} className="spin" style={{ color: 'var(--primary)' }} />
+                                    <p>Memuat data...</p>
+                                </div>
+                            ) : deletedJadwal.length === 0 ? (
+                                <div className="empty-state" style={{ padding: '2rem' }}>
+                                    <Archive size={32} />
+                                    <p>Trash kosong — tidak ada jadwal yang dihapus</p>
+                                </div>
+                            ) : (
+                                deletedJadwal.map(j => (
+                                    <div key={j.id} className="trash-item">
+                                        <div className="trash-item-info">
+                                            <h4>{j.tipe?.toUpperCase()} {j.matkul?.nama || '-'}</h4>
+                                            <p>
+                                                {j.kelas?.nama || '-'} • {j.tanggal} • Dosen: {j.dosen?.nama || '-'}
+                                                <br />
+                                                <span style={{ color: 'var(--error-500)', fontSize: '0.75rem' }}>
+                                                    Dihapus: {new Date(j.deleted_at).toLocaleString('id-ID')}
+                                                </span>
+                                            </p>
+                                        </div>
+                                        <div className="trash-actions">
+                                            <button
+                                                className="btn btn-sm"
+                                                style={{ background: 'var(--success-500)', color: '#fff', fontSize: '0.8rem' }}
+                                                onClick={() => handleRestore(j.id)}
+                                                title="Pulihkan jadwal"
+                                            >
+                                                <RotateCcw size={14} />
+                                                Restore
+                                            </button>
+                                            <button
+                                                className="btn btn-sm"
+                                                style={{ background: 'var(--error-500)', color: '#fff', fontSize: '0.8rem' }}
+                                                onClick={() => handlePermanentDelete(j.id)}
+                                                title="Hapus permanen"
+                                            >
+                                                <Trash2 size={14} />
+                                            </button>
+                                        </div>
+                                    </div>
+                                ))
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
         </DashboardLayout>
     )
 }

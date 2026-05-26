@@ -311,6 +311,11 @@ export const jadwalService = {
       `)
             .order('tanggal', { ascending: false })
 
+        // By default, filter out soft-deleted jadwal
+        if (!filters.includeDeleted) {
+            query = query.is('deleted_at', null)
+        }
+
         if (filters.tipe) query = query.eq('tipe', filters.tipe)
         if (filters.status) query = query.eq('status', filters.status)
         if (filters.tanggal) query = query.eq('tanggal', filters.tanggal)
@@ -392,7 +397,54 @@ export const jadwalService = {
         return data
     },
 
+    // Soft delete: mark as deleted instead of removing
     async delete(id) {
+        const { data, error } = await supabase
+            .from('jadwal_ujian')
+            .update({ deleted_at: new Date().toISOString() })
+            .eq('id', id)
+            .select()
+            .single()
+
+        if (error) throw error
+        return data
+    },
+
+    // Get soft-deleted jadwal
+    async getDeleted(filters = {}) {
+        let query = supabase
+            .from('jadwal_ujian')
+            .select(`
+                *,
+                matkul:matkul_id(id, nama, kode, prodi_id),
+                kelas:kelas_id(id, nama),
+                dosen:dosen_id(id, nama)
+            `)
+            .not('deleted_at', 'is', null)
+            .order('deleted_at', { ascending: false })
+
+        if (filters.tahun_akademik) query = query.eq('tahun_akademik', filters.tahun_akademik)
+
+        const { data, error } = await query
+        if (error) throw error
+        return data || []
+    },
+
+    // Restore a soft-deleted jadwal
+    async restore(id) {
+        const { data, error } = await supabase
+            .from('jadwal_ujian')
+            .update({ deleted_at: null })
+            .eq('id', id)
+            .select()
+            .single()
+
+        if (error) throw error
+        return data
+    },
+
+    // Permanent delete (with warning)
+    async permanentDelete(id) {
         const { error } = await supabase
             .from('jadwal_ujian')
             .delete()
@@ -400,6 +452,22 @@ export const jadwalService = {
 
         if (error) throw error
         return true
+    },
+
+    // Count related data for a jadwal (for delete warning)
+    async countRelated(jadwalId) {
+        const [hasil, jawaban, kehadiran, beritaAcara] = await Promise.all([
+            supabase.from('hasil_ujian').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId),
+            supabase.from('jawaban_mahasiswa').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId),
+            supabase.from('kehadiran').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId),
+            supabase.from('berita_acara').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId)
+        ])
+        return {
+            hasilUjian: hasil.count || 0,
+            jawaban: jawaban.count || 0,
+            kehadiran: kehadiran.count || 0,
+            beritaAcara: beritaAcara.count || 0
+        }
     }
 }
 
@@ -1132,3 +1200,68 @@ export const nilaiPusbangkatarService = {
 // Export check function
 // ============================================
 export { isSupabaseConfigured }
+
+// ============================================
+// Backup Service
+// ============================================
+export const backupService = {
+    // Export all data as JSON for local backup
+    async exportAll() {
+        const tables = [
+            'users', 'prodi', 'kelas', 'mata_kuliah', 'ruangan',
+            'jadwal_ujian', 'soal', 'hasil_ujian', 'jawaban_mahasiswa',
+            'kehadiran', 'berita_acara', 'nilai_pusbangkatar'
+        ]
+        const backup = {
+            version: '1.0',
+            timestamp: new Date().toISOString(),
+            tables: {}
+        }
+
+        for (const table of tables) {
+            try {
+                // For jadwal_ujian, include deleted ones too
+                let query = supabase.from(table).select('*')
+                const { data, error } = await query
+                if (error) {
+                    console.warn(`[Backup] Skip table ${table}:`, error.message)
+                    backup.tables[table] = []
+                } else {
+                    backup.tables[table] = data || []
+                }
+            } catch (e) {
+                console.warn(`[Backup] Error on table ${table}:`, e)
+                backup.tables[table] = []
+            }
+        }
+
+        return backup
+    },
+
+    // Restore specific tables from backup JSON
+    async restoreTable(tableName, rows) {
+        if (!rows || rows.length === 0) return { inserted: 0, errors: 0 }
+
+        let inserted = 0
+        let errors = 0
+
+        for (const row of rows) {
+            try {
+                const { error } = await supabase
+                    .from(tableName)
+                    .upsert(row, { onConflict: 'id' })
+
+                if (error) {
+                    console.warn(`[Restore] Error on ${tableName}:`, error.message)
+                    errors++
+                } else {
+                    inserted++
+                }
+            } catch (e) {
+                errors++
+            }
+        }
+
+        return { inserted, errors }
+    }
+}

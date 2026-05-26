@@ -8,6 +8,7 @@ import {
     isSupabaseConfigured
 } from '../../services/supabaseService'
 import { exportToXLSX } from '../../utils/excelUtils'
+import * as XLSX from 'xlsx'
 import {
     Download,
     FileSpreadsheet,
@@ -237,41 +238,122 @@ function EksporDataPage() {
     }
 
     const handleExportNilai = () => {
-        const data = hasilData.map((h, idx) => {
+        // Build enriched data for each hasil
+        const enrichedData = hasilData.map(h => {
             const jadwal = jadwalData.find(j => String(j.id) === String(h.examId || h.jadwal_id))
             const percentScore = h.maxScore > 0 ? Math.round((h.totalScore / h.maxScore) * 100) : (h.nilai_total || 0)
+            const matkulName = jadwal ? getMatkulName(jadwal.matkul_id || jadwal.matkulId) : 'N/A'
+            const kelasName = jadwal ? getKelasName(jadwal.kelas_id || jadwal.kelasId) : 'N/A'
 
             return {
-                no: idx + 1,
                 nim: h.nim || h.mahasiswa_nim || '-',
                 nama: h.mahasiswaName || getUserName(h.mahasiswa_id || h.mahasiswaId) || 'N/A',
-                matkul: jadwal ? getMatkulName(jadwal.matkul_id || jadwal.matkulId) : 'N/A',
-                kelas: jadwal ? getKelasName(jadwal.kelas_id || jadwal.kelasId) : 'N/A',
+                matkul: matkulName,
+                kelas: kelasName,
                 tipe: jadwal ? (jadwal.tipe || jadwal.tipeUjian) : 'N/A',
                 tanggal: jadwal?.tanggal || '-',
                 nilai: percentScore,
                 status: percentScore >= 70 ? 'Lulus' : 'Mengulang',
                 jumlahBenar: h.jumlah_benar || h.correctCount || 0,
-                jumlahSalah: h.jumlah_salah || h.wrongCount || 0
+                jumlahSalah: h.jumlah_salah || h.wrongCount || 0,
+                groupKey: `${matkulName}|||${kelasName}`
             }
         })
 
-        const headers = [
-            { key: 'no', label: 'No' },
-            { key: 'nim', label: 'NIM' },
-            { key: 'nama', label: 'Nama Mahasiswa' },
-            { key: 'matkul', label: 'Mata Kuliah' },
-            { key: 'kelas', label: 'Kelas' },
-            { key: 'tipe', label: 'Tipe Ujian' },
-            { key: 'tanggal', label: 'Tanggal' },
-            { key: 'nilai', label: 'Nilai' },
-            { key: 'status', label: 'Status' },
-            { key: 'jumlahBenar', label: 'Jumlah Benar' },
-            { key: 'jumlahSalah', label: 'Jumlah Salah' }
-        ]
+        // Group by matkul + kelas
+        const groups = {}
+        enrichedData.forEach(row => {
+            if (!groups[row.groupKey]) {
+                groups[row.groupKey] = { matkul: row.matkul, kelas: row.kelas, rows: [] }
+            }
+            groups[row.groupKey].rows.push(row)
+        })
 
+        // Create workbook with one sheet per group
+        const wb = XLSX.utils.book_new()
+        const usedSheetNames = new Set()
+        const tableHeaders = ['No', 'NIM', 'Nama Mahasiswa', 'Tipe Ujian', 'Tanggal', 'Nilai', 'Status', 'Jumlah Benar', 'Jumlah Salah']
+
+        Object.values(groups).forEach(group => {
+            // Build sheet name, truncate to 31 chars, and ensure uniqueness
+            let sheetName = `${group.matkul} - ${group.kelas}`
+                .replace(/[\[\]\*\?\/\\:]/g, '_') // remove invalid Excel sheet name chars
+                .substring(0, 31)
+            let baseName = sheetName
+            let counter = 1
+            while (usedSheetNames.has(sheetName)) {
+                const suffix = ` (${counter})`
+                sheetName = baseName.substring(0, 31 - suffix.length) + suffix
+                counter++
+            }
+            usedSheetNames.add(sheetName)
+
+            // Build AOA (array of arrays) for the sheet
+            const numCols = tableHeaders.length
+            const aoa = [
+                ['Rekap Nilai Ujian', ...Array(numCols - 1).fill('')],
+                [`Mata Kuliah: ${group.matkul}`, ...Array(numCols - 1).fill('')],
+                [`Kelas: ${group.kelas}`, ...Array(numCols - 1).fill('')],
+                Array(numCols).fill(''), // empty row
+                tableHeaders
+            ]
+
+            // Add data rows
+            group.rows.forEach((row, idx) => {
+                aoa.push([
+                    idx + 1,
+                    row.nim,
+                    row.nama,
+                    row.tipe,
+                    row.tanggal,
+                    row.nilai,
+                    row.status,
+                    row.jumlahBenar,
+                    row.jumlahSalah
+                ])
+            })
+
+            const ws = XLSX.utils.aoa_to_sheet(aoa)
+
+            // Merge cells for the title row (Row 1)
+            ws['!merges'] = [
+                { s: { r: 0, c: 0 }, e: { r: 0, c: numCols - 1 } }
+            ]
+
+            // Set column widths
+            ws['!cols'] = [
+                { wch: 5 },   // No
+                { wch: 15 },  // NIM
+                { wch: 30 },  // Nama Mahasiswa
+                { wch: 12 },  // Tipe Ujian
+                { wch: 12 },  // Tanggal
+                { wch: 8 },   // Nilai
+                { wch: 12 },  // Status
+                { wch: 14 },  // Jumlah Benar
+                { wch: 14 }   // Jumlah Salah
+            ]
+
+            XLSX.utils.book_append_sheet(wb, ws, sheetName)
+        })
+
+        // If no groups at all, create an empty sheet
+        if (Object.keys(groups).length === 0) {
+            const ws = XLSX.utils.aoa_to_sheet([['Tidak ada data nilai']])
+            XLSX.utils.book_append_sheet(wb, ws, 'Rekap Nilai')
+        }
+
+        // Download
         const filename = `rekap_nilai_${tahunAkademik.replace(/\//g, '-').replace(/ /g, '_')}_${new Date().toISOString().split('T')[0]}`
-        exportToXLSX(data, headers, filename, 'Rekap Nilai')
+        const wbout = XLSX.write(wb, { bookType: 'xlsx', type: 'array' })
+        const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `${filename}.xlsx`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        URL.revokeObjectURL(url)
     }
 
     const handleExportKehadiran = () => {
