@@ -456,18 +456,18 @@ export const jadwalService = {
 
     // Count related data for a jadwal (for delete warning)
     async countRelated(jadwalId) {
-        const [hasil, jawaban, kehadiran, beritaAcara] = await Promise.all([
-            supabase.from('hasil_ujian').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId),
-            supabase.from('jawaban_mahasiswa').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId),
-            supabase.from('kehadiran').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId),
-            supabase.from('berita_acara').select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId)
-        ])
-        return {
-            hasilUjian: hasil.count || 0,
-            jawaban: jawaban.count || 0,
-            kehadiran: kehadiran.count || 0,
-            beritaAcara: beritaAcara.count || 0
+        const safeCount = async (table) => {
+            try {
+                const { count } = await supabase.from(table).select('id', { count: 'exact', head: true }).eq('jadwal_id', jadwalId)
+                return count || 0
+            } catch { return 0 }
         }
+        const [hasilUjian, kehadiran, beritaAcara] = await Promise.all([
+            safeCount('hasil_ujian'),
+            safeCount('kehadiran'),
+            safeCount('berita_acara')
+        ])
+        return { hasilUjian, jawaban: 0, kehadiran, beritaAcara }
     }
 }
 
