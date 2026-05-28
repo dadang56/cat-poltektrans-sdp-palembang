@@ -164,7 +164,7 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
     )
 }
 
-function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, currentExamType, selectedPackage }) {
+function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, currentExamType, selectedPackage, existingQuestions }) {
     const getDefaultFormData = () => ({
         text: '',
         type: 'pilihan_ganda',
@@ -226,6 +226,25 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
             }
         }
     }, [isOpen, question, matkul])
+
+    // Auto-lock points when clusterLabel matches an existing cluster
+    const clusterPointsLock = (() => {
+        if (!formData.clusterLabel || !formData.clusterLabel.trim() || !existingQuestions) return null
+        const label = formData.clusterLabel.trim()
+        // Find any existing question with the same cluster label (excluding current question being edited)
+        const match = existingQuestions.find(q => {
+            if (question && q.id === question.id) return false // skip self
+            return (q.clusterLabel || '').trim() === label
+        })
+        return match ? match.points : null
+    })()
+
+    // When cluster points lock changes, auto-set the points
+    useEffect(() => {
+        if (clusterPointsLock !== null && formData.points !== clusterPointsLock) {
+            setFormData(prev => ({ ...prev, points: clusterPointsLock }))
+        }
+    }, [clusterPointsLock])
 
     // Handle kelas checkbox toggle
     const handleKelasToggle = (kelasId) => {
@@ -323,7 +342,14 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                                 </div>
                             )}
                             <div className="form-group" style={selectedPackage ? { width: '100%' } : {}}>
-                                <label className="form-label">Bobot Nilai di Butir Soal Ini</label>
+                                <label className="form-label">
+                                    Bobot Nilai di Butir Soal Ini
+                                    {clusterPointsLock !== null && (
+                                        <span style={{ marginLeft: '8px', fontSize: '0.8rem', color: 'var(--warning-600)', fontWeight: 'normal' }}>
+                                            🔒 Terkunci oleh cluster ({clusterPointsLock} poin)
+                                        </span>
+                                    )}
+                                </label>
                                 <input
                                     type="number"
                                     className="form-input"
@@ -331,6 +357,8 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                                     onChange={e => setFormData({ ...formData, points: parseInt(e.target.value) })}
                                     min={1}
                                     max={100}
+                                    disabled={clusterPointsLock !== null}
+                                    style={clusterPointsLock !== null ? { opacity: 0.7, cursor: 'not-allowed' } : {}}
                                 />
                             </div>
                         </div>
@@ -801,16 +829,26 @@ function BuatSoalPage() {
 
     // Calculate effective points: for clustered soal, only count 1 per cluster
     // because each student only sees 1 variant per cluster during the exam
+    // Groups by clusterId OR clusterLabel (for unsaved questions that don't have clusterId yet)
     const calcEffectivePoints = (questionsList) => {
         let total = 0
-        const seenClusters = new Set()
+        const seenClusterIds = new Set()
+        const seenClusterLabels = new Set()
         for (const q of questionsList) {
-            if (q.clusterId) {
-                if (!seenClusters.has(q.clusterId)) {
-                    seenClusters.add(q.clusterId)
+            const cId = q.clusterId
+            const cLabel = (q.clusterLabel || '').trim()
+            if (cId) {
+                // Group by clusterId
+                if (!seenClusterIds.has(cId)) {
+                    seenClusterIds.add(cId)
                     total += (q.points || 0)
                 }
-                // skip additional variants in the same cluster
+            } else if (cLabel) {
+                // No clusterId yet, group by clusterLabel
+                if (!seenClusterLabels.has(cLabel)) {
+                    seenClusterLabels.add(cLabel)
+                    total += (q.points || 0)
+                }
             } else {
                 total += (q.points || 0)
             }
@@ -1787,6 +1825,7 @@ function BuatSoalPage() {
                     kelasList={kelasList}
                     currentExamType={selectedPackage?.examType || (examTypeFilter !== 'all' ? examTypeFilter : 'uts')}
                     selectedPackage={selectedPackage}
+                    existingQuestions={selectedPackage ? getPackageQuestions() : questions}
                 />
 
                 <BankSoalModal
