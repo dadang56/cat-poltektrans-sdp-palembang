@@ -1019,25 +1019,29 @@ function JadwalUjianPage() {
                     dosenList={(() => {
                         if (user?.role === 'superadmin') return dosenList
                         const adminProdiId = String(user?.prodiId || user?.prodi_id || '')
-                        console.log('[JadwalUjian] Admin prodiId:', adminProdiId, 'role:', user?.role)
-                        console.log('[JadwalUjian] Total dosen:', dosenList.length)
-                        const filtered = dosenList.filter(d => {
-                            if (!adminProdiId) return false
-                            // Check primary prodi_id (raw column value)
-                            const rawProdiId = String(d.prodi_id || '')
-                            if (rawProdiId === adminProdiId) return true
-                            // Check prodi join object
+                        if (!adminProdiId) return dosenList
+                        // Get all matkul IDs that belong to this admin's prodi
+                        const prodiMatkulIds = matkulList
+                            .filter(m => String(m.prodi_id || m.prodiId || '') === adminProdiId)
+                            .map(m => String(m.id))
+                        return dosenList.filter(d => {
+                            // 1. Check primary prodi_id
+                            if (String(d.prodi_id || '') === adminProdiId) return true
                             if (d.prodi && String(d.prodi.id || '') === adminProdiId) return true
-                            // Check prodi_ids array (multi-prodi dosen)
-                            let prodiIds = d.prodi_ids
-                            if (typeof prodiIds === 'string') {
-                                try { prodiIds = JSON.parse(prodiIds) } catch { prodiIds = [] }
+                            // 2. Check prodi_ids array (multi-prodi)
+                            let pIds = d.prodi_ids
+                            if (typeof pIds === 'string') {
+                                try { pIds = JSON.parse(pIds) } catch { pIds = [] }
                             }
-                            if (Array.isArray(prodiIds) && prodiIds.map(String).includes(adminProdiId)) return true
+                            if (Array.isArray(pIds) && pIds.map(String).includes(adminProdiId)) return true
+                            // 3. Check matkul_ids — if dosen teaches any matkul from this prodi
+                            let mIds = d.matkul_ids
+                            if (typeof mIds === 'string') {
+                                try { mIds = JSON.parse(mIds) } catch { mIds = [] }
+                            }
+                            if (Array.isArray(mIds) && mIds.some(mid => prodiMatkulIds.includes(String(mid)))) return true
                             return false
                         })
-                        console.log('[JadwalUjian] Filtered dosen count:', filtered.length, 'All dosen prodi_ids:', dosenList.map(d => ({ nama: d.nama, prodi_id: d.prodi_id, prodi_ids: d.prodi_ids })))
-                        return filtered
                     })()}
                     jadwalList={prodiFilteredJadwal}
                 />
