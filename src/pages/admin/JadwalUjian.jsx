@@ -1016,7 +1016,18 @@ function JadwalUjianPage() {
                     matkulList={user?.role === 'superadmin' ? matkulList : matkulList.filter(m => (m.prodi_id || m.prodiId) === user?.prodiId)}
                     kelasList={user?.role === 'superadmin' ? kelasList : kelasList.filter(k => (k.prodi_id || k.prodiId) === user?.prodiId)}
                     ruangList={ruangList}
-                    dosenList={user?.role === 'superadmin' ? dosenList : dosenList.filter(d => (d.prodi_id || d.prodiId) === user?.prodiId)}
+                    dosenList={user?.role === 'superadmin' ? dosenList : dosenList.filter(d => {
+                        const adminProdiId = String(user?.prodiId || '')
+                        // Check primary prodi_id
+                        if (String(d.prodi_id || d.prodiId || '') === adminProdiId) return true
+                        // Check prodi_ids array (multi-prodi dosen)
+                        let prodiIds = d.prodi_ids
+                        if (typeof prodiIds === 'string') {
+                            try { prodiIds = JSON.parse(prodiIds) } catch { prodiIds = [] }
+                        }
+                        if (Array.isArray(prodiIds) && prodiIds.map(String).includes(adminProdiId)) return true
+                        return false
+                    })}
                     jadwalList={prodiFilteredJadwal}
                 />
             </div>
