@@ -123,7 +123,30 @@ function AdminProdiDashboard() {
                                 (!dosenId || String(s.dosen_id) === String(dosenId))
                         })
                         const totalSoal = matchingSoal.length
-                        const totalPoin = matchingSoal.reduce((sum, s) => sum + (s.bobot || 0), 0)
+                        // Calculate effective points (cluster-aware: only count 1 per cluster)
+                        const totalPoin = (() => {
+                            let total = 0
+                            const seenClusterIds = new Set()
+                            const seenClusterLabels = new Set()
+                            for (const s of matchingSoal) {
+                                const cId = s.cluster_id
+                                const cLabel = (s.cluster_label || '').trim()
+                                if (cId) {
+                                    if (!seenClusterIds.has(String(cId))) {
+                                        seenClusterIds.add(String(cId))
+                                        total += (s.bobot || 0)
+                                    }
+                                } else if (cLabel) {
+                                    if (!seenClusterLabels.has(cLabel)) {
+                                        seenClusterLabels.add(cLabel)
+                                        total += (s.bobot || 0)
+                                    }
+                                } else {
+                                    total += (s.bobot || 0)
+                                }
+                            }
+                            return total
+                        })()
                         
                         return {
                             id: j.id,
