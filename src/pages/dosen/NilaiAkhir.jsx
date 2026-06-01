@@ -201,7 +201,7 @@ function NilaiAkhirPage() {
     })
 
     const handleMatkulChange = (matkulId) => {
-        const matkul = matkulList.find(m => m.id === parseInt(matkulId))
+        const matkul = matkulList.find(m => String(m.id) === String(matkulId))
         setSelectedMatkul(matkul)
         setEditingStudent(null)
     }
