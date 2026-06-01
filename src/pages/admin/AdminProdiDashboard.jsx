@@ -118,20 +118,19 @@ function AdminProdiDashboard() {
                         
                         // Count soal for this matkul + tipe by this dosen
                         const jadwalMatkulId = String(getJadwalMatkul(j))
-                        const matchingSoal = (soalData || []).filter(s => {
-                            const matkulMatch = String(s.matkul_id) === jadwalMatkulId
-                            const tipeMatch = (s.tipe_ujian || '').toUpperCase() === tipe
-                            const dosenMatch = !dosenId || String(s.dosen_id) === String(dosenId)
-                            return matkulMatch && tipeMatch && dosenMatch
+                        // Try strict match first: matkul + tipe + dosen
+                        let matchingSoal = (soalData || []).filter(s => {
+                            return String(s.matkul_id) === jadwalMatkulId &&
+                                (s.tipe_ujian || '').toUpperCase() === tipe &&
+                                String(s.dosen_id) === String(dosenId)
                         })
-                        // Debug: log for Pendidikan Agama / Hera issues
-                        if (matchingSoal.length === 0 && mk?.nama) {
-                            const allMatkulSoal = (soalData || []).filter(s => String(s.matkul_id) === jadwalMatkulId)
-                            const allDosenSoal = (soalData || []).filter(s => dosenId && String(s.dosen_id) === String(dosenId))
-                            console.log(`[Dashboard Debug] ${tipe} ${mk.nama}: jadwal_matkul_id=${jadwalMatkulId}, jadwal_dosen_id=${dosenId}, soal_by_matkul=${allMatkulSoal.length}, soal_by_dosen=${allDosenSoal.length}, total_soal=${(soalData||[]).length}`)
-                            if (allDosenSoal.length > 0) {
-                                console.log(`[Dashboard Debug] Dosen soal sample:`, allDosenSoal.slice(0,3).map(s => ({ matkul_id: s.matkul_id, tipe_ujian: s.tipe_ujian, dosen_id: s.dosen_id })))
-                            }
+                        // Fallback: if no strict match, try by matkul + tipe only
+                        // This handles cases where dosen_id may not match exactly
+                        if (matchingSoal.length === 0 && dosenId) {
+                            matchingSoal = (soalData || []).filter(s => {
+                                return String(s.matkul_id) === jadwalMatkulId &&
+                                    (s.tipe_ujian || '').toUpperCase() === tipe
+                            })
                         }
                         const totalSoal = matchingSoal.length
                         // Calculate effective points (cluster-aware: only count 1 per cluster)
