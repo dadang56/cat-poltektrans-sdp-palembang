@@ -200,19 +200,19 @@ function UjianPage() {
         const loadData = async () => {
             try {
                 if (isSupabaseConfigured()) {
-                    const [jadwal, matkul, kelas, users, soal, ruang] = await Promise.all([
+                    // OPTIMIZED: Only load what's needed (removed soalService.getAll and userService.getAll)
+                    // jadwal already includes nested matkul, kelas, ruangan, dosen from joins
+                    const [jadwal, matkul, kelas, ruang] = await Promise.all([
                         jadwalService.getAll(),
                         matkulService.getAll(),
                         kelasService.getAll(),
-                        userService.getAll({ role: 'dosen' }),
-                        soalService.getAll(),
                         ruangService.getAll()
                     ])
                     setJadwalList(jadwal)
                     setMatkulList(matkul)
                     setKelasList(kelas)
-                    setUsersList(users)
-                    setSoalList(soal)
+                    setUsersList([]) // Not needed - dosen info comes from jadwal join
+                    setSoalList([])  // Not needed for exam listing
                     setRuangList(ruang)
 
                     // Load completed exams from Supabase

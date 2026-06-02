@@ -28,7 +28,7 @@ import './TakeExam.css'
 // Default anti-cheat settings
 const DEFAULT_ANTICHEAT_SETTINGS = {
     requireSEB: false,
-    maxWarnings: 2,
+    maxWarnings: 5,
     antiCheatLevel: 'medium' // low, medium, high
 }
 
@@ -80,12 +80,12 @@ function TakeExamPage() {
                 let allSoal = []
 
                 if (isSupabaseConfigured()) {
-                    // Load from Supabase
-                    const [jadwalData, matkulData] = await Promise.all([
-                        jadwalService.getAll(),
+                    // OPTIMIZED: Fetch only the specific jadwal by ID instead of ALL
+                    const [jadwalResult, matkulData] = await Promise.all([
+                        jadwalService.getById(id),
                         matkulService.getAll()
                     ])
-                    jadwal = jadwalData.find(j => String(j.id) === String(id))
+                    jadwal = jadwalResult
                     matkulList = matkulData
 
                     if (jadwal) {
