@@ -17,7 +17,9 @@ import {
     Play,
     BookOpen,
     CheckCircle2,
-    XCircle
+    XCircle,
+    ToggleLeft,
+    ToggleRight
 } from 'lucide-react'
 import './Dashboard.css'
 
@@ -248,11 +250,9 @@ function AdminProdiDashboard() {
                     })
                 setJadwalUjian(upcoming)
 
-                // Ujian berlangsung
+                // Ujian hari ini (semua ujian pada tanggal hari ini)
                 const berlangsung = jadwalList.filter(j => {
-                    const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
-                    const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
-                    return now >= examStart && now <= examEnd
+                    return j.tanggal === today
                 }).map(j => {
                     const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
                     const tipe = j.tipe || j.tipe_ujian || 'Ujian'
@@ -264,7 +264,9 @@ function AdminProdiDashboard() {
                         room: getJadwalRuang(j),
                         participants: 0,
                         online: 0,
-                        pengawas: '-'
+                        pengawas: '-',
+                        jadwalStatus: j.status || 'scheduled',
+                        isActivated: j.status === 'ongoing'
                     }
                 })
                 setUjianBerlangsung(berlangsung)
@@ -399,13 +401,14 @@ function AdminProdiDashboard() {
                         </div>
                     </div>
 
-                    {/* Ujian Sedang Berlangsung */}
+                    {/* Ujian Hari Ini + Activation Toggle */}
                     <div className="card card-wide">
                         <div className="card-header">
                             <div className="flex items-center gap-3">
                                 <Play size={20} className="text-success" />
-                                <h3 className="font-semibold">Ujian Sedang Berlangsung</h3>
-                                <span className="badge badge-success">{ujianBerlangsung.length} Aktif</span>
+                                <h3 className="font-semibold">Ujian Hari Ini</h3>
+                                <span className="badge badge-success">{ujianBerlangsung.filter(e => e.isActivated).length} Aktif</span>
+                                <span className="badge badge-warning">{ujianBerlangsung.filter(e => !e.isActivated).length} Belum Aktif</span>
                             </div>
                         </div>
                         <div className="card-body">
@@ -413,7 +416,9 @@ function AdminProdiDashboard() {
                                 <div className="exam-ongoing-list">
                                     {ujianBerlangsung.map(exam => (
                                         <div key={exam.id} className="exam-ongoing-item">
-                                            <div className="exam-ongoing-indicator"></div>
+                                            <div className="exam-ongoing-indicator" style={{
+                                                background: exam.isActivated ? 'var(--success-500)' : 'var(--warning-400)'
+                                            }}></div>
                                             <div className="exam-ongoing-info">
                                                 <h4>{exam.name}</h4>
                                                 <div className="exam-ongoing-meta">
@@ -421,21 +426,35 @@ function AdminProdiDashboard() {
                                                     <span>• {exam.room}</span>
                                                 </div>
                                             </div>
-                                            <div className="exam-ongoing-stats">
-                                                <div className="stat-item">
-                                                    <span className="stat-number">{exam.online}/{exam.participants}</span>
-                                                    <span className="stat-text">Online</span>
-                                                </div>
-                                            </div>
-                                            <div className="exam-ongoing-pengawas">
-                                                <Eye size={14} />
-                                                <span>{exam.pengawas}</span>
-                                            </div>
                                             <button
-                                                className="btn btn-primary btn-sm"
-                                                onClick={() => navigate('/admin-prodi/monitor')}
+                                                className={`btn btn-sm ${exam.isActivated ? 'btn-success' : 'btn-outline'}`}
+                                                onClick={async () => {
+                                                    const newStatus = exam.isActivated ? 'scheduled' : 'ongoing'
+                                                    const actionText = exam.isActivated ? 'menonaktifkan' : 'mengaktifkan'
+                                                    if (!window.confirm(`Apakah Anda yakin ingin ${actionText} ujian "${exam.name}"?`)) return
+                                                    try {
+                                                        await jadwalService.update(exam.id, { status: newStatus })
+                                                        setUjianBerlangsung(prev => prev.map(e => {
+                                                            if (e.id === exam.id) return { ...e, isActivated: !e.isActivated, jadwalStatus: newStatus }
+                                                            return e
+                                                        }))
+                                                    } catch (err) {
+                                                        alert('Gagal mengubah status: ' + err.message)
+                                                    }
+                                                }}
+                                                style={{
+                                                    display: 'flex',
+                                                    alignItems: 'center',
+                                                    gap: '6px',
+                                                    minWidth: '140px',
+                                                    justifyContent: 'center',
+                                                    background: exam.isActivated ? 'var(--success-500)' : 'transparent',
+                                                    color: exam.isActivated ? 'white' : 'var(--text-secondary)',
+                                                    border: exam.isActivated ? 'none' : '2px dashed var(--border-color)'
+                                                }}
                                             >
-                                                Monitor
+                                                {exam.isActivated ? <ToggleRight size={16} /> : <ToggleLeft size={16} />}
+                                                {exam.isActivated ? '✓ Aktif' : '○ Aktifkan'}
                                             </button>
                                         </div>
                                     ))}
@@ -443,7 +462,7 @@ function AdminProdiDashboard() {
                             ) : (
                                 <div className="empty-state">
                                     <Play size={32} className="text-muted" />
-                                    <p>Tidak ada ujian yang sedang berlangsung</p>
+                                    <p>Tidak ada ujian hari ini</p>
                                 </div>
                             )}
                         </div>

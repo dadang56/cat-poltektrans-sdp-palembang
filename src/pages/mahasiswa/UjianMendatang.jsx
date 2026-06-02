@@ -15,7 +15,8 @@ import {
     Timer,
     X,
     BookOpen,
-    FileText
+    FileText,
+    Lock
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -370,12 +371,22 @@ function UjianPage() {
 
     const getExamStatus = (exam) => {
         if (exam.completed) return 'completed'
+        const jadwalStatus = exam.status || 'scheduled'
+        // If exam is cancelled
+        if (jadwalStatus === 'cancelled') return 'cancelled'
+        // If exam is NOT yet activated by pengawas/admin
+        if (jadwalStatus !== 'ongoing') {
+            const now = new Date()
+            const examStart = new Date(`${exam.date}T${exam.time}`)
+            let examEnd = new Date(`${exam.date}T${exam.endTime}`)
+            if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
+            if (now > examEnd) return 'expired'
+            return 'not_activated'
+        }
         const now = new Date()
         const examStart = new Date(`${exam.date}T${exam.time}`)
         let examEnd = new Date(`${exam.date}T${exam.endTime}`)
-        // Handle cross-midnight exams
         if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
-
         if (now >= examStart && now <= examEnd) return 'active'
         if (now > examEnd) return 'expired'
         return 'upcoming'
@@ -385,6 +396,16 @@ function UjianPage() {
         const status = getExamStatus(exam)
         if (status === 'completed') {
             return <span className="badge badge-success"><CheckCircle size={12} /> Sudah Dikerjakan</span>
+        }
+        if (status === 'not_activated') {
+            const days = getDaysUntil(exam.date)
+            if (days === 0) {
+                return <span className="badge badge-warning"><Clock size={12} /> Menunggu Diaktifkan</span>
+            }
+            if (days <= 3) {
+                return <span className="badge badge-warning"><AlertCircle size={12} /> {days} Hari Lagi</span>
+            }
+            return <span className="badge badge-info"><Clock size={12} /> {days} Hari Lagi</span>
         }
         if (status === 'active') {
             return <span className="badge badge-success"><Timer size={12} /> Sedang Berlangsung</span>
@@ -420,6 +441,14 @@ function UjianPage() {
                 <button className="btn btn-outline" disabled>
                     <CheckCircle size={18} />
                     Sudah Dikerjakan
+                </button>
+            )
+        }
+        if (status === 'not_activated') {
+            return (
+                <button className="btn btn-outline" disabled>
+                    <Lock size={18} />
+                    Belum Diaktifkan
                 </button>
             )
         }

@@ -21,7 +21,10 @@ import {
   Lock,
   Unlock,
   MapPin,
-  Calendar
+  Calendar,
+  Power,
+  ToggleLeft,
+  ToggleRight
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -168,7 +171,9 @@ function MonitorUjian() {
                 pengawas: null,
                 pengawasName: null,
                 jadwalId: j.id,
-                jadwalIds: [j.id]
+                jadwalIds: [j.id],
+                jadwalStatus: j.status || 'scheduled',
+                isActivated: j.status === 'ongoing'
               }
             } else {
               // Multiple exams in same room
@@ -553,6 +558,39 @@ function MonitorUjian() {
     })
   }
 
+  // Handle exam activation toggle
+  const handleToggleActivation = async (room, e) => {
+    e.stopPropagation() // Don't select the room
+    const newStatus = room.isActivated ? 'scheduled' : 'ongoing'
+    const actionText = room.isActivated ? 'MENONAKTIFKAN' : 'MENGAKTIFKAN'
+    
+    const confirmed = await showConfirm(
+      `${actionText} Ujian`,
+      `Apakah Anda yakin ingin ${actionText.toLowerCase()} ujian "${room.exam}"?\n\n${!room.isActivated ? 'Mahasiswa akan bisa masuk ujian setelah diaktifkan.' : 'Mahasiswa tidak akan bisa masuk ujian setelah dinonaktifkan.'}`,
+      room.isActivated ? 'Nonaktifkan' : 'Aktifkan',
+      room.isActivated ? 'error' : 'success'
+    )
+    if (!confirmed) return
+
+    try {
+      // Update all jadwal in this room
+      for (const jId of room.jadwalIds) {
+        await jadwalService.update(jId, { status: newStatus })
+      }
+      // Update local state
+      setRooms(prev => prev.map(r => {
+        if (r.id === room.id) {
+          return { ...r, isActivated: !r.isActivated, jadwalStatus: newStatus }
+        }
+        return r
+      }))
+      console.log(`[MonitorUjian] Exam ${newStatus}:`, room.jadwalIds)
+    } catch (err) {
+      console.error('[MonitorUjian] Error toggling activation:', err)
+      alert('Gagal mengubah status ujian: ' + err.message)
+    }
+  }
+
   // Filter participants
   const filteredParticipants = participants.filter(p => {
     const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase()) ||
@@ -645,6 +683,30 @@ function MonitorUjian() {
                         Diawasi oleh: {room.pengawasName}
                       </div>
                     )}
+                    {/* Activation Toggle */}
+                    <button
+                      className={`btn btn-sm ${room.isActivated ? 'btn-success' : 'btn-outline'}`}
+                      onClick={(e) => handleToggleActivation(room, e)}
+                      style={{
+                        width: '100%',
+                        marginTop: '8px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '8px',
+                        padding: '8px 12px',
+                        fontSize: '0.85rem',
+                        fontWeight: '600',
+                        borderRadius: '8px',
+                        background: room.isActivated ? 'var(--success-500)' : 'transparent',
+                        color: room.isActivated ? 'white' : 'var(--text-secondary)',
+                        border: room.isActivated ? 'none' : '2px dashed var(--border-color)',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      {room.isActivated ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
+                      {room.isActivated ? '✓ Ujian Aktif' : '○ Aktifkan Ujian'}
+                    </button>
                     <div className={`room-status-badge ${room.status}`}>
                       {room.status === 'available' ? 'Tersedia' : 'Sedang Diawasi'}
                     </div>

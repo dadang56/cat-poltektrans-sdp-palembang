@@ -117,6 +117,15 @@ function TakeExamPage() {
 
                 console.log('TakeExam: Found jadwal:', jadwal)
 
+                // Block entry if exam is not activated by pengawas/admin
+                if (jadwal && jadwal.status !== 'ongoing') {
+                    console.log('[TakeExam] Exam not activated. Status:', jadwal.status)
+                    alert('Ujian belum diaktifkan oleh pengawas/admin prodi. Silakan tunggu hingga ujian dibuka.')
+                    setLoading(false)
+                    navigate('/mahasiswa/ujian')
+                    return
+                }
+
                 if (jadwal) {
                     const matkulId = jadwal.matkul_id || jadwal.matkulId
                     const matkul = matkulList.find(m => String(m.id) === String(matkulId))
