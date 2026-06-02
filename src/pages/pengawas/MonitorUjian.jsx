@@ -570,36 +570,36 @@ function MonitorUjian() {
   }
 
   // Handle exam activation toggle
-  const handleToggleActivation = async (room, e) => {
+  const handleToggleActivation = (room, e) => {
     e.stopPropagation() // Don't select the room
     const newStatus = room.isActivated ? 'scheduled' : 'ongoing'
-    const actionText = room.isActivated ? 'MENONAKTIFKAN' : 'MENGAKTIFKAN'
+    const actionText = room.isActivated ? 'Menonaktifkan' : 'Mengaktifkan'
     
-    const confirmed = await showConfirm(
-      `${actionText} Ujian`,
-      `Apakah Anda yakin ingin ${actionText.toLowerCase()} ujian "${room.exam}"?\n\n${!room.isActivated ? 'Mahasiswa akan bisa masuk ujian setelah diaktifkan.' : 'Mahasiswa tidak akan bisa masuk ujian setelah dinonaktifkan.'}`,
-      room.isActivated ? 'Nonaktifkan' : 'Aktifkan',
-      room.isActivated ? 'error' : 'success'
-    )
-    if (!confirmed) return
-
-    try {
-      // Update all jadwal in this room
-      for (const jId of room.jadwalIds) {
-        await jadwalService.update(jId, { status: newStatus })
-      }
-      // Update local state
-      setRooms(prev => prev.map(r => {
-        if (r.id === room.id) {
-          return { ...r, isActivated: !r.isActivated, jadwalStatus: newStatus }
+    showConfirm({
+      title: `${actionText} Ujian`,
+      message: `Apakah Anda yakin ingin ${actionText.toLowerCase()} ujian "${room.exam}"?\n\n${!room.isActivated ? 'Mahasiswa akan bisa masuk ujian setelah diaktifkan.' : 'Mahasiswa tidak akan bisa masuk ujian setelah dinonaktifkan.'}`,
+      confirmText: room.isActivated ? 'Nonaktifkan' : 'Aktifkan',
+      confirmVariant: room.isActivated ? 'error' : 'success',
+      onConfirm: async () => {
+        try {
+          // Update all jadwal in this room
+          for (const jId of room.jadwalIds) {
+            await jadwalService.update(jId, { status: newStatus })
+          }
+          // Update local state
+          setRooms(prev => prev.map(r => {
+            if (r.id === room.id) {
+              return { ...r, isActivated: !r.isActivated, jadwalStatus: newStatus }
+            }
+            return r
+          }))
+          console.log(`[MonitorUjian] Exam ${newStatus}:`, room.jadwalIds)
+        } catch (err) {
+          console.error('[MonitorUjian] Error toggling activation:', err)
+          alert('Gagal mengubah status ujian: ' + err.message)
         }
-        return r
-      }))
-      console.log(`[MonitorUjian] Exam ${newStatus}:`, room.jadwalIds)
-    } catch (err) {
-      console.error('[MonitorUjian] Error toggling activation:', err)
-      alert('Gagal mengubah status ujian: ' + err.message)
-    }
+      }
+    })
   }
 
   // Filter participants

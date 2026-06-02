@@ -13,13 +13,15 @@ export function ConfirmProvider({ children }) {
         onCancel: null
     })
 
-    const showConfirm = useCallback(({ title = 'Konfirmasi', message, onConfirm, onCancel }) => {
+    const showConfirm = useCallback(({ title = 'Konfirmasi', message, onConfirm, onCancel, confirmText = 'Hapus', confirmVariant = 'error' }) => {
         setConfirmState({
             isOpen: true,
             title,
             message,
             onConfirm,
-            onCancel
+            onCancel,
+            confirmText,
+            confirmVariant
         })
     }, [])
 
@@ -53,10 +55,15 @@ export function ConfirmProvider({ children }) {
                                 Batal
                             </button>
                             <button
-                                className="btn btn-error"
+                                className={`btn btn-${confirmState.confirmVariant || 'error'}`}
                                 onClick={handleConfirm}
+                                style={confirmState.confirmVariant === 'success' ? {
+                                    background: 'var(--success-500, #22c55e)',
+                                    color: 'white',
+                                    border: 'none'
+                                } : undefined}
                             >
-                                Hapus
+                                {confirmState.confirmText || 'Hapus'}
                             </button>
                         </div>
                     </div>
