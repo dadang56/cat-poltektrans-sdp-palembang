@@ -202,7 +202,8 @@ function AdminProdiDashboard() {
                 }
 
                 const now = new Date()
-                const today = now.toISOString().split('T')[0]
+                // Use local date (WIB) instead of UTC
+                const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
 
                 // Calculate stats - Admin Prodi sees all users except superadmin and admin_prodi
                 // This matches the behavior of Users.jsx page
@@ -250,9 +251,15 @@ function AdminProdiDashboard() {
                     })
                 setJadwalUjian(upcoming)
 
-                // Ujian hari ini (semua ujian pada tanggal hari ini)
+                // Ujian hari ini (exclude completed/cancelled, exclude ended > 30min ago)
                 const berlangsung = jadwalList.filter(j => {
-                    return j.tanggal === today
+                    if (j.tanggal !== today) return false
+                    if (j.status === 'completed' || j.status === 'cancelled') return false
+                    // Exclude exams that ended more than 30 minutes ago
+                    const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j) || '23:59'}`)
+                    const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000)
+                    if (examEnd < thirtyMinAgo) return false
+                    return true
                 }).map(j => {
                     const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
                     const tipe = j.tipe || j.tipe_ujian || 'Ujian'

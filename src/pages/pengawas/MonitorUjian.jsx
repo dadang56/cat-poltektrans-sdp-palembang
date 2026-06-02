@@ -122,15 +122,26 @@ function MonitorUjian() {
           const ruangLookup = {}
           allRuang.forEach(r => { ruangLookup[r.id] = r })
 
-          // Filter for today's exams (show all exams for today, regardless of exact time)
-          const today = now.toISOString().split('T')[0]
+          // Filter for today's exams that are still relevant
+          // Use local date (WIB) instead of UTC
+          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
           const activeExams = allJadwal.filter(j => {
             if (!j.tanggal) return false
-            // Show all exams scheduled for today
-            return j.tanggal === today
+            // Only show today's exams
+            if (j.tanggal !== today) return false
+            // Exclude completed/cancelled exams
+            if (j.status === 'completed' || j.status === 'cancelled') return false
+            // Exclude exams that ended more than 30 minutes ago
+            const examEnd = new Date(`${j.tanggal}T${j.waktu_selesai || j.waktuSelesai || '23:59'}`)
+            const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000)
+            if (examEnd < thirtyMinAgo) return false
+            return true
           })
 
-          console.log('[MonitorUjian] Active exams from Supabase:', activeExams.length)
+          console.log('[MonitorUjian] Today (local):', today, '| Total jadwal:', allJadwal.length, '| Active (filtered):', activeExams.length)
+          if (allJadwal.length > 0) {
+            console.log('[MonitorUjian] Sample jadwal tanggal format:', allJadwal[0].tanggal, '| status:', allJadwal[0].status)
+          }
 
           // Group by ruangan — each room can have multiple exams
           const roomMap = {}
