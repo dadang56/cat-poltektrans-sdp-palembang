@@ -126,30 +126,37 @@ function App() {
     }
   }, [])
 
-  // Session validation interval - check every 30 seconds
+  // Session validation interval - check every 2 minutes (optimized from 30s)
   useEffect(() => {
     if (!user) return
 
     const checkSession = async () => {
-      const result = await authService.validateSession()
-      if (!result.valid && result.reason === 'session_invalidated') {
-        // Session was invalidated (user logged in elsewhere)
-        setSessionMessage('Akun Anda telah login di perangkat lain. Anda akan logout otomatis.')
+      try {
+        const result = await authService.validateSession()
+        if (!result.valid && result.reason === 'session_invalidated') {
+          // Session was invalidated (user logged in elsewhere)
+          setSessionMessage('Akun Anda telah login di perangkat lain. Anda akan logout otomatis.')
 
-        // Auto logout after showing message
-        setTimeout(async () => {
-          await authService.signOut()
-          setUser(null)
-          setSessionMessage(null)
-        }, 3000)
+          // Auto logout after showing message
+          setTimeout(async () => {
+            await authService.signOut()
+            setUser(null)
+            setSessionMessage(null)
+          }, 3000)
+        }
+      } catch (e) {
+        // Silently ignore validation errors to avoid flooding
       }
     }
 
-    // Check immediately and then every 30 seconds
-    checkSession()
-    const interval = setInterval(checkSession, 30000)
+    // Check after 5 seconds (not immediately), then every 2 minutes
+    const initialTimeout = setTimeout(checkSession, 5000)
+    const interval = setInterval(checkSession, 120000)
 
-    return () => clearInterval(interval)
+    return () => {
+      clearTimeout(initialTimeout)
+      clearInterval(interval)
+    }
   }, [user])
 
   // Inactivity auto-logout (15 minutes = 900000ms)

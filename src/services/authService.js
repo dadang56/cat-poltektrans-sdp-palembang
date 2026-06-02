@@ -2,10 +2,10 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
 /**
  * Authentication Service for CAT Poltektrans
- * Uses Supabase Auth with NIM/NIP as custom identifier
+ * Optimized: DB-first login to reduce Supabase Auth load
  */
 
-// LocalStorage keys for session persistence (required for current device)
+// LocalStorage keys for session persistence
 const USER_PROFILE_KEY = 'cat_user'
 const SESSION_TOKEN_KEY = 'cat_session_token'
 
@@ -18,141 +18,101 @@ function generateSessionToken() {
 
 /**
  * Sign in with NIM/NIP and password
- * Flow:
- * 1. First check if user exists in public.users table
+ * OPTIMIZED Flow:
+ * 1. First lookup user in DB by nim_nip (1 lightweight query)
  * 2. If user has auth_id -> authenticate via Supabase Auth
- * 3. If user has NO auth_id -> allow temporary login (legacy/manual users)
+ * 3. If user has NO auth_id -> legacy password check (no Supabase Auth call)
+ * This avoids wasting a Supabase Auth call for every legacy user login.
  */
 export async function signInWithNimNip(nimNip, password) {
-
     try {
-        // STRATEGY: Try Supabase Auth First
-        // This avoids "NIM not found" errors caused by RLS blocking anon access to users table
-        const email = `${nimNip.toLowerCase()}@cat.poltektrans.local`
-        console.log('[AuthService] Attempting Supabase Auth for:', email)
+        // STEP 1: Lookup user in DB first (lightweight - select only needed columns)
+        let existingUser = null
+        const { data: byNimNip, error: lookupError } = await supabase
+            .from('users')
+            .select(`
+                id, nim_nip, nama, email, role, status, password, auth_id,
+                prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
+                prodi:prodi_id(id, nama, kode),
+                kelas:kelas_id(id, nama)
+            `)
+            .ilike('nim_nip', nimNip)
+            .maybeSingle()
 
-        const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-            email,
-            password
-        })
+        if (!lookupError || lookupError.code === 'PGRST116') {
+            existingUser = byNimNip
+        }
 
-        if (authData?.session) {
-            // AUTH SUCCESS!
-            // Now we are authenticated, we can fetch our profile
-            console.log('[AuthService] Supabase Auth success. Fetching profile...')
-
-            const { data: userProfile, error: profileError } = await supabase
+        // If not found by nim_nip, try by username
+        if (!existingUser) {
+            const { data: byUsername, error: usernameError } = await supabase
                 .from('users')
                 .select(`
-                    *,
+                    id, nim_nip, nama, email, role, status, password, auth_id,
+                    prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
                     prodi:prodi_id(id, nama, kode),
                     kelas:kelas_id(id, nama)
                 `)
-                .eq('auth_id', authData.user.id)
-                .single()
+                .ilike('username', nimNip)
+                .maybeSingle()
 
-            if (profileError || !userProfile) {
-                console.error('[AuthService] Profile not found for auth user:', profileError)
-                await supabase.auth.signOut() // Rollback
-                throw new Error('Profil pengguna tidak ditemukan.')
+            if (!usernameError || usernameError.code === 'PGRST116') {
+                existingUser = byUsername
+            }
+        }
+
+        if (!existingUser) {
+            throw new Error('NIM/NIP tidak ditemukan dalam sistem')
+        }
+
+        if (existingUser.status !== 'active') {
+            throw new Error('Akun tidak aktif. Hubungi administrator.')
+        }
+
+        // STEP 2: Route based on whether user has Supabase Auth
+        if (existingUser.auth_id) {
+            // === SUPABASE AUTH USER ===
+            const email = `${nimNip.toLowerCase()}@cat.poltektrans.local`
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email,
+                password
+            })
+
+            if (authError || !authData?.session) {
+                throw new Error('Password salah')
             }
 
-            if (userProfile.status !== 'active') {
-                await supabase.auth.signOut()
-                throw new Error('Akun tidak aktif. Hubungi administrator.')
-            }
-
-            // Generate unique session token for concurrency control
+            // Generate session token
             const sessionToken = generateSessionToken()
-
-            // Update session token in database for this user
             await supabase
                 .from('users')
                 .update({ session_token: sessionToken })
-                .eq('id', userProfile.id)
+                .eq('id', existingUser.id)
 
-            // Store token in localStorage for validation
             localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
-            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formatUserProfile(userProfile, authData.session)))
+            const formattedUser = formatUserProfile(existingUser, authData.session)
+            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
 
-            return { data: formatUserProfile(userProfile, authData.session), error: null }
+            return { data: formattedUser, error: null }
 
         } else {
-            // AUTH FAILED or NO SESSION
-            console.log('[AuthService] Supabase Auth failed/skipped. Checking Legacy DB Auth...')
-
-            // Only now do we try to query the DB directly (as anon)
-            // This might fail if RLS is strict, but that's expected for Legacy users in strict mode
-            // We use 'maybeSingle' to avoid throwing immediately
-            // Try lookup by nim_nip first
-            let existingUser = null
-            const { data: byNimNip, error: lookupError } = await supabase
-                .from('users')
-                .select(`
-                    *,
-                    prodi:prodi_id(id, nama, kode),
-                    kelas:kelas_id(id, nama)
-                `)
-                .ilike('nim_nip', nimNip)
-                .maybeSingle()
-
-            if (lookupError && lookupError.code !== 'PGRST116') {
-                console.error('[AuthService] Legacy lookup error:', lookupError)
-                if (authError) throw new Error('Username atau Password salah')
-                throw new Error('Gagal mengakses data pengguna')
-            }
-
-            existingUser = byNimNip
-
-            // If not found by nim_nip, try by username
-            if (!existingUser) {
-                console.log('[AuthService] Not found by nim_nip, trying username...')
-                const { data: byUsername, error: usernameError } = await supabase
-                    .from('users')
-                    .select(`
-                        *,
-                        prodi:prodi_id(id, nama, kode),
-                        kelas:kelas_id(id, nama)
-                    `)
-                    .ilike('username', nimNip)
-                    .maybeSingle()
-
-                if (!usernameError || usernameError.code === 'PGRST116') {
-                    existingUser = byUsername
-                }
-            }
-
-            if (!existingUser) {
-                throw new Error('NIM/NIP tidak ditemukan dalam sistem')
-            }
-
-            // If found, check password (Legacy Flow)
-            if (existingUser.auth_id) {
-                // It IS an auth user, but signInWithPassword failed above
-                throw new Error('Password salah')
-            }
-
-            // Validating legacy password
+            // === LEGACY USER (no Supabase Auth call needed!) ===
             const storedPassword = existingUser.password || '123456'
-            if (password === storedPassword) {
-                if (existingUser.status !== 'active') {
-                    throw new Error('Akun tidak aktif.')
-                }
-
-                const sessionToken = generateSessionToken()
-                await supabase
-                    .from('users')
-                    .update({ session_token: sessionToken })
-                    .eq('id', existingUser.id)
-
-                const formattedUser = formatUserProfile(existingUser, null)
-                localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
-                localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
-
-                return { data: formattedUser, error: null }
-            } else {
+            if (password !== storedPassword) {
                 throw new Error('Password salah')
             }
+
+            const sessionToken = generateSessionToken()
+            await supabase
+                .from('users')
+                .update({ session_token: sessionToken })
+                .eq('id', existingUser.id)
+
+            const formattedUser = formatUserProfile(existingUser, null)
+            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
+            localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
+
+            return { data: formattedUser, error: null }
         }
     } catch (error) {
         console.error('[AuthService] Sign in error:', error)
@@ -164,7 +124,6 @@ export async function signInWithNimNip(nimNip, password) {
  * Sign up a new user (admin function)
  */
 export async function signUpUser(nimNip, password, userData) {
-
     try {
         const email = `${nimNip.toLowerCase()}@cat.poltektrans.local`
 
@@ -239,8 +198,8 @@ export async function getSession() {
 }
 
 /**
- * Validate current session token against database
- * Returns false if session is invalid (logged in elsewhere)
+ * Validate current session - check if session token still matches DB
+ * OPTIMIZED: Uses lightweight select (only session_token column)
  */
 export async function validateSession() {
     const localUser = localStorage.getItem(USER_PROFILE_KEY)
@@ -251,62 +210,43 @@ export async function validateSession() {
     }
 
     try {
-        try {
-            // Get user from localStorage first (works for both legacy and auth users since we store profile there)
-            const localUser = localStorage.getItem(USER_PROFILE_KEY)
-            // If not mapped there, check if we have a supabase session and partial profile
-
-            let userId = null
-            if (localUser) {
-                const user = JSON.parse(localUser)
-                userId = user.id
-            } else {
-                // Check Supabase session if strictly using that
-                const { data: { session } } = await supabase.auth.getSession()
-                if (session?.user) {
-                    // We need to fetch the profile to get the integer ID, but let's see if we can optimize
-                    // For now, let's assume the profile should be in localStorage after login
-                    // If not, we might be in a reload state before profile fetch.
-                    // It's safer to skip validation if we don't have the user ID yet.
-                    return { valid: true }
-                }
-            }
-
-            if (!userId) {
-                return { valid: false, reason: 'no_session' }
-            }
-
-            // Check session token in database
-            const { data, error } = await supabase
-                .from('users')
-                .select('session_token')
-                .eq('id', userId)
-                .single()
-
-            if (error) {
-                console.error('[AuthService] Session validation error:', error)
-                return { valid: true } // Don't logout on network errors
-            }
-
-            // If database token doesn't match local token, session is invalid
-            if (data.session_token !== localToken) {
-                console.log('[AuthService] Session invalidated - logged in elsewhere')
-                return { valid: false, reason: 'session_invalidated' }
-            }
-
-            return { valid: true }
-        } catch (e) {
-            console.error('[AuthService] Session validation error:', e)
-            return { valid: true } // Don't logout on errors
+        let userId = null
+        if (localUser) {
+            const user = JSON.parse(localUser)
+            userId = user.id
         }
-    } catch (e) {
-        console.error('[AuthService] Session validation outer error:', e)
+
+        if (!userId) {
+            return { valid: false, reason: 'no_session' }
+        }
+
+        // Lightweight query - only fetch session_token column
+        const { data, error } = await supabase
+            .from('users')
+            .select('session_token')
+            .eq('id', userId)
+            .single()
+
+        if (error) {
+            console.error('[AuthService] Session validation error:', error)
+            return { valid: true } // Don't logout on network errors
+        }
+
+        // If database token doesn't match local token, session is invalid
+        if (data.session_token !== localToken) {
+            console.log('[AuthService] Session invalidated - logged in elsewhere')
+            return { valid: false, reason: 'session_invalidated' }
+        }
+
         return { valid: true }
+    } catch (e) {
+        console.error('[AuthService] Session validation error:', e)
+        return { valid: true } // Don't logout on errors
     }
 }
 
 /**
- * Get current user profile
+ * Get current user profile - OPTIMIZED: uses localStorage cache first
  */
 export async function getCurrentUser() {
     // Check localStorage for cached profile (works for both auth and legacy users)
@@ -319,30 +259,39 @@ export async function getCurrentUser() {
         }
     }
 
+    // Only check Supabase Auth session if no cached profile
+    try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (!session) return null
 
+        const { data: profile } = await supabase
+            .from('users')
+            .select(`
+                id, nim_nip, nama, email, role, status, auth_id,
+                prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
+                prodi:prodi_id(id, nama, kode),
+                kelas:kelas_id(id, nama)
+            `)
+            .eq('auth_id', session.user.id)
+            .single()
 
-    // Check Supabase Auth session (for future OAuth users)
-    const { data: { session } } = await supabase.auth.getSession()
-    if (!session) return null
+        if (profile) {
+            const formattedUser = formatUserProfile(profile, session)
+            // Cache the profile for future calls
+            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
+            return formattedUser
+        }
+    } catch (e) {
+        console.error('[AuthService] getCurrentUser error:', e)
+    }
 
-    const { data: profile } = await supabase
-        .from('users')
-        .select(`
-            *,
-            prodi:prodi_id(id, nama, kode),
-            kelas:kelas_id(id, nama)
-        `)
-        .eq('auth_id', session.user.id)
-        .single()
-
-    return profile ? formatUserProfile(profile, session) : null
+    return null
 }
 
 /**
  * Subscribe to auth state changes
  */
 export function onAuthStateChange(callback) {
-
     return supabase.auth.onAuthStateChange(async (event, session) => {
         if (event === 'SIGNED_IN' && session) {
             const user = await getCurrentUser()
@@ -357,7 +306,6 @@ export function onAuthStateChange(callback) {
  * Update user password
  */
 export async function updatePassword(newPassword) {
-
     return await supabase.auth.updateUser({ password: newPassword })
 }
 
@@ -409,7 +357,8 @@ async function checkLegacyUser(nimNip, password) {
     const { data: user } = await supabase
         .from('users')
         .select(`
-            *,
+            id, nim_nip, nama, email, role, status, auth_id,
+            prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
             prodi:prodi_id(id, nama, kode),
             kelas:kelas_id(id, nama)
         `)
@@ -418,8 +367,6 @@ async function checkLegacyUser(nimNip, password) {
         .single()
 
     if (user) {
-        // For now, allow login with just nim_nip match (migration period)
-        // TODO: Implement proper password verification
         return formatUserProfile(user, null)
     }
     return null
@@ -434,5 +381,6 @@ export default {
     getCurrentUser,
     onAuthStateChange,
     updatePassword,
+    validateSession,
     isSupabaseConfigured
 }

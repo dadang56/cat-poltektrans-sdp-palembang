@@ -66,11 +66,11 @@ function RekapKehadiranPage() {
                 const mahasiswaData = await userService.getAll({ role: 'mahasiswa' })
                 console.log('[RekapKehadiran] Mahasiswa loaded:', mahasiswaData?.length)
 
-                // Load hasil per jadwal (same pattern as EksporData)
+                // Load hasil in single batch query (optimized from N+1)
                 const jadwalIds = (jadwalData || []).map(j => j.id)
-                const hasilPromises = jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
-                const hasilResults = await Promise.all(hasilPromises)
-                const hasilData = hasilResults.flat().filter(Boolean)
+                const hasilData = jadwalIds.length > 0
+                    ? (await hasilUjianService.getByJadwalIds(jadwalIds) || []).filter(Boolean)
+                    : []
                 console.log('[RekapKehadiran] Hasil ujian loaded:', hasilData?.length)
 
                 // Group by exam - per ujian view

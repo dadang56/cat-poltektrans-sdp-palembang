@@ -68,11 +68,11 @@ function RekapNilaiPage() {
                     })
                 }
 
-                // Load hasil per jadwal (same as EksporData)
+                // Load hasil in single batch query (optimized from N+1)
                 const jadwalIds = (jadwalData || []).map(j => j.id)
-                const hasilPromises = jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
-                const hasilResults = await Promise.all(hasilPromises)
-                const allHasil = hasilResults.flat().filter(Boolean)
+                const allHasil = jadwalIds.length > 0
+                    ? (await hasilUjianService.getByJadwalIds(jadwalIds) || []).filter(Boolean)
+                    : []
                 console.log('[RekapNilai] Loaded hasil:', allHasil.length)
 
                 // Group results by jadwal (exam)

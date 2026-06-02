@@ -485,7 +485,7 @@ function TakeExamPage() {
         if (submitted || loading || !examData?.id || !user?.id || questions.length === 0) return
         if (!isSupabaseConfigured()) return
 
-        const autoSaveInterval = setInterval(async () => {
+        const autoSaveInterval = setInterval(async () => { // Optimized: 60s (was 30s)
             try {
                 const answerSnapshot = questions.map(q => ({
                     questionId: q.id,
@@ -503,7 +503,7 @@ function TakeExamPage() {
             } catch (err) {
                 console.error('[TakeExam] Auto-save failed:', err)
             }
-        }, 30000)
+        }, 60000)
 
         return () => clearInterval(autoSaveInterval)
     }, [submitted, loading, examData, user, questions, answers])
@@ -566,8 +566,8 @@ function TakeExamPage() {
         // Check immediately
         checkKickedStatus()
 
-        // Then check every 5 seconds
-        const kickCheckInterval = setInterval(checkKickedStatus, 5000)
+        // Then check every 15 seconds (optimized from 5s)
+        const kickCheckInterval = setInterval(checkKickedStatus, 15000)
 
         return () => clearInterval(kickCheckInterval)
     }, [submitted, user, id, isKicked, existingHasilId, questions, answers])
@@ -589,7 +589,7 @@ function TakeExamPage() {
             }
         }
 
-        const reactivateInterval = setInterval(checkReactivation, 5000)
+        const reactivateInterval = setInterval(checkReactivation, 20000) // Optimized from 5s
         return () => clearInterval(reactivateInterval)
     }, [submitted, user, id])
 
@@ -619,7 +619,7 @@ function TakeExamPage() {
             }
         }
 
-        const approvalInterval = setInterval(checkApproval, 3000)
+        const approvalInterval = setInterval(checkApproval, 10000) // Optimized from 3s
         return () => clearInterval(approvalInterval)
     }, [waitingApproval, existingHasilId, id, user])
 

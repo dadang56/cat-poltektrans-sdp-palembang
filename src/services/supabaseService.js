@@ -593,6 +593,21 @@ export const kehadiranService = {
 
         if (error) throw error
         return data
+    },
+
+    // Batch fetch by multiple jadwal IDs (replaces N+1 pattern)
+    async getByJadwalIds(jadwalIds) {
+        if (!jadwalIds || jadwalIds.length === 0) return []
+        const { data, error } = await supabase
+            .from('kehadiran')
+            .select(`
+        *,
+        mahasiswa:mahasiswa_id(id, nama, nim_nip)
+      `)
+            .in('jadwal_id', jadwalIds)
+
+        if (error) throw error
+        return data
     }
 }
 
@@ -644,6 +659,21 @@ export const hasilUjianService = {
         mahasiswa:mahasiswa_id(id, nama, nim_nip, kelas:kelas_id(nama))
       `)
             .eq('jadwal_id', jadwalId)
+
+        if (error) throw error
+        return data
+    },
+
+    // Batch fetch by multiple jadwal IDs (replaces N+1 pattern)
+    async getByJadwalIds(jadwalIds) {
+        if (!jadwalIds || jadwalIds.length === 0) return []
+        const { data, error } = await supabase
+            .from('hasil_ujian')
+            .select(`
+        *,
+        mahasiswa:mahasiswa_id(id, nama, nim_nip, kelas:kelas_id(nama))
+      `)
+            .in('jadwal_id', jadwalIds)
 
         if (error) throw error
         return data

@@ -121,15 +121,12 @@ function EksporDataPage() {
                 // Get all jadwal IDs for loading hasil and kehadiran
                 const jadwalIds = jadwal.map(j => j.id)
 
-                // Load hasil_ujian for these jadwal
-                const hasilPromises = jadwalIds.map(jId => hasilUjianService.getByJadwal(jId))
-                const hasilResults = await Promise.all(hasilPromises)
-                const allHasil = hasilResults.flat().filter(Boolean)
+                // Load hasil_ujian and kehadiran in single batch queries (optimized from N+1)
+                const allHasil = jadwalIds.length > 0 ? await hasilUjianService.getByJadwalIds(jadwalIds) : []
 
-                // Load kehadiran for these jadwal
-                const kehadiranPromises = jadwalIds.map(jId => kehadiranService.getByJadwal(jId))
-                const kehadiranResults = await Promise.all(kehadiranPromises)
-                kehadiran = kehadiranResults.flat().filter(Boolean)
+                // Load kehadiran in single batch query
+                const allKehadiran = jadwalIds.length > 0 ? await kehadiranService.getByJadwalIds(jadwalIds) : []
+                kehadiran = (allKehadiran || []).filter(Boolean)
 
                 // Transform jadwal to expected format
                 jadwal = jadwal.map(j => ({

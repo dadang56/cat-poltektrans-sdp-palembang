@@ -292,12 +292,12 @@ function MonitorUjian() {
     setSelectedRoom(null)
   }
 
-  // Real-time polling: refresh participants from Supabase every 5 seconds
+  // Real-time polling: refresh participants every 30 seconds (optimized from 5s)
   useEffect(() => {
     if (!selectedRoom) return
     const interval = setInterval(() => {
       handleRefresh()
-    }, 5000)
+    }, 30000)
 
     return () => clearInterval(interval)
   }, [selectedRoom])
