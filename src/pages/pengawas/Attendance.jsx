@@ -65,11 +65,11 @@ function AttendancePage() {
 
                     // Get today's jadwal
                     const now = new Date()
-                    const today = now.toISOString().split('T')[0]
+                    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
                     const todayJadwal = jadwalData.filter(j => j.tanggal === today)
 
-                    // Group by ruangan_id
-                    const roomMap = {}
+                    // Group by JADWAL (per mata kuliah), not by room
+                    const jadwalMap = {}
                     todayJadwal.forEach(j => {
                         const roomId = j.ruangan_id || j.ruanganId || 'default'
                         const ruang = ruangLookup[roomId] || j.ruangan || {}
@@ -81,24 +81,19 @@ function AttendancePage() {
                         const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
                         const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
 
-                        if (!roomMap[roomId]) {
-                            roomMap[roomId] = {
-                                id: roomId,
-                                name: roomName,
-                                exams: [examLabel],
-                                jadwalIds: [j.id],
-                                tanggal: j.tanggal,
-                                waktuMulai: waktuMulai,
-                                waktuSelesai: waktuSelesai
-                            }
-                        } else {
-                            if (!roomMap[roomId].exams.includes(examLabel)) {
-                                roomMap[roomId].exams.push(examLabel)
-                            }
-                            roomMap[roomId].jadwalIds.push(j.id)
+                        // Each jadwal = its own entry (1 matkul = 1 entry)
+                        jadwalMap[j.id] = {
+                            id: j.id,
+                            roomId: roomId,
+                            name: roomName,
+                            exams: [examLabel],
+                            jadwalIds: [j.id],
+                            tanggal: j.tanggal,
+                            waktuMulai: waktuMulai,
+                            waktuSelesai: waktuSelesai
                         }
                     })
-                    setRooms(Object.values(roomMap))
+                    setRooms(Object.values(jadwalMap))
                 }
             } catch (err) {
                 console.error('[Attendance] Error loading data:', err)
@@ -233,10 +228,10 @@ function AttendancePage() {
                                     value={selectedRoom?.id || ''}
                                     onChange={(e) => handleRoomSelect(e.target.value)}
                                 >
-                                    <option value="">-- Pilih Ruangan Ujian Hari Ini --</option>
+                                    <option value="">-- Pilih Mata Ujian Hari Ini --</option>
                                     {rooms.map(room => (
                                         <option key={room.id} value={room.id}>
-                                            {room.name} — {room.exams.join(', ')} ({room.waktuMulai})
+                                            {room.name} — {room.exams[0]} ({room.waktuMulai})
                                         </option>
                                     ))}
                                 </select>
@@ -442,7 +437,7 @@ function AttendancePage() {
                                 <table>
                                     <tbody>
                                         <tr><td>Ruangan</td><td>: {selectedRoom.name}</td></tr>
-                                        <tr><td>Mata Ujian</td><td>: {selectedRoom.exams.join(', ')}</td></tr>
+                                        <tr><td>Mata Ujian</td><td>: {selectedRoom.exams[0]}</td></tr>
                                         <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
                                         <tr><td>Waktu</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</td></tr>
                                     </tbody>

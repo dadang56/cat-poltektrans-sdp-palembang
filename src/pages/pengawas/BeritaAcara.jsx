@@ -58,11 +58,11 @@ function BeritaAcaraPage() {
                     allRuang.forEach(r => { ruangLookup[r.id] = r })
 
                     const now = new Date()
-                    const today = now.toISOString().split('T')[0]
+                    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
                     const todayJadwal = jadwalData.filter(j => j.tanggal === today)
 
-                    // Group by ruangan
-                    const roomMap = {}
+                    // Group by JADWAL (per mata kuliah), not by room
+                    const jadwalMap = {}
                     todayJadwal.forEach(j => {
                         const roomId = j.ruangan_id || j.ruanganId || 'default'
                         const ruang = ruangLookup[roomId] || j.ruangan || {}
@@ -73,24 +73,19 @@ function BeritaAcaraPage() {
                         const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
                         const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
 
-                        if (!roomMap[roomId]) {
-                            roomMap[roomId] = {
-                                id: roomId,
-                                name: roomName,
-                                exams: [examLabel],
-                                jadwalIds: [j.id],
-                                tanggal: j.tanggal,
-                                waktuMulai,
-                                waktuSelesai
-                            }
-                        } else {
-                            if (!roomMap[roomId].exams.includes(examLabel)) {
-                                roomMap[roomId].exams.push(examLabel)
-                            }
-                            roomMap[roomId].jadwalIds.push(j.id)
+                        // Each jadwal = its own entry (1 matkul = 1 entry)
+                        jadwalMap[j.id] = {
+                            id: j.id,
+                            roomId: roomId,
+                            name: roomName,
+                            exams: [examLabel],
+                            jadwalIds: [j.id],
+                            tanggal: j.tanggal,
+                            waktuMulai,
+                            waktuSelesai
                         }
                     })
-                    setRooms(Object.values(roomMap))
+                    setRooms(Object.values(jadwalMap))
                 }
             } catch (error) {
                 console.error('[BeritaAcara] Error loading data:', error)
@@ -217,10 +212,10 @@ function BeritaAcaraPage() {
                                     value={selectedRoom?.id || ''}
                                     onChange={(e) => handleRoomSelect(e.target.value)}
                                 >
-                                    <option value="">-- Pilih Ruangan Ujian Hari Ini --</option>
+                                    <option value="">-- Pilih Mata Ujian Hari Ini --</option>
                                     {rooms.map(room => (
                                         <option key={room.id} value={room.id}>
-                                            {room.name} — {room.exams.join(', ')} ({room.waktuMulai})
+                                            {room.name} — {room.exams[0]} ({room.waktuMulai})
                                         </option>
                                     ))}
                                 </select>
@@ -271,7 +266,7 @@ function BeritaAcaraPage() {
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Mata Ujian</label>
-                                    <input type="text" className="form-input" value={selectedRoom.exams.join(', ')} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                                    <input type="text" className="form-input" value={selectedRoom.exams[0]} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                                 </div>
                                 <div className="form-row">
                                     <div className="form-group">
@@ -422,7 +417,7 @@ function BeritaAcaraPage() {
                                 <table className="print-info-table">
                                     <tbody>
                                         <tr><td>Ruangan</td><td>: {selectedRoom.name}</td></tr>
-                                        <tr><td>Mata Ujian</td><td>: {selectedRoom.exams.join(', ')}</td></tr>
+                                        <tr><td>Mata Ujian</td><td>: {selectedRoom.exams[0]}</td></tr>
                                         <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
                                         <tr><td>Waktu Pelaksanaan</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai} WIB</td></tr>
                                     </tbody>
