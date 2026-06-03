@@ -32,6 +32,7 @@ function BeritaAcaraPage() {
     const [selectedRoom, setSelectedRoom] = useState(null)
     const [usersList, setUsersList] = useState([])
     const [roomStudentCount, setRoomStudentCount] = useState({ total: 0, hadir: 0 })
+    const [kelasNames, setKelasNames] = useState('')
     const [formData, setFormData] = useState({
         incidents: '',
         notes: ''
@@ -111,6 +112,7 @@ function BeritaAcaraPage() {
 
                 const seenStudents = new Set()
                 let hadirCount = 0
+                const kelasSet = new Set()
                 allResults.forEach(resultList => {
                     (resultList || []).forEach(hasil => {
                         const mhsId = hasil.mahasiswa_id
@@ -118,11 +120,14 @@ function BeritaAcaraPage() {
                             seenStudents.add(mhsId)
                             const isHadir = hasil.status === 'submitted' || hasil.status === 'graded' || !!hasil.waktu_selesai
                             if (isHadir) hadirCount++
+                            const kelas = hasil.mahasiswa?.kelas?.nama
+                            if (kelas) kelasSet.add(kelas)
                         }
                     })
                 })
 
                 setRoomStudentCount({ total: seenStudents.size, hadir: hadirCount })
+                setKelasNames([...kelasSet].join(', ') || '-')
             } catch (error) {
                 console.error('[BeritaAcara] Error loading room students:', error)
             }
@@ -267,6 +272,10 @@ function BeritaAcaraPage() {
                                 <div className="form-group">
                                     <label className="form-label">Mata Ujian</label>
                                     <input type="text" className="form-input" value={selectedRoom.exams[0]} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Kelas</label>
+                                    <input type="text" className="form-input" value={kelasNames} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                                 </div>
                                 <div className="form-row">
                                     <div className="form-group">
@@ -418,6 +427,7 @@ function BeritaAcaraPage() {
                                     <tbody>
                                         <tr><td>Ruangan</td><td>: {selectedRoom.name}</td></tr>
                                         <tr><td>Mata Ujian</td><td>: {selectedRoom.exams[0]}</td></tr>
+                                        <tr><td>Kelas</td><td>: {kelasNames}</td></tr>
                                         <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
                                         <tr><td>Waktu Pelaksanaan</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai} WIB</td></tr>
                                     </tbody>

@@ -129,11 +129,15 @@ function AttendancePage() {
                                 id: mhsId,
                                 nama: hasil.mahasiswa?.nama || 'Unknown',
                                 nim: hasil.mahasiswa?.nim_nip || '-',
+                                kelas: hasil.mahasiswa?.kelas?.nama || '-',
                                 submitted: hasil.status === 'submitted' || hasil.status === 'graded' || !!hasil.waktu_selesai
                             })
                         }
                     })
                 })
+
+                // Sort by NIM ascending
+                students.sort((a, b) => (a.nim || '').localeCompare(b.nim || '', 'id', { numeric: true }))
 
                 setRoomStudents(students)
 
@@ -329,6 +333,7 @@ function AttendancePage() {
                                                     <th style={{ width: '50px' }}>No</th>
                                                     <th>Nama</th>
                                                     <th>NIM</th>
+                                                    <th>Kelas</th>
                                                     <th>Ruangan</th>
                                                     <th style={{ width: '120px' }}>Status</th>
                                                     <th style={{ width: '180px' }}>Keterangan</th>
@@ -342,6 +347,7 @@ function AttendancePage() {
                                                             <td>{idx + 1}</td>
                                                             <td className="font-medium">{student.nama}</td>
                                                             <td>{student.nim}</td>
+                                                            <td>{student.kelas}</td>
                                                             <td>
                                                                 <span className="badge badge-secondary">{selectedRoom?.name || 'Ruang'}</span>
                                                             </td>
@@ -438,6 +444,7 @@ function AttendancePage() {
                                     <tbody>
                                         <tr><td>Ruangan</td><td>: {selectedRoom.name}</td></tr>
                                         <tr><td>Mata Ujian</td><td>: {selectedRoom.exams[0]}</td></tr>
+                                        <tr><td>Kelas</td><td>: {roomStudents.length > 0 ? [...new Set(roomStudents.map(s => s.kelas).filter(k => k && k !== '-'))].join(', ') || '-' : '-'}</td></tr>
                                         <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
                                         <tr><td>Waktu</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</td></tr>
                                     </tbody>
@@ -450,6 +457,7 @@ function AttendancePage() {
                                         <th style={{ width: '40px' }}>No</th>
                                         <th>Nama</th>
                                         <th>NIM</th>
+                                        <th>Kelas</th>
                                         <th style={{ width: '80px' }}>Hadir</th>
                                         <th style={{ width: '120px' }}>Keterangan</th>
                                     </tr>
@@ -463,6 +471,7 @@ function AttendancePage() {
                                                 <td className="center">{idx + 1}</td>
                                                 <td>{student.nama}</td>
                                                 <td>{student.nim}</td>
+                                                <td>{student.kelas}</td>
                                                 <td className="center">{data.status === 'hadir' ? '✓' : '-'}</td>
                                                 <td>{data.status === 'tidak_hadir' ? reason : '-'}</td>
                                             </tr>
