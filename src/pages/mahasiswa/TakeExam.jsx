@@ -859,9 +859,21 @@ function TakeExamPage() {
     // Loading state
     if (loading) {
         return (
-            <div className="exam-loading">
-                <div className="spinner-lg"></div>
-                <p>Memuat ujian...</p>
+            <div className="exam-loading" style={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center',
+                justifyContent: 'center', minHeight: '100vh', background: 'var(--bg-primary, #f8fafc)',
+                gap: '16px'
+            }}>
+                <div style={{
+                    width: '56px', height: '56px',
+                    border: '5px solid var(--border-color, #e2e8f0)',
+                    borderTopColor: 'var(--primary-500, #3b82f6)',
+                    borderRadius: '50%',
+                    animation: 'spin 0.8s linear infinite'
+                }} />
+                <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>Memuat Soal Ujian...</h3>
+                <p style={{ margin: 0, color: 'var(--text-muted)', fontSize: '0.9rem' }}>Sedang mengambil data dari server, mohon tunggu</p>
+                <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
             </div>
         )
     }

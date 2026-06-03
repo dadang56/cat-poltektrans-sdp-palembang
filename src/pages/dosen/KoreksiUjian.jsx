@@ -603,7 +603,20 @@ function KoreksiUjianPage() {
                                 <h3>Ujian Perlu Dikoreksi</h3>
                             </div>
                             <div className="card-body">
-                                {examResults.length === 0 ? (
+                                {loading ? (
+                                    <div className="text-center" style={{ padding: '48px' }}>
+                                        <div style={{
+                                            width: '48px', height: '48px', margin: '0 auto 16px',
+                                            border: '4px solid var(--border-color)',
+                                            borderTopColor: 'var(--primary-500)',
+                                            borderRadius: '50%',
+                                            animation: 'spin 0.8s linear infinite'
+                                        }} />
+                                        <h4 style={{ margin: '0 0 8px' }}>Memuat Data Koreksi...</h4>
+                                        <p style={{ margin: 0, color: 'var(--text-muted)' }}>Sedang mengambil hasil ujian dari server</p>
+                                        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+                                    </div>
+                                ) : examResults.length === 0 ? (
                                     <div className="text-center" style={{ padding: '48px', opacity: 0.6 }}>
                                         <FileText size={48} style={{ marginBottom: '16px' }} />
                                         <h4 style={{ margin: '0 0 8px' }}>Tidak Ada Ujian</h4>

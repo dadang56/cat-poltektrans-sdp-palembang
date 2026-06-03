@@ -196,6 +196,7 @@ function UjianPage() {
     const [completedExamIds, setCompletedExamIds] = useState([])
     const [ulangEligibility, setUlangEligibility] = useState({}) // { jadwalId: true/false }
     const [confirmModal, setConfirmModal] = useState({ open: false, exam: null })
+    const [loading, setLoading] = useState(true)
 
     useEffect(() => {
         const loadData = async () => {
@@ -248,6 +249,7 @@ function UjianPage() {
             } catch (err) {
                 console.error('[UjianMendatang] Error loading data:', err)
             }
+            setLoading(false)
         }
         loadData()
     }, [user])
@@ -514,7 +516,21 @@ function UjianPage() {
 
                 {/* Exam List */}
                 <div className="exam-list">
-                    {exams.length === 0 ? (
+                    {loading ? (
+                        <div className="card">
+                            <div className="card-body text-center" style={{ padding: '48px' }}>
+                                <div style={{
+                                    width: '48px', height: '48px', margin: '0 auto 16px',
+                                    border: '4px solid var(--border-color)',
+                                    borderTopColor: 'var(--primary-500)',
+                                    borderRadius: '50%',
+                                    animation: 'spin 0.8s linear infinite'
+                                }} />
+                                <h4 style={{ margin: '0 0 8px', color: 'var(--text-primary)' }}>Memuat Jadwal Ujian...</h4>
+                                <p style={{ margin: 0, color: 'var(--text-muted)' }}>Sedang mengambil data ujian dari server</p>
+                            </div>
+                        </div>
+                    ) : exams.length === 0 ? (
                         <div className="card">
                             <div className="card-body text-center" style={{ padding: '48px', opacity: 0.6 }}>
                                 <ClipboardList size={48} style={{ marginBottom: '16px' }} />
