@@ -68,11 +68,14 @@ function SettingsPage() {
 
     const handleSave = async () => {
         try {
+            console.log('[Settings] Saving settings...', Object.keys(localSettings))
             await updateSettings(localSettings)
+            console.log('[Settings] Save successful!')
             setSaveStatus('success')
         } catch (err) {
-            console.error('Save failed:', err)
+            console.error('[Settings] Save failed:', err)
             setSaveStatus('error')
+            alert('Gagal menyimpan pengaturan: ' + (err.message || 'Periksa koneksi database'))
         }
         setTimeout(() => setSaveStatus(null), 3000)
     }

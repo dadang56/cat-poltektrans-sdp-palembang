@@ -1107,17 +1107,25 @@ export const appSettingsService = {
     },
 
     async get(key) {
+        console.log('[appSettings] Loading key:', key)
         const { data, error } = await supabase
             .from('app_settings')
             .select('*')
             .eq('key', key)
             .single()
 
-        if (error && error.code !== 'PGRST116') throw error
+        if (error && error.code !== 'PGRST116') {
+            console.error('[appSettings] Error loading:', error)
+            throw error
+        }
+        console.log('[appSettings] Loaded:', data ? 'found' : 'not found', data?.value ? `(${Object.keys(data.value).length} keys)` : '')
         return data?.value
     },
 
     async set(key, value) {
+        console.log('[appSettings] Saving key:', key, 'value keys:', Object.keys(value || {}))
+        
+        // First try upsert
         const { data, error } = await supabase
             .from('app_settings')
             .upsert({
@@ -1130,7 +1138,39 @@ export const appSettingsService = {
             .select()
             .single()
 
-        if (error) throw error
+        if (error) {
+            console.error('[appSettings] Upsert failed:', error)
+            
+            // Fallback: try update existing
+            const { data: updateData, error: updateError } = await supabase
+                .from('app_settings')
+                .update({ value, updated_at: new Date().toISOString() })
+                .eq('key', key)
+                .select()
+                .single()
+            
+            if (updateError) {
+                console.error('[appSettings] Update also failed:', updateError)
+                
+                // Fallback: try insert new
+                const { data: insertData, error: insertError } = await supabase
+                    .from('app_settings')
+                    .insert({ key, value, updated_at: new Date().toISOString() })
+                    .select()
+                    .single()
+                
+                if (insertError) {
+                    console.error('[appSettings] Insert also failed:', insertError)
+                    throw insertError
+                }
+                console.log('[appSettings] Saved via insert')
+                return insertData
+            }
+            console.log('[appSettings] Saved via update')
+            return updateData
+        }
+        
+        console.log('[appSettings] Saved via upsert successfully')
         return data
     },
 
