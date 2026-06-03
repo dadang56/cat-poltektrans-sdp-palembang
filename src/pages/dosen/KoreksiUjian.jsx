@@ -255,6 +255,19 @@ function KoreksiUjianPage() {
 
                     setSoalList(soalData)
 
+                    console.log('[KoreksiUjian] Raw hasilData count:', hasilData?.length || 0)
+                    if (hasilData?.length > 0) {
+                        console.log('[KoreksiUjian] Sample hasil:', {
+                            id: hasilData[0].id,
+                            jadwal_id: hasilData[0].jadwal_id,
+                            status: hasilData[0].status,
+                            has_jadwal: !!hasilData[0].jadwal,
+                            has_mahasiswa: !!hasilData[0].mahasiswa,
+                            jadwal_tipe: hasilData[0].jadwal?.tipe,
+                            jadwal_matkul: hasilData[0].jadwal?.matkul?.nama
+                        })
+                    }
+
                     // Group results by jadwal (exam)
                     const examGroups = {}
                     hasilData.forEach(hasil => {

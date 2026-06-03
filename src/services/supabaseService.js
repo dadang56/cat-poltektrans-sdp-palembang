@@ -695,13 +695,17 @@ export const hasilUjianService = {
 
     // Get results for a specific Dosen's classes
     async getByDosen(dosenId) {
+        console.log('[getByDosen] Starting for dosenId:', dosenId)
+        
         // Method 1: Get jadwal where dosen_id is set directly
         const { data: jadwalDirect, error: jadwalError1 } = await supabase
             .from('jadwal_ujian')
             .select('id')
             .eq('dosen_id', dosenId)
+            .is('deleted_at', null)
 
         if (jadwalError1) console.error('Error fetching jadwal by dosen_id:', jadwalError1)
+        console.log('[getByDosen] Method 1 (direct dosen_id):', jadwalDirect?.length || 0, 'jadwal')
 
         // Method 2: Get jadwal via matkul_id from soal created by this dosen
         const { data: soalData, error: soalError } = await supabase
@@ -710,19 +714,23 @@ export const hasilUjianService = {
             .eq('dosen_id', dosenId)
 
         if (soalError) console.error('Error fetching soal by dosen_id:', soalError)
+        console.log('[getByDosen] Method 2 soal count:', soalData?.length || 0)
 
         let jadwalFromSoal = []
         if (soalData && soalData.length > 0) {
             const matkulIds = [...new Set(soalData.map(s => s.matkul_id).filter(Boolean))]
+            console.log('[getByDosen] Unique matkul IDs from soal:', matkulIds.length)
             if (matkulIds.length > 0) {
                 const { data: jadwalData2, error: jadwalError2 } = await supabase
                     .from('jadwal_ujian')
                     .select('id')
                     .in('matkul_id', matkulIds)
+                    .is('deleted_at', null)
 
                 if (!jadwalError2 && jadwalData2) {
                     jadwalFromSoal = jadwalData2
                 }
+                console.log('[getByDosen] Method 2 jadwal from matkul:', jadwalFromSoal.length)
             }
         }
 
@@ -738,7 +746,7 @@ export const hasilUjianService = {
             return []
         }
 
-        console.log('[getByDosen] Found', uniqueJadwalIds.length, 'jadwal for dosen')
+        console.log('[getByDosen] Found', uniqueJadwalIds.length, 'unique jadwal for dosen')
 
         // Fetch results for those schedules
         const { data, error } = await supabase
