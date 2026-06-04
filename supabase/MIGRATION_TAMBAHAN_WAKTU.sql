@@ -1,12 +1,29 @@
 -- ============================================
--- MIGRATION: Add tambahan_waktu column to hasil_ujian
--- Purpose: Allow pengawas/admin prodi to add extra time for students
---          who lost time due to technical issues (network, device crashes)
+-- MIGRATION: Add missing columns to hasil_ujian
+-- Run this in Supabase SQL Editor
 -- ============================================
 
--- Add tambahan_waktu column (in minutes, default 0)
+-- 1. tambahan_waktu: Extra time in minutes added by pengawas
 ALTER TABLE hasil_ujian 
 ADD COLUMN IF NOT EXISTS tambahan_waktu INTEGER DEFAULT 0;
 
--- Add comment for documentation
-COMMENT ON COLUMN hasil_ujian.tambahan_waktu IS 'Extra time in minutes added by pengawas/admin prodi for students with technical issues';
+-- 2. jumlah_pelanggaran: Number of anti-cheat violations
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS jumlah_pelanggaran INTEGER DEFAULT 0;
+
+-- 3. violation_log: JSON log of violation details
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS violation_log TEXT;
+
+-- 4. answers_detail: JSON snapshot of all student answers
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS answers_detail JSONB;
+
+-- 5. Relax status CHECK constraint to support new statuses
+-- First drop the existing constraint, then add new one
+ALTER TABLE hasil_ujian DROP CONSTRAINT IF EXISTS hasil_ujian_status_check;
+ALTER TABLE hasil_ujian ADD CONSTRAINT hasil_ujian_status_check 
+CHECK (status IN ('pending', 'in_progress', 'submitted', 'graded', 'kicked', 'cheating_submitted', 'needs_approval'));
+
+-- Done! All columns now exist.
+SELECT 'Migration completed successfully!' AS result;

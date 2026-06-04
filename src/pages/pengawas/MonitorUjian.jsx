@@ -626,12 +626,25 @@ function MonitorUjian() {
           // 2. Reset hasil_ujian record
           await hasilUjianService.update(participantId, {
             status: 'in_progress',
-            skor: null,
+            nilai_total: null,
             waktu_selesai: null,
             waktu_mulai: new Date().toISOString(),
-            jumlah_pelanggaran: 0,
-            violation_log: null
+            jumlah_benar: 0,
+            jumlah_salah: 0,
+            jumlah_kosong: 0,
+            answers_detail: null
           })
+          
+          // 3. Try to reset optional columns (may not exist)
+          try {
+            await hasilUjianService.update(participantId, {
+              jumlah_pelanggaran: 0,
+              violation_log: null,
+              tambahan_waktu: 0
+            })
+          } catch (e) {
+            console.log('[MonitorUjian] Optional columns reset skipped:', e.message)
+          }
           
           console.log('[MonitorUjian] Exam reset for:', participantId, 'jadwal:', jadwalId)
         } catch (error) {
