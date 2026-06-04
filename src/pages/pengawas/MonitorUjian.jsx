@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { jadwalService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, hasilUjianService, jawabanMahasiswaService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
   Eye,
   Users,
@@ -24,7 +24,9 @@ import {
   Calendar,
   Power,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  RotateCcw,
+  Play
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -558,6 +560,93 @@ function MonitorUjian() {
     })
   }
 
+  // Resume exam for a student (allow to continue from where they left off)
+  const handleResumeExam = async (participantId) => {
+    const student = participants.find(p => p.id === participantId)
+    showConfirm({
+      title: 'Lanjutkan Ujian',
+      message: `Mahasiswa "${student?.name || ''}" akan bisa melanjutkan ujian dari jawaban terakhir. Semua jawaban sebelumnya tetap tersimpan.\n\nYakin ingin melanjutkan?`,
+      confirmText: 'Lanjutkan Ujian',
+      confirmVariant: 'success',
+      onConfirm: async () => {
+        setParticipants(prev => prev.map(p =>
+          p.id === participantId ? { ...p, status: 'active', lastActivity: 'Dilanjutkan oleh pengawas' } : p
+        ))
+        try {
+          await hasilUjianService.update(participantId, {
+            status: 'in_progress',
+            waktu_selesai: null
+          })
+          console.log('[MonitorUjian] Exam resumed for:', participantId)
+        } catch (error) {
+          console.error('[MonitorUjian] Error resuming exam:', error)
+          setParticipants(prev => prev.map(p =>
+            p.id === participantId ? { ...p, status: student?.status || 'submitted' } : p
+          ))
+          alert('Gagal melanjutkan ujian: ' + error.message)
+        }
+        setAlerts(prev => [{
+          id: Date.now(),
+          studentId: student?.studentId,
+          student: student?.name,
+          action: '▶ Ujian dilanjutkan oleh pengawas',
+          time: new Date().toLocaleTimeString('id-ID'),
+          severity: 'info'
+        }, ...prev])
+      }
+    })
+  }
+
+  // Reset exam for a student (delete all answers, start fresh)
+  const handleResetExam = async (participantId) => {
+    const student = participants.find(p => p.id === participantId)
+    const jadwalId = selectedRoom?.jadwalId || selectedRoom?.jadwalIds?.[0]
+    
+    if (!jadwalId) {
+      alert('Tidak dapat menemukan jadwal ujian.')
+      return
+    }
+
+    showConfirm({
+      title: '⚠️ Reset Ujian',
+      message: `PERINGATAN: Semua jawaban mahasiswa "${student?.name || ''}" akan DIHAPUS dan mahasiswa memulai ujian dari awal.\n\nTindakan ini tidak bisa dibatalkan!\n\nYakin ingin mereset ujian?`,
+      confirmText: 'Reset Ujian',
+      confirmVariant: 'error',
+      onConfirm: async () => {
+        setParticipants(prev => prev.map(p =>
+          p.id === participantId ? { ...p, status: 'active', progress: 0, answeredCount: 0, warnings: 0, lastActivity: 'Direset oleh pengawas' } : p
+        ))
+        try {
+          // 1. Delete all jawaban for this student in this jadwal
+          await jawabanMahasiswaService.deleteByJadwalAndMahasiswa(jadwalId, student.studentId)
+          
+          // 2. Reset hasil_ujian record
+          await hasilUjianService.update(participantId, {
+            status: 'in_progress',
+            skor: null,
+            waktu_selesai: null,
+            waktu_mulai: new Date().toISOString(),
+            jumlah_pelanggaran: 0,
+            violation_log: null
+          })
+          
+          console.log('[MonitorUjian] Exam reset for:', participantId, 'jadwal:', jadwalId)
+        } catch (error) {
+          console.error('[MonitorUjian] Error resetting exam:', error)
+          alert('Gagal mereset ujian: ' + error.message)
+        }
+        setAlerts(prev => [{
+          id: Date.now(),
+          studentId: student?.studentId,
+          student: student?.name,
+          action: '🔄 Ujian direset oleh pengawas (mulai dari awal)',
+          time: new Date().toLocaleTimeString('id-ID'),
+          severity: 'warning'
+        }, ...prev])
+      }
+    })
+  }
+
   // Handle exam activation toggle
   const handleToggleActivation = (room, e) => {
     e.stopPropagation() // Don't select the room
@@ -868,11 +957,19 @@ function MonitorUjian() {
                           <>
                             <button
                               className="action-btn"
-                              title="Aktifkan Ulang Ujian"
-                              onClick={(e) => { e.stopPropagation(); handleReactivate(participant.id); }}
-                              style={{ background: 'var(--primary-500)', color: 'white' }}
+                              title="Lanjutkan Ujian (jawaban tetap)"
+                              onClick={(e) => { e.stopPropagation(); handleResumeExam(participant.id); }}
+                              style={{ background: 'var(--success-500)', color: 'white' }}
                             >
-                              <Unlock size={14} />
+                              <Play size={14} />
+                            </button>
+                            <button
+                              className="action-btn"
+                              title="Reset Ujian (mulai dari awal)"
+                              onClick={(e) => { e.stopPropagation(); handleResetExam(participant.id); }}
+                              style={{ background: 'var(--warning-500)', color: 'white' }}
+                            >
+                              <RotateCcw size={14} />
                             </button>
                             <button
                               className="action-btn danger"
@@ -886,17 +983,33 @@ function MonitorUjian() {
                           <>
                             <button
                               className="action-btn"
-                              title="Aktifkan Ulang (Un-kick)"
-                              onClick={(e) => { e.stopPropagation(); handleReactivate(participant.id); }}
-                              style={{ background: 'var(--primary-500)', color: 'white' }}
+                              title="Lanjutkan Ujian"
+                              onClick={(e) => { e.stopPropagation(); handleResumeExam(participant.id); }}
+                              style={{ background: 'var(--success-500)', color: 'white' }}
                             >
-                              <Unlock size={14} />
+                              <Play size={14} />
+                            </button>
+                            <button
+                              className="action-btn"
+                              title="Reset Ujian (mulai dari awal)"
+                              onClick={(e) => { e.stopPropagation(); handleResetExam(participant.id); }}
+                              style={{ background: 'var(--warning-500)', color: 'white' }}
+                            >
+                              <RotateCcw size={14} />
                             </button>
                             <span style={{ fontSize: '0.75rem', color: 'var(--error-500)', fontWeight: 600 }}>Dikeluarkan</span>
                           </>
 
                         ) : (
                           <>
+                            <button
+                              className="action-btn"
+                              title="Reset Ujian (mulai dari awal)"
+                              onClick={(e) => { e.stopPropagation(); handleResetExam(participant.id); }}
+                              style={{ background: 'var(--warning-500)', color: 'white' }}
+                            >
+                              <RotateCcw size={14} />
+                            </button>
                             <button
                               className="action-btn warning"
                               title="Kirim Peringatan"

@@ -995,6 +995,18 @@ export const jawabanMahasiswaService = {
 
         if (error) throw error
         return true
+    },
+
+    // Delete all answers for a specific student in a specific jadwal (for exam reset)
+    async deleteByJadwalAndMahasiswa(jadwalId, mahasiswaId) {
+        const { error } = await supabase
+            .from('jawaban_mahasiswa')
+            .delete()
+            .eq('jadwal_id', jadwalId)
+            .eq('mahasiswa_id', mahasiswaId)
+
+        if (error) throw error
+        return true
     }
 }
 
