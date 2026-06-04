@@ -68,6 +68,7 @@ function TakeExamPage() {
     const [lockdownActive, setLockdownActive] = useState(false)
     const [violations, setViolations] = useState([])
     const [antiCheatSettings, setAntiCheatSettings] = useState(DEFAULT_ANTICHEAT_SETTINGS)
+    const [zoomImage, setZoomImage] = useState(null) // For image lightbox zoom
 
     // Load exam from Supabase
     useEffect(() => {
@@ -1270,7 +1271,13 @@ function TakeExamPage() {
                         <div className="question-text">
                             <p>{question.text}</p>
                             {question.image && (
-                                <img src={question.image} alt="Soal" className="question-image" />
+                                <img
+                                    src={question.image}
+                                    alt="Soal"
+                                    className="question-image zoomable-image"
+                                    title="Klik untuk memperbesar gambar"
+                                    onClick={(e) => { e.stopPropagation(); setZoomImage(question.image) }}
+                                />
                             )}
                         </div>
 
@@ -1295,7 +1302,13 @@ function TakeExamPage() {
                                                 <div className="option-content">
                                                     {optText && <span className="option-text">{optText}</span>}
                                                     {optImage && (
-                                                        <img src={optImage} alt={`Pilihan ${String.fromCharCode(65 + index)}`} className="option-image" />
+                                                        <img
+                                                            src={optImage}
+                                                            alt={`Pilihan ${String.fromCharCode(65 + index)}`}
+                                                            className="option-image zoomable-image"
+                                                            title="Klik untuk memperbesar gambar"
+                                                            onClick={(e) => { e.preventDefault(); e.stopPropagation(); setZoomImage(optImage) }}
+                                                        />
                                                     )}
                                                 </div>
                                                 {answers[question.id] === index && (
@@ -1402,7 +1415,91 @@ function TakeExamPage() {
                     margin-top: 1rem;
                     border-radius: 0.5rem;
                 }
+                .zoomable-image {
+                    cursor: zoom-in;
+                    transition: opacity 0.2s ease;
+                    border: 2px solid transparent;
+                }
+                .zoomable-image:hover {
+                    opacity: 0.85;
+                    border-color: var(--primary-400);
+                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+                }
+                /* Image Zoom Lightbox */
+                .image-zoom-overlay {
+                    position: fixed;
+                    top: 0; left: 0; right: 0; bottom: 0;
+                    background: rgba(0, 0, 0, 0.85);
+                    z-index: 99999;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    animation: zoomFadeIn 0.2s ease;
+                    cursor: zoom-out;
+                }
+                @keyframes zoomFadeIn {
+                    from { opacity: 0; }
+                    to { opacity: 1; }
+                }
+                .image-zoom-container {
+                    position: relative;
+                    max-width: 95vw;
+                    max-height: 90vh;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    gap: 12px;
+                }
+                .image-zoom-container img {
+                    max-width: 95vw;
+                    max-height: 85vh;
+                    object-fit: contain;
+                    border-radius: 8px;
+                    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+                    cursor: default;
+                }
+                .zoom-close-btn {
+                    position: absolute;
+                    top: -40px;
+                    right: 0;
+                    background: rgba(255,255,255,0.15);
+                    border: none;
+                    color: white;
+                    width: 36px;
+                    height: 36px;
+                    border-radius: 50%;
+                    cursor: pointer;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 1.2rem;
+                    transition: background 0.2s;
+                }
+                .zoom-close-btn:hover {
+                    background: rgba(255,255,255,0.3);
+                }
+                .zoom-hint {
+                    color: rgba(255,255,255,0.6);
+                    font-size: 0.8rem;
+                    text-align: center;
+                }
             `}</style>
+
+            {/* Image Zoom Lightbox Modal */}
+            {zoomImage && (
+                <div
+                    className="image-zoom-overlay"
+                    onClick={() => setZoomImage(null)}
+                    onKeyDown={(e) => { if (e.key === 'Escape') setZoomImage(null) }}
+                    tabIndex={0}
+                >
+                    <div className="image-zoom-container" onClick={(e) => e.stopPropagation()}>
+                        <button className="zoom-close-btn" onClick={() => setZoomImage(null)}>✕</button>
+                        <img src={zoomImage} alt="Gambar diperbesar" />
+                        <span className="zoom-hint">Klik di luar gambar atau tekan ✕ untuk menutup</span>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
