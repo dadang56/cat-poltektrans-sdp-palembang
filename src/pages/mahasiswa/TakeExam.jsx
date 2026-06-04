@@ -69,6 +69,7 @@ function TakeExamPage() {
     const [violations, setViolations] = useState([])
     const [antiCheatSettings, setAntiCheatSettings] = useState(DEFAULT_ANTICHEAT_SETTINGS)
     const [zoomImage, setZoomImage] = useState(null) // For image lightbox zoom
+    const [appliedExtraTime, setAppliedExtraTime] = useState(0) // Track already-applied extra minutes
 
     // Load exam from Supabase
     useEffect(() => {
@@ -342,8 +343,10 @@ function TakeExamPage() {
 
                     if (personalStartTime) {
                         // RESUME: calculate remaining from personal start
+                        const extraMinutes = existingHasil?.tambahan_waktu || 0
+                        setAppliedExtraTime(extraMinutes)
                         const elapsedSeconds = Math.floor((now - personalStartTime) / 1000)
-                        const totalDurationSeconds = durasiMenit * 60
+                        const totalDurationSeconds = (durasiMenit + extraMinutes) * 60
                         const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds)
                         setExamStartTime(personalStartTime)
                         setTimeLeft(remainingSeconds)
@@ -567,6 +570,16 @@ function TakeExamPage() {
                     }
                     sessionStorage.setItem(`active_exam_${id}_${user.id}`, 'true')
                     window.location.reload()
+                }
+
+                // Check for extra time added by pengawas
+                const serverExtraTime = currentResult?.tambahan_waktu || 0
+                if (serverExtraTime > appliedExtraTime) {
+                    const newMinutes = serverExtraTime - appliedExtraTime
+                    console.log(`[TakeExam] Extra time detected: +${newMinutes} minutes (total: ${serverExtraTime})`)
+                    setTimeLeft(prev => prev + (newMinutes * 60))
+                    timeLeftRef.current += (newMinutes * 60)
+                    setAppliedExtraTime(serverExtraTime)
                 }
             } catch (error) {
                 console.error('[TakeExam] Error checking kicked status:', error)

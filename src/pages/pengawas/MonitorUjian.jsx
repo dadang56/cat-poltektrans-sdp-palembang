@@ -26,7 +26,8 @@ import {
   ToggleLeft,
   ToggleRight,
   RotateCcw,
-  Play
+  Play,
+  Timer
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -50,6 +51,8 @@ function MonitorUjian() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [jadwalList, setJadwalList] = useState([])
   const [loading, setLoading] = useState(true)
+  const [extraTimeModal, setExtraTimeModal] = useState(null) // { participantId, studentName }
+  const [extraTimeMinutes, setExtraTimeMinutes] = useState(15)
 
   // Helper functions for status mapping
   const getDerivedStatus = (hasil) => {
@@ -647,6 +650,54 @@ function MonitorUjian() {
     })
   }
 
+  // Add extra time for a student
+  const handleAddExtraTime = async () => {
+    if (!extraTimeModal) return
+    const { participantId, studentName } = extraTimeModal
+    const minutes = parseInt(extraTimeMinutes)
+    if (!minutes || minutes <= 0) {
+      alert('Masukkan jumlah menit yang valid')
+      return
+    }
+
+    try {
+      // Get current tambahan_waktu
+      const student = participants.find(p => p.id === participantId)
+      const jadwalId = selectedRoom?.jadwalId || selectedRoom?.jadwalIds?.[0]
+      
+      // Fetch current hasil_ujian to get existing tambahan_waktu
+      let currentExtra = 0
+      if (jadwalId && student?.studentId) {
+        const hasil = await hasilUjianService.getByJadwalAndMahasiswa(jadwalId, student.studentId)
+        currentExtra = hasil?.tambahan_waktu || 0
+      }
+      
+      const newTotal = currentExtra + minutes
+      
+      // Update hasil_ujian with new tambahan_waktu
+      await hasilUjianService.update(participantId, {
+        tambahan_waktu: newTotal
+      })
+      
+      console.log(`[MonitorUjian] Extra time added: +${minutes}min (total: ${newTotal}min) for:`, participantId)
+      
+      setAlerts(prev => [{
+        id: Date.now(),
+        studentId: student?.studentId,
+        student: studentName,
+        action: `⏱ Tambahan waktu +${minutes} menit (total: +${newTotal} menit)`,
+        time: new Date().toLocaleTimeString('id-ID'),
+        severity: 'info'
+      }, ...prev])
+      
+      setExtraTimeModal(null)
+      setExtraTimeMinutes(15)
+    } catch (error) {
+      console.error('[MonitorUjian] Error adding extra time:', error)
+      alert('Gagal menambah waktu: ' + error.message)
+    }
+  }
+
   // Handle exam activation toggle
   const handleToggleActivation = (room, e) => {
     e.stopPropagation() // Don't select the room
@@ -1026,6 +1077,15 @@ function MonitorUjian() {
                             </button>
                           </>
                         )}
+                        {/* Tambah Waktu - available for all statuses */}
+                        <button
+                          className="action-btn"
+                          title="Tambah Waktu"
+                          onClick={(e) => { e.stopPropagation(); setExtraTimeModal({ participantId: participant.id, studentName: participant.name }); }}
+                          style={{ background: 'var(--primary-500)', color: 'white' }}
+                        >
+                          <Timer size={14} />
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -1529,6 +1589,92 @@ function MonitorUjian() {
           margin-bottom: var(--space-2);
         }
       `}</style>
+
+      {/* Extra Time Modal */}
+      {extraTimeModal && (
+        <div style={{
+          position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+          background: 'rgba(0,0,0,0.5)', zIndex: 99999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          animation: 'fadeIn 0.2s ease'
+        }} onClick={() => setExtraTimeModal(null)}>
+          <div style={{
+            background: 'var(--bg-primary)', borderRadius: '16px',
+            padding: '24px', width: '400px', maxWidth: '90vw',
+            boxShadow: '0 20px 60px rgba(0,0,0,0.3)'
+          }} onClick={(e) => e.stopPropagation()}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '20px' }}>
+              <div style={{ background: 'var(--primary-100)', borderRadius: '12px', padding: '10px' }}>
+                <Timer size={24} style={{ color: 'var(--primary-600)' }} />
+              </div>
+              <div>
+                <h3 style={{ margin: 0, fontSize: '1.1rem' }}>Tambah Waktu Ujian</h3>
+                <p style={{ margin: 0, fontSize: '0.85rem', color: 'var(--text-muted)' }}>{extraTimeModal.studentName}</p>
+              </div>
+            </div>
+
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 600, marginBottom: '8px', color: 'var(--text-secondary)' }}>
+                Jumlah Menit Tambahan
+              </label>
+              <input
+                type="number"
+                className="form-input"
+                value={extraTimeMinutes}
+                onChange={(e) => setExtraTimeMinutes(e.target.value)}
+                min="1"
+                max="120"
+                style={{ fontSize: '1.2rem', textAlign: 'center', fontWeight: 700 }}
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+              {[5, 10, 15, 30, 45, 60].map(m => (
+                <button
+                  key={m}
+                  className="btn btn-sm"
+                  style={{
+                    flex: '1 1 auto', minWidth: '60px',
+                    background: parseInt(extraTimeMinutes) === m ? 'var(--primary-500)' : 'var(--bg-tertiary)',
+                    color: parseInt(extraTimeMinutes) === m ? 'white' : 'var(--text-primary)',
+                    border: 'none', borderRadius: '8px', padding: '8px',
+                    fontWeight: 600, cursor: 'pointer', transition: 'all 0.2s'
+                  }}
+                  onClick={() => setExtraTimeMinutes(m)}
+                >
+                  {m} menit
+                </button>
+              ))}
+            </div>
+
+            <div style={{
+              background: 'var(--info-50)', border: '1px solid var(--info-200)',
+              borderRadius: '8px', padding: '10px 12px', marginBottom: '20px',
+              fontSize: '0.8rem', color: 'var(--info-700)'
+            }}>
+              ℹ️ Waktu akan otomatis bertambah di layar mahasiswa dalam ~15 detik setelah disimpan.
+            </div>
+
+            <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
+              <button
+                className="btn btn-outline"
+                onClick={() => setExtraTimeModal(null)}
+                style={{ borderRadius: '8px' }}
+              >
+                Batal
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={handleAddExtraTime}
+                style={{ borderRadius: '8px', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                <Timer size={16} />
+                Tambah +{extraTimeMinutes} Menit
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardLayout >
   )
 }
