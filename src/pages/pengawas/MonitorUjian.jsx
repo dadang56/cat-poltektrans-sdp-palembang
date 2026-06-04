@@ -143,17 +143,13 @@ function MonitorUjian() {
             console.log('[MonitorUjian] Sample jadwal tanggal format:', allJadwal[0].tanggal, '| status:', allJadwal[0].status)
           }
 
-          // Group by ruangan — each room can have multiple exams
-          const roomMap = {}
+          // Group by JADWAL (per mata kuliah) — each jadwal gets its own card
+          const jadwalMap = {}
           activeExams.forEach(j => {
-            // Supabase replaces ruangan_id with nested object j.ruangan when FK exists
-            // But if ruangan_id is null, j.ruangan becomes null (FK join returns null)
             const roomId = j.ruangan?.id || j.ruangan_id || j.ruanganId || 'default'
             const ruang = ruangLookup[roomId] || {}
-            // Priority: nested join name > lookup name > text field > fallback
             let roomName = j.ruangan?.nama || ruang.nama
             if (!roomName) {
-              // If ruangan is stored as text (not FK), check if any ruang matches by name
               const textRuangan = typeof j.ruangan === 'string' ? j.ruangan : (j.ruang || '')
               if (textRuangan) {
                 const matchedRuang = allRuang.find(r => r.nama === textRuangan)
@@ -168,35 +164,28 @@ function MonitorUjian() {
             const tipe = j.tipe || j.tipe_ujian || 'UTS'
             const examLabel = `${tipe} - ${matkulName}`
 
-            if (!roomMap[roomId]) {
-              roomMap[roomId] = {
-                id: roomId,
-                name: roomName,
-                exam: examLabel,
-                exams: [examLabel],
-                startTime: waktuMulai,
-                endTime: waktuSelesai,
-                participants: 0,
-                students: [],
-                status: 'available',
-                pengawas: null,
-                pengawasName: null,
-                jadwalId: j.id,
-                jadwalIds: [j.id],
-                jadwalStatus: j.status || 'scheduled',
-                isActivated: j.status === 'ongoing'
-              }
-            } else {
-              // Multiple exams in same room
-              if (!roomMap[roomId].exams.includes(examLabel)) {
-                roomMap[roomId].exams.push(examLabel)
-                roomMap[roomId].exam = roomMap[roomId].exams.join(', ')
-              }
-              roomMap[roomId].jadwalIds.push(j.id)
+            // Each jadwal = its own entry (1 matkul = 1 card)
+            jadwalMap[j.id] = {
+              id: j.id,
+              roomId: roomId,
+              name: roomName,
+              exam: examLabel,
+              exams: [examLabel],
+              startTime: waktuMulai,
+              endTime: waktuSelesai,
+              participants: 0,
+              students: [],
+              status: 'available',
+              pengawas: null,
+              pengawasName: null,
+              jadwalId: j.id,
+              jadwalIds: [j.id],
+              jadwalStatus: j.status || 'scheduled',
+              isActivated: j.status === 'ongoing'
             }
           })
 
-          setRooms(Object.values(roomMap))
+          setRooms(Object.values(jadwalMap))
         }
       } catch (error) {
         console.error('[MonitorUjian] Error loading exams:', error)
