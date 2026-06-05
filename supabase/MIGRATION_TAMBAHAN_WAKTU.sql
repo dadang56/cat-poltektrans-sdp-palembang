@@ -1,6 +1,6 @@
 -- ============================================
 -- MIGRATION: Add missing columns to hasil_ujian
--- Run this in Supabase SQL Editor
+-- Run this ENTIRE SCRIPT in Supabase SQL Editor
 -- ============================================
 
 -- 1. tambahan_waktu: Extra time in minutes added by pengawas
@@ -19,11 +19,34 @@ ADD COLUMN IF NOT EXISTS violation_log TEXT;
 ALTER TABLE hasil_ujian 
 ADD COLUMN IF NOT EXISTS answers_detail JSONB;
 
--- 5. Relax status CHECK constraint to support new statuses
--- First drop the existing constraint, then add new one
+-- 5. nilai_tugas: Task/assignment score for final grade
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS nilai_tugas DECIMAL(5,2);
+
+-- 6. nilai_praktek: Practical score for final grade
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS nilai_praktek DECIMAL(5,2);
+
+-- 7. nilai_uts: Manual UTS override score for final grade
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS nilai_uts DECIMAL(5,2);
+
+-- 8. nilai_uas: Manual UAS override score for final grade
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS nilai_uas DECIMAL(5,2);
+
+-- 9. nilai_final: Final score after remedial/retake
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS nilai_final DECIMAL(5,2);
+
+-- 10. is_ulang: Flag for retake exam
+ALTER TABLE hasil_ujian 
+ADD COLUMN IF NOT EXISTS is_ulang BOOLEAN DEFAULT false;
+
+-- 11. Relax status CHECK constraint to support new statuses
 ALTER TABLE hasil_ujian DROP CONSTRAINT IF EXISTS hasil_ujian_status_check;
 ALTER TABLE hasil_ujian ADD CONSTRAINT hasil_ujian_status_check 
 CHECK (status IN ('pending', 'in_progress', 'submitted', 'graded', 'kicked', 'cheating_submitted', 'needs_approval'));
 
--- Done! All columns now exist.
-SELECT 'Migration completed successfully!' AS result;
+-- Done!
+SELECT 'Migration completed successfully! All columns added.' AS result;

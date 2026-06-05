@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
 import { hasilUjianService, kelasService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
@@ -15,7 +16,8 @@ import {
     Info,
     RefreshCw,
     FileSpreadsheet,
-    BookOpen
+    BookOpen,
+    Printer
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -71,6 +73,7 @@ const getGradeColor = (nh) => {
 
 function NilaiAkhirPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
     const [matkulList, setMatkulList] = useState([])
     const [selectedMatkul, setSelectedMatkul] = useState(null)
     const [grades, setGrades] = useState({})
@@ -137,6 +140,7 @@ function NilaiAkhirPage() {
                         gradesByMatkul[matkulId][mahasiswaId] = {
                             id: mahasiswaId,
                             resultId: r.id,
+                            allResultIds: [r.id],
                             nim: r.mahasiswa?.nim_nip || '-',
                             name: r.mahasiswa?.nama || 'Unknown',
                             kelas_id: r.mahasiswa?.kelas?.id || r.mahasiswa?.kelas_id || r.jadwal?.kelas?.id || null,
@@ -148,8 +152,10 @@ function NilaiAkhirPage() {
                             nh: null
                         }
                     } else {
-                        // Update resultId if we have newer data
-                        gradesByMatkul[matkulId][mahasiswaId].resultId = r.id
+                        // Collect ALL resultIds for this student (UTS + UAS records)
+                        if (!gradesByMatkul[matkulId][mahasiswaId].allResultIds.includes(r.id)) {
+                            gradesByMatkul[matkulId][mahasiswaId].allResultIds.push(r.id)
+                        }
                     }
 
                     // Apply UTS or UAS score from exam results (nilai_total)
@@ -163,12 +169,18 @@ function NilaiAkhirPage() {
                         console.log(`[NilaiAkhir] Set UAS=${dbScore} for ${mahasiswaId} from hasil_ujian`)
                     }
 
-                    // Also apply manual overrides from DB if available (nilai_uts, nilai_uas columns)
-                    if (r.nilai_uts != null && tipeUjian === 'UTS') {
+                    // Apply manual overrides from ANY record (not filtered by tipe)
+                    if (r.nilai_uts != null) {
                         gradesByMatkul[matkulId][mahasiswaId].nuts = Number(r.nilai_uts)
                     }
-                    if (r.nilai_uas != null && tipeUjian === 'UAS') {
+                    if (r.nilai_uas != null) {
                         gradesByMatkul[matkulId][mahasiswaId].uas = Number(r.nilai_uas)
+                    }
+                    if (r.nilai_tugas != null) {
+                        gradesByMatkul[matkulId][mahasiswaId].nt = Number(r.nilai_tugas)
+                    }
+                    if (r.nilai_praktek != null) {
+                        gradesByMatkul[matkulId][mahasiswaId].np = Number(r.nilai_praktek)
                     }
                 })
 
@@ -224,19 +236,23 @@ function NilaiAkhirPage() {
 
         setSaving(true)
 
-        // Save to Supabase if available
-        if (isSupabaseConfigured() && student.resultId) {
+        // Save to Supabase if available — save to ALL result records for this student
+        if (isSupabaseConfigured()) {
+            const updateData = {
+                nilai_tugas: nt,
+                nilai_praktek: np,
+                nilai_uts: nuts,
+                nilai_uas: uas
+            }
+            const idsToUpdate = student.allResultIds || (student.resultId ? [student.resultId] : [])
             try {
-                await hasilUjianService.update(student.resultId, {
-                    nilai_tugas: nt,
-                    nilai_praktek: np,
-                    nilai_uts: nuts,
-                    nilai_uas: uas
-                })
-                console.log('[NilaiAkhir] Saved to Supabase:', student.resultId)
+                for (const rid of idsToUpdate) {
+                    await hasilUjianService.update(rid, updateData)
+                }
+                console.log('[NilaiAkhir] Saved to Supabase, records:', idsToUpdate)
             } catch (error) {
                 console.error('[NilaiAkhir] Save to Supabase failed:', error)
-                alert('Gagal menyimpan ke database. Nilai disimpan lokal saja.')
+                alert('Gagal menyimpan ke database: ' + error.message)
             }
         }
 
@@ -298,6 +314,151 @@ function NilaiAkhirPage() {
 
         const rows = [headers, ...dataRows]
         exportArrayToXLSX(rows, `nilai_akhir_${selectedMatkul.kode}_${new Date().toISOString().split('T')[0]}`, 'Nilai Akhir')
+    }    
+
+    // Print Nilai Akhir with kop surat
+    const handlePrintNilaiAkhir = () => {
+        if (!selectedMatkul || filteredGrades.length === 0) return
+
+        const dosenName = user?.nama || ''
+        const dosenNip = user?.nim_nip || ''
+        const kelasName = kelasFilter !== 'all'
+            ? kelasList.find(k => String(k.id) === String(kelasFilter))?.nama || ''
+            : 'Semua Kelas'
+
+        // Sort by NIM
+        const sortedStudents = [...filteredGrades].sort((a, b) => (a.nim || '').localeCompare(b.nim || ''))
+
+        // Build logo HTML
+        const logoHtml = settings?.logoUrl
+            ? '<img src="' + settings.logoUrl + '" alt="Logo" style="width: 70px; height: 70px; object-fit: contain;"/>'
+            : '<div class="letterhead-logo"><span class="logo-icon">\u2693</span><span class="logo-text">POLTEKTRANS</span></div>'
+
+        // Build NP column header
+        const npHeader = hasPraktek ? '<th style="width:45px">NP<br/>20%</th>' : ''
+
+        // Build table rows
+        const tableRows = sortedStudents.map((s, i) => {
+            const nak = calculateNAK(s, hasPraktek)
+            const nh = getNilaiHuruf(nak)
+            const score = getScoreAkhir(nak)
+            const gradeClass = nh === 'A' || nh === 'AB' ? 'grade-a' : nh === 'B' || nh === 'BC' ? 'grade-b' : nh === 'C' ? 'grade-c' : 'grade-e'
+            const npCell = hasPraktek ? '<td>' + (s.np ?? '-') + '</td>' : ''
+            return '<tr>' +
+                '<td>' + (i + 1) + '</td>' +
+                '<td>' + s.nim + '</td>' +
+                '<td class="name">' + s.name + '</td>' +
+                '<td>' + (s.nt ?? '-') + '</td>' +
+                '<td>' + (s.nuts ?? '-') + '</td>' +
+                npCell +
+                '<td>' + (s.uas ?? '-') + '</td>' +
+                '<td><strong>' + (isNaN(nak) ? '-' : nak.toFixed(1)) + '</strong></td>' +
+                '<td class="' + gradeClass + '">' + (isNaN(nak) ? '-' : nh) + '</td>' +
+                '<td>' + (isNaN(nak) ? '-' : score) + '</td>' +
+                '</tr>'
+        }).join('')
+
+        const printContent = `
+            <html>
+            <head>
+                <title>Nilai Akhir - ${selectedMatkul.nama}</title>
+                <style>
+                    @page { size: A4 landscape; margin: 12mm; }
+                    body { font-family: 'Times New Roman', serif; padding: 15px; font-size: 11pt; }
+                    .letterhead {
+                        display: flex;
+                        align-items: center;
+                        gap: 20px;
+                        border-bottom: 3px double #000;
+                        padding-bottom: 15px;
+                        margin-bottom: 20px;
+                    }
+                    .letterhead-logo {
+                        width: 70px; height: 70px;
+                        border: 2px solid #1e3a5f; border-radius: 50%;
+                        display: flex; align-items: center; justify-content: center;
+                        flex-direction: column; background: white;
+                    }
+                    .letterhead-logo .logo-icon { font-size: 24pt; line-height: 1; }
+                    .letterhead-logo .logo-text { font-size: 6pt; color: #1e3a5f; font-weight: bold; }
+                    .letterhead-text { flex: 1; text-align: center; }
+                    .letterhead-text h1 { margin: 5px 0; font-size: 16pt; text-transform: uppercase; }
+                    .letterhead-text p { margin: 3px 0; font-size: 10pt; }
+                    .document-title { text-align: center; margin: 20px 0; }
+                    .document-title h3 { text-decoration: underline; margin: 0; font-size: 14pt; }
+                    .exam-info { margin-bottom: 12px; font-size: 10pt; }
+                    .exam-info p { margin: 2px 0; }
+                    .bobot-info { margin-bottom: 10px; font-size: 9pt; font-style: italic; color: #555; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+                    th, td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 10pt; }
+                    th { background: #f0f0f0; font-weight: bold; }
+                    td.name { text-align: left; }
+                    .grade-a { color: #166534; font-weight: bold; }
+                    .grade-b { color: #854d0e; font-weight: bold; }
+                    .grade-c { color: #1e40af; }
+                    .grade-e { color: #dc2626; font-weight: bold; }
+                    .signature-section { margin-top: 40px; display: flex; justify-content: flex-end; }
+                    .signature-box { text-align: center; width: 250px; }
+                    .signature-line { margin-top: 60px; padding-top: 5px; }
+                </style>
+            </head>
+            <body>
+                <div class="letterhead">
+                    ${logoHtml}
+                    <div class="letterhead-text">
+                        <h1>${settings?.institution || 'Politeknik Transportasi SDP Palembang'}</h1>
+                        <p>${settings?.address || 'Jl. Residen Abdul Rozak, Palembang, Sumatera Selatan'}</p>
+                        <p>Telp: ${settings?.phone || '(0711) 123456'} | Email: ${settings?.email || 'info@poltektrans.ac.id'}</p>
+                    </div>
+                </div>
+                <div class="document-title">
+                    <h3>DAFTAR NILAI AKHIR SEMESTER</h3>
+                    <p>Tahun Akademik ${settings?.tahunAkademik || ''}</p>
+                </div>
+                <div class="exam-info">
+                    <p><strong>Mata Kuliah:</strong> ${selectedMatkul.nama} (${selectedMatkul.kode || ''})</p>
+                    <p><strong>Kelas:</strong> ${kelasName}</p>
+                    <p><strong>Dosen Pengampu:</strong> ${dosenName}</p>
+                </div>
+                <div class="bobot-info">
+                    Bobot: NT ${hasPraktek ? '10%' : '10%'} | NUTS ${hasPraktek ? '20%' : '30%'} ${hasPraktek ? '| NP 20%' : ''} | UAS ${hasPraktek ? '50%' : '60%'}
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th style="width:30px">No</th>
+                            <th>NIM</th>
+                            <th>Nama Mahasiswa</th>
+                            <th style="width:45px">NT<br/>${hasPraktek ? '10%' : '10%'}</th>
+                            <th style="width:45px">NUTS<br/>${hasPraktek ? '20%' : '30%'}</th>
+                            ${npHeader}
+                            <th style="width:45px">UAS<br/>${hasPraktek ? '50%' : '60%'}</th>
+                            <th style="width:45px">NAK</th>
+                            <th style="width:35px">NH</th>
+                            <th style="width:40px">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${tableRows}
+                    </tbody>
+                </table>
+                <div class="signature-section">
+                    <div class="signature-box">
+                        <p>Palembang, ${new Date().toLocaleDateString('id-ID')}</p>
+                        <p>Dosen Pengampu</p>
+                        <div class="signature-line">
+                            <p><strong>${dosenName || '_________________________'}</strong></p>
+                            <p>NIP. ${dosenNip || '_______________'}</p>
+                        </div>
+                    </div>
+                </div>
+            </body>
+            </html>
+        `
+        const printWindow = window.open('', '_blank')
+        printWindow.document.write(printContent)
+        printWindow.document.close()
+        printWindow.print()
     }
 
     // Empty state - no matkul
@@ -354,10 +515,16 @@ function NilaiAkhirPage() {
                         <h1 className="page-title">Nilai Akhir Semester</h1>
                         <p className="page-subtitle">Perhitungan nilai akhir dengan bobot komponen</p>
                     </div>
-                    <button className="btn btn-primary" onClick={handleExportExcel}>
-                        <FileSpreadsheet size={18} />
-                        Export Nilai
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px' }}>
+                        <button className="btn btn-outline" onClick={handlePrintNilaiAkhir}>
+                            <Printer size={18} />
+                            Cetak Nilai
+                        </button>
+                        <button className="btn btn-primary" onClick={handleExportExcel}>
+                            <FileSpreadsheet size={18} />
+                            Export Excel
+                        </button>
+                    </div>
                 </div>
 
                 {/* Matkul Selector */}
