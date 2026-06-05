@@ -93,19 +93,23 @@ export function SettingsProvider({ children }) {
     }, [settings, isLoaded])
 
     const updateSettings = async (newSettings) => {
+        // Merge with current state
         const updated = { ...settings, ...newSettings }
         setSettings(updated)
 
-        // Save to Supabase
+        // Save to Supabase — always merge with LATEST DB data to prevent overwriting
         if (isSupabaseConfigured()) {
             setIsSaving(true)
             try {
-                await appSettingsService.set('app_config', updated)
-                console.log('[Settings] Saved to Supabase successfully')
+                // Read the latest from DB first to avoid overwriting with stale state
+                const latestFromDb = await appSettingsService.get('app_config')
+                const merged = { ...DEFAULT_SETTINGS, ...latestFromDb, ...newSettings }
+                await appSettingsService.set('app_config', merged)
+                setSettings(merged) // Sync local state with what was actually saved
+                console.log('[Settings] Saved to Supabase (merged with DB)', Object.keys(newSettings))
             } catch (e) {
                 console.error('Failed to save settings to Supabase:', e)
-                // Revert local state on save failure
-                setSettings(settings)
+                setSettings(settings) // Revert on failure
                 throw e
             } finally {
                 setIsSaving(false)

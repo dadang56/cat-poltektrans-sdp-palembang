@@ -42,7 +42,7 @@ function PusbangkatarDashboard() {
 
     const handleTAChange = (ta) => {
         setTahunAkademik(ta)
-        saveSettings({ ...settings, tahunAkademik: ta })
+        saveSettings({ tahunAkademik: ta })
     }
 
     const loadStats = async () => {

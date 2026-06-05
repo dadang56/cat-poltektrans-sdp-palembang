@@ -65,7 +65,7 @@ function AdminProdiDashboard() {
     // Handle tahun akademik change
     const handleTahunAkademikChange = (value) => {
         setSelectedTahunAkademik(value)
-        saveSettings({ ...settings, tahunAkademik: value })
+        saveSettings({ tahunAkademik: value })
     }
 
     const getUserProdi = (u) => u.prodi_id || u.prodiId

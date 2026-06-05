@@ -62,7 +62,7 @@ function AdminDashboard() {
     // Handle tahun akademik change
     const handleTahunAkademikChange = (value) => {
         setSelectedTahunAkademik(value)
-        saveSettings({ ...settings, tahunAkademik: value })
+        saveSettings({ tahunAkademik: value })
     }
 
     const getJadwalMatkul = (j) => j.matkul_id || j.matkulId

@@ -105,7 +105,7 @@ function AdminProdiSettings() {
             }
 
             // Save tahun akademik to SettingsContext (syncs across app)
-            saveSettings({ ...appSettings, tahunAkademik: selectedTahunAkademik })
+            saveSettings({ tahunAkademik: selectedTahunAkademik })
 
             setSaveStatus('success')
             setTimeout(() => setSaveStatus(null), 3000)

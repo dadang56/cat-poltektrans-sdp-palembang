@@ -417,7 +417,7 @@ function EksporDataPage() {
                                     value={tahunAkademik}
                                     onChange={e => {
                                         setTahunAkademik(e.target.value)
-                                        saveSettings({ ...settings, tahunAkademik: e.target.value })
+                                        saveSettings({ tahunAkademik: e.target.value })
                                     }}
                                 >
                                     {TAHUN_AJARAN_OPTIONS.map(ta => (

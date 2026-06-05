@@ -68,10 +68,10 @@ function Login() {
         const { username, password, tahunAkademik } = formData
         const cleanUsername = username.trim()
 
-        // Save tahunAkademik to settings (non-blocking)
+        // Save tahunAkademik to settings (non-blocking, only saves this field)
         try {
             if (saveSettings) {
-                saveSettings({ ...settings, tahunAkademik })
+                saveSettings({ tahunAkademik })
             }
         } catch (e) {
             console.error('Error saving settings:', e)
