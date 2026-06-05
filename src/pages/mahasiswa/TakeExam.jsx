@@ -227,9 +227,9 @@ function TakeExamPage() {
                                     return
                                 }
 
-                                if (existingHasil.status === 'submitted' || existingHasil.status === 'graded') {
+                                if (existingHasil.status === 'submitted' || existingHasil.status === 'graded' || existingHasil.status === 'cheating_submitted') {
                                     // Exam already completed — block re-entry
-                                    console.log('[TakeExam] Exam already submitted, blocking re-entry')
+                                    console.log('[TakeExam] Exam already submitted/graded, blocking re-entry')
                                     setExamData({
                                         id: jadwal.id,
                                         name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
@@ -260,34 +260,15 @@ function TakeExamPage() {
                                 }
 
                                 if (existingHasil.status === 'in_progress') {
-                                    // Check if this is a genuine re-login (closed browser) vs page refresh
-                                    const sessionKey = `active_exam_${jadwal.id}_${user.id}`
-                                    const hasActiveSession = sessionStorage.getItem(sessionKey)
+                                    // ALWAYS allow resume — no sessionStorage gate.
+                                    // Students who lost connection or closed browser should
+                                    // be able to re-enter directly without pengawas approval.
+                                    // SEB already handles security.
+                                    console.log('[TakeExam] Resuming exam (in_progress found)')
+                                    sessionStorage.setItem(`active_exam_${jadwal.id}_${user.id}`, 'true')
 
-                                    if (!hasActiveSession) {
-                                        // RE-LOGIN: student closed and came back, needs approval
-                                        console.log('[TakeExam] Re-login detected, requesting pengawas approval')
-                                        try {
-                                            await hasilUjianService.update(existingHasil.id, { status: 'needs_approval' })
-                                        } catch (e) {
-                                            console.error('[TakeExam] Error setting needs_approval:', e)
-                                        }
-                                        setExamData({
-                                            id: jadwal.id,
-                                            name: `${tipeUjian} ${matkul?.nama || 'Ujian'}`,
-                                            duration: durasiMenit,
-                                            matkulName: matkul?.nama || 'N/A',
-                                            dosenName: jadwal.dosen?.nama || '-'
-                                        })
-                                        setWaitingApproval(true)
-                                        setQuestions(examSoal)
-                                        setLoading(false)
-                                        return
-                                    }
-
-                                    // PAGE REFRESH: same session, resume normally
                                     personalStartTime = new Date(existingHasil.waktu_mulai)
-                                    console.log('[TakeExam] Resuming exam (same session), started at:', personalStartTime)
+                                    console.log('[TakeExam] Resuming exam, started at:', personalStartTime)
 
                                     // Load saved answers
                                     if (existingHasil.answers_detail) {
@@ -403,7 +384,6 @@ function TakeExamPage() {
         console.log('[TakeExam] SEB Detection:', { isSEB, platform })
 
         // Load anti-cheat settings from SettingsContext or defaults
-        // Settings are loaded from Supabase via SettingsContext
         if (settings) {
             const acSettings = {
                 requireSEB: settings.requireSEB || false,
@@ -419,8 +399,10 @@ function TakeExamPage() {
             }
         }
 
-        // Initialize AntiCheat if not submitted
-        if (!submitted) {
+        // ANTI-CHEAT: Only initialize if NOT using SEB.
+        // SEB already handles all security (blocks alt-tab, copy-paste, etc.)
+        // Running anti-cheat on top of SEB causes false positives and kicks students out.
+        if (!submitted && !isSEB) {
             AntiCheat.init({
                 maxWarnings: antiCheatSettings.maxWarnings,
                 level: antiCheatSettings.antiCheatLevel || 'medium',
@@ -429,7 +411,7 @@ function TakeExamPage() {
                     setWarningCount(count)
                     setShowWarning(true)
 
-                    // Save violation count AND violation log to Supabase so pengawas can see it
+                    // Save violation count to Supabase so pengawas can see it
                     if (isSupabaseConfigured() && existingHasilId) {
                         const violationEntry = {
                             type: violation.type || 'unknown',
@@ -458,14 +440,15 @@ function TakeExamPage() {
                     setLockdownActive(locked)
                 }
             })
-        }
 
-        // Try to enter fullscreen on exam start (medium = optional, high = enforced)
-        if (antiCheatSettings.antiCheatLevel === 'high' || antiCheatSettings.antiCheatLevel === 'medium') {
-            // Small delay to ensure DOM is ready
-            setTimeout(() => {
-                AntiCheat.requestFullscreen()
-            }, 500)
+            // Try to enter fullscreen on exam start (only non-SEB)
+            if (antiCheatSettings.antiCheatLevel === 'high' || antiCheatSettings.antiCheatLevel === 'medium') {
+                setTimeout(() => {
+                    AntiCheat.requestFullscreen()
+                }, 500)
+            }
+        } else if (isSEB) {
+            console.log('[TakeExam] SEB detected — anti-cheat disabled (SEB handles security)')
         }
 
         // Cleanup on unmount
@@ -516,7 +499,7 @@ function TakeExamPage() {
             } catch (err) {
                 console.error('[TakeExam] Auto-save failed:', err)
             }
-        }, 60000)
+        }, 30000) // Auto-save every 30 seconds (was 60s)
 
         return () => clearInterval(autoSaveInterval)
     }, [submitted, loading, examData, user, questions, answers])

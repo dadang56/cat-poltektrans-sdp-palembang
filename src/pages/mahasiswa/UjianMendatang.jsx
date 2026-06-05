@@ -222,7 +222,7 @@ function UjianPage() {
                         try {
                             const results = await hasilUjianService.getByMahasiswa(user.id)
                             const doneIds = (results || [])
-                                .filter(r => r.status === 'submitted' || r.status === 'graded')
+                                .filter(r => r.status === 'submitted' || r.status === 'graded' || r.status === 'cheating_submitted' || r.status === 'kicked')
                                 .map(r => String(r.jadwal_id))
                             setCompletedExamIds(doneIds)
 
