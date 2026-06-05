@@ -64,9 +64,9 @@ function DosenDashboard() {
                     console.log('[DosenDashboard] Filtered matkul:', filteredMatkul.length)
                     setMatkulList(filteredMatkul)
 
-                    // Filter jadwal for this dosen's matkul
+                    // Filter jadwal for this dosen (by matkul AND dosen_id)
                     const dosenJadwal = allJadwal
-                        .filter(j => dosenMatkulIds.includes(String(j.matkul_id)))
+                        .filter(j => dosenMatkulIds.includes(String(j.matkul_id)) && String(j.dosen_id) === String(catUser.id))
                         .sort((a, b) => new Date(a.tanggal) - new Date(b.tanggal))
                     setJadwalDosen(dosenJadwal)
 
@@ -89,9 +89,9 @@ function DosenDashboard() {
                     // Fallback: if no results and dosen has matkulIds, query jadwal by matkul_ids directly
                     if (allHasil.length === 0 && dosenMatkulIds.length > 0) {
                         console.log('[DosenDashboard] Fallback: querying by matkul_ids')
-                        // Find jadwal that match dosen's matkul_ids
+                        // Find jadwal that match dosen's matkul_ids AND dosen_id
                         const matchingJadwalIds = allJadwal
-                            .filter(j => dosenMatkulIds.includes(String(j.matkul_id)))
+                            .filter(j => dosenMatkulIds.includes(String(j.matkul_id)) && String(j.dosen_id) === String(catUser.id))
                             .map(j => j.id)
 
                         if (matchingJadwalIds.length > 0) {

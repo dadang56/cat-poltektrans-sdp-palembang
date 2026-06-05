@@ -708,6 +708,7 @@ export const hasilUjianService = {
         console.log('[getByDosen] Method 1 (direct dosen_id):', jadwalDirect?.length || 0, 'jadwal')
 
         // Method 2: Get jadwal via matkul_id from soal created by this dosen
+        // IMPORTANT: Also filter by dosen_id to avoid showing jadwal for other kelas
         const { data: soalData, error: soalError } = await supabase
             .from('soal')
             .select('matkul_id')
@@ -721,16 +722,18 @@ export const hasilUjianService = {
             const matkulIds = [...new Set(soalData.map(s => s.matkul_id).filter(Boolean))]
             console.log('[getByDosen] Unique matkul IDs from soal:', matkulIds.length)
             if (matkulIds.length > 0) {
+                // Filter by BOTH matkul_id AND dosen_id to only get this dosen's assigned jadwal
                 const { data: jadwalData2, error: jadwalError2 } = await supabase
                     .from('jadwal_ujian')
                     .select('id')
                     .in('matkul_id', matkulIds)
+                    .eq('dosen_id', dosenId)
                     .is('deleted_at', null)
 
                 if (!jadwalError2 && jadwalData2) {
                     jadwalFromSoal = jadwalData2
                 }
-                console.log('[getByDosen] Method 2 jadwal from matkul:', jadwalFromSoal.length)
+                console.log('[getByDosen] Method 2 jadwal from matkul (filtered by dosen):', jadwalFromSoal.length)
             }
         }
 
