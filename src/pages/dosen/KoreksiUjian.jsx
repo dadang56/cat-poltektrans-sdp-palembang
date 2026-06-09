@@ -278,10 +278,12 @@ function KoreksiUjianPage() {
                         const mahasiswa = hasil.mahasiswa
 
                         if (!examGroups[jadwalId]) {
+                            const kelasName = jadwal?.kelas?.nama || ''
                             examGroups[jadwalId] = {
                                 id: jadwalId,
-                                name: `${jadwal?.tipe || 'Ujian'} ${jadwal?.matkul?.nama || 'Mata Kuliah'}`,
+                                name: `${jadwal?.tipe || 'Ujian'} ${jadwal?.matkul?.nama || 'Mata Kuliah'}${kelasName ? ` - ${kelasName}` : ''}`,
                                 matkul: jadwal?.matkul?.nama || 'N/A',
+                                kelas: kelasName || '-',
                                 date: jadwal?.tanggal || 'N/A',
                                 deadline: jadwal?.tanggal ? new Date(new Date(jadwal.tanggal).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0] : 'N/A',
                                 students: [],
@@ -635,7 +637,7 @@ function KoreksiUjianPage() {
                                                 >
                                                     <div className="exam-info">
                                                         <h4>{exam.name}</h4>
-                                                        <p>{exam.matkul} - Kelas {exam.kelas}</p>
+                                                        <p>{exam.matkul}{exam.kelas && exam.kelas !== '-' ? ` • Kelas ${exam.kelas}` : ''}</p>
                                                         <p className="exam-date">Tanggal: {exam.date}</p>
                                                     </div>
                                                     <div className="exam-meta">
