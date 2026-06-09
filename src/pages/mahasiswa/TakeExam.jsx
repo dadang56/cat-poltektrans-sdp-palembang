@@ -107,13 +107,48 @@ function TakeExamPage() {
                             }
                         }
 
-                        allSoal = await soalService.getAll({ matkul_id: matkulId })
-                        allSoal = allSoal.filter(s => {
+                        console.log('[TakeExam] Loading soal for matkulId:', matkulId, 'examType:', examType, 'jadwal.dosen_id:', jadwal.dosen_id)
+
+                        // Step 1: Load soal by matkul_id
+                        let soalByMatkul = await soalService.getAll({ matkul_id: matkulId })
+                        console.log('[TakeExam] Step 1 - soal by matkul_id:', soalByMatkul.length)
+
+                        // Step 2: If no soal found by matkul_id, try loading ALL soal by dosen
+                        // This handles cases where matkul_id might be stored differently
+                        if (soalByMatkul.length === 0 && jadwal.dosen_id) {
+                            console.log('[TakeExam] Step 2 - Fallback: loading soal by dosen_id:', jadwal.dosen_id)
+                            const soalByDosen = await soalService.getAll({ dosen_id: jadwal.dosen_id })
+                            // Filter by matkul name match (fuzzy) if jadwal has matkul info
+                            const matkulName = jadwal.matkul?.nama || ''
+                            if (matkulName) {
+                                soalByMatkul = soalByDosen.filter(s => 
+                                    s.matkul?.nama?.toLowerCase() === matkulName.toLowerCase()
+                                )
+                                console.log('[TakeExam] Step 2b - filtered by matkul name:', soalByMatkul.length)
+                            }
+                            // If still empty, use all dosen's soal as last resort
+                            if (soalByMatkul.length === 0) {
+                                soalByMatkul = soalByDosen
+                                console.log('[TakeExam] Step 2c - using all dosen soal:', soalByMatkul.length)
+                            }
+                        }
+
+                        // Step 3: Filter by tipe_ujian
+                        allSoal = soalByMatkul.filter(s => {
                             if (!s.tipe_ujian) return true
                             return s.tipe_ujian.toUpperCase() === examType
                         })
 
-                        console.log('TakeExam: Supabase soal found:', allSoal.length, 'for matkulId:', matkulId, 'examType:', examType)
+                        console.log('[TakeExam] Step 3 - after tipe_ujian filter:', allSoal.length, '(examType:', examType, ')')
+
+                        // Step 4: If tipe_ujian filter eliminated everything, use unfiltered
+                        if (allSoal.length === 0 && soalByMatkul.length > 0) {
+                            console.warn('[TakeExam] Step 4 - tipe_ujian filter returned 0. Using unfiltered soal. Available tipe_ujian values:', 
+                                [...new Set(soalByMatkul.map(s => s.tipe_ujian))].join(', '))
+                            allSoal = soalByMatkul
+                        }
+
+                        console.log('[TakeExam] Final soal count:', allSoal.length, 'for matkulId:', matkulId, 'examType:', examType)
                     }
                 }
 
