@@ -26,7 +26,8 @@ import {
     FileSpreadsheet,
     ChevronDown,
     RefreshCw,
-    AlertCircle
+    AlertCircle,
+    Printer
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -980,6 +981,107 @@ function UsersPage() {
         })
     }
 
+    // Print credentials for filtered users
+    const handlePrintCredentials = () => {
+        const roleLabels = {
+            'all': 'Semua Role',
+            'mahasiswa': 'Mahasiswa',
+            'dosen': 'Dosen',
+            'pengawas': 'Pengawas',
+            'admin': 'Admin',
+            'admin_prodi': 'Admin Prodi',
+            'superadmin': 'Superadmin'
+        }
+        const filterLabel = roleLabels[roleFilter] || roleFilter
+        const prodiName = prodiFilter !== 'all' 
+            ? prodiList.find(p => p.id === prodiFilter)?.nama || ''
+            : ''
+        const kelasName = kelasFilter !== 'all'
+            ? kelasList.find(k => k.id === kelasFilter)?.nama || ''
+            : ''
+
+        // Sort filtered users alphabetically
+        const sortedUsers = [...filteredUsers].sort((a, b) => 
+            (a.name || '').localeCompare(b.name || '')
+        )
+
+        const printWindow = window.open('', '_blank')
+        printWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>Daftar Username & Password - ${filterLabel}</title>
+                <style>
+                    @page { margin: 15mm; size: A4 portrait; }
+                    * { box-sizing: border-box; margin: 0; padding: 0; }
+                    body { font-family: 'Segoe UI', Arial, sans-serif; color: #1a1a2e; padding: 0; }
+                    .header { text-align: center; margin-bottom: 20px; padding-bottom: 15px; border-bottom: 3px solid #1a3a5c; }
+                    .header h1 { font-size: 18px; color: #1a3a5c; margin-bottom: 4px; }
+                    .header h2 { font-size: 14px; font-weight: 500; color: #555; margin-bottom: 8px; }
+                    .header .filter-info { font-size: 12px; color: #777; }
+                    .header .filter-info span { background: #e8f0fe; padding: 2px 8px; border-radius: 4px; margin: 0 2px; font-weight: 500; color: #1a3a5c; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 12px; }
+                    thead th { background: #1a3a5c; color: white; padding: 8px 10px; text-align: left; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.5px; }
+                    tbody td { padding: 7px 10px; border-bottom: 1px solid #e0e0e0; }
+                    tbody tr:nth-child(even) { background: #f8f9fa; }
+                    tbody tr:hover { background: #e8f4fd; }
+                    .no-col { text-align: center; width: 40px; color: #888; }
+                    .password-col { font-family: 'Courier New', monospace; font-weight: 600; letter-spacing: 0.5px; }
+                    .footer { margin-top: 20px; padding-top: 10px; border-top: 1px solid #ddd; display: flex; justify-content: space-between; font-size: 10px; color: #999; }
+                    @media print {
+                        body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+                        .no-print { display: none !important; }
+                    }
+                    .print-btn { display: block; margin: 0 auto 20px; padding: 10px 30px; background: #1a3a5c; color: white; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+                    .print-btn:hover { background: #2a5a8c; }
+                </style>
+            </head>
+            <body>
+                <button class="print-btn no-print" onclick="window.print()">🖨️ Print / Simpan PDF</button>
+                <div class="header">
+                    <h1>Si-PANDU - Politeknik Transportasi SDP Palembang</h1>
+                    <h2>Daftar Username & Password</h2>
+                    <div class="filter-info">
+                        Role: <span>${filterLabel}</span>
+                        ${prodiName ? `&nbsp;• Prodi: <span>${prodiName}</span>` : ''}
+                        ${kelasName ? `&nbsp;• Kelas: <span>${kelasName}</span>` : ''}
+                        &nbsp;• Total: <span>${sortedUsers.length} user</span>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th class="no-col">No</th>
+                            <th>Nama</th>
+                            <th>Username</th>
+                            <th>Password</th>
+                            ${roleFilter === 'mahasiswa' || roleFilter === 'all' ? '<th>NIM</th>' : ''}
+                            ${roleFilter === 'mahasiswa' ? '<th>Kelas</th>' : ''}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${sortedUsers.map((u, i) => `
+                            <tr>
+                                <td class="no-col">${i + 1}</td>
+                                <td>${u.name || '-'}</td>
+                                <td><strong>${u.username || u.nim || '-'}</strong></td>
+                                <td class="password-col">${u.password || '123456'}</td>
+                                ${roleFilter === 'mahasiswa' || roleFilter === 'all' ? `<td>${u.nim || '-'}</td>` : ''}
+                                ${roleFilter === 'mahasiswa' ? `<td>${u.kelas?.nama || '-'}</td>` : ''}
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+                <div class="footer">
+                    <span>Dicetak pada: ${new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+                    <span>Si-PANDU CAT v2.1</span>
+                </div>
+            </body>
+            </html>
+        `)
+        printWindow.document.close()
+    }
+
     return (
         <DashboardLayout>
             <div className="dashboard-page animate-fadeIn">
@@ -1052,6 +1154,15 @@ function UsersPage() {
                                 style={{ display: 'none' }}
                             />
                         </div>
+
+                        <button 
+                            className="btn btn-outline" 
+                            onClick={handlePrintCredentials}
+                            title="Print daftar Username & Password sesuai filter"
+                        >
+                            <Printer size={18} />
+                            Print Akun
+                        </button>
 
                         <button className="btn btn-primary" onClick={handleAddUser}>
                             <Plus size={18} />
