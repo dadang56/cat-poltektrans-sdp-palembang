@@ -632,7 +632,7 @@ function MonitorUjian() {
             jumlah_benar: 0,
             jumlah_salah: 0,
             jumlah_kosong: 0,
-            answers_detail: null
+            answers_detail: '[]'
           })
           
           // 3. Try to reset optional columns (may not exist)

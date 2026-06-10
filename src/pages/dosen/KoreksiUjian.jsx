@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
-import { hasilUjianService, soalService, jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, jawabanMahasiswaService, soalService, jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     CheckSquare,
     Clock,
@@ -14,7 +14,9 @@ import {
     Edit2,
     Eye,
     FileText,
-    RefreshCw
+    RefreshCw,
+    Trash2,
+    AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -420,6 +422,44 @@ function KoreksiUjianPage() {
         setSelectedExam(exam)
     }
 
+    // Delete all exam results for a jadwal (for re-examination due to technical issues)
+    const handleDeleteExamResults = async (exam, e) => {
+        if (e) e.stopPropagation()
+        
+        const confirmName = prompt(
+            `⚠️ PERINGATAN: Semua hasil ujian "${exam.name}" (${exam.totalStudents} mahasiswa) akan DIHAPUS!\n\n` +
+            `Mahasiswa dapat mengerjakan ujian kembali dari awal.\n\n` +
+            `Untuk konfirmasi, ketik nama ujian: "${exam.name}"`
+        )
+        
+        if (confirmName !== exam.name) {
+            if (confirmName !== null) { // null = user cancelled
+                alert('Nama ujian tidak cocok. Penghapusan dibatalkan.')
+            }
+            return
+        }
+        
+        try {
+            // 1. Delete all jawaban for this jadwal
+            await jawabanMahasiswaService.deleteByJadwal(exam.id)
+            
+            // 2. Delete all hasil_ujian for this jadwal
+            await hasilUjianService.deleteByJadwal(exam.id)
+            
+            // 3. Remove from local state
+            setExamResults(prev => prev.filter(e => e.id !== exam.id))
+            if (selectedExam?.id === exam.id) {
+                setSelectedExam(null)
+            }
+            
+            alert(`✅ Berhasil menghapus semua hasil ujian "${exam.name}". Mahasiswa dapat mengerjakan ujian kembali.`)
+            console.log('[KoreksiUjian] Deleted all results for jadwal:', exam.id)
+        } catch (error) {
+            console.error('[KoreksiUjian] Error deleting results:', error)
+            alert('Gagal menghapus hasil ujian: ' + error.message)
+        }
+    }
+
     const handleOpenCorrection = (student) => {
         setCorrectionModal({ open: true, student })
     }
@@ -639,6 +679,20 @@ function KoreksiUjianPage() {
                                                         <h4>{exam.name}</h4>
                                                         <p>{exam.matkul}{exam.kelas && exam.kelas !== '-' ? ` • Kelas ${exam.kelas}` : ''}</p>
                                                         <p className="exam-date">Tanggal: {exam.date}</p>
+                                                        <button
+                                                            className="btn btn-ghost btn-sm"
+                                                            onClick={(e) => handleDeleteExamResults(exam, e)}
+                                                            title="Hapus semua hasil ujian agar mahasiswa bisa ujian ulang"
+                                                            style={{ 
+                                                                padding: '2px 8px', 
+                                                                fontSize: '0.75rem', 
+                                                                color: 'var(--error-600)',
+                                                                marginTop: '4px'
+                                                            }}
+                                                        >
+                                                            <Trash2 size={12} />
+                                                            Hapus Hasil Ujian
+                                                        </button>
                                                     </div>
                                                     <div className="exam-meta">
                                                         {getStatusBadge(exam.status)}

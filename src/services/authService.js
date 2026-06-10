@@ -82,14 +82,19 @@ export async function signInWithNimNip(nimNip, password) {
                 throw new Error('Password salah')
             }
 
-            // Generate session token
-            const sessionToken = generateSessionToken()
-            await supabase
-                .from('users')
-                .update({ session_token: sessionToken })
-                .eq('id', existingUser.id)
-
-            localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
+            // Generate session token (skip for admin_prodi/superadmin to allow multi-device)
+            const skipSessionToken = ['admin_prodi', 'superadmin'].includes(existingUser.role)
+            if (!skipSessionToken) {
+                const sessionToken = generateSessionToken()
+                await supabase
+                    .from('users')
+                    .update({ session_token: sessionToken })
+                    .eq('id', existingUser.id)
+                localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
+            } else {
+                // Use a fixed token for multi-device roles so validation always passes
+                localStorage.setItem(SESSION_TOKEN_KEY, 'multi_device_allowed')
+            }
             const formattedUser = formatUserProfile(existingUser, authData.session)
             localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
 
@@ -102,16 +107,22 @@ export async function signInWithNimNip(nimNip, password) {
                 throw new Error('Password salah')
             }
 
-            const sessionToken = generateSessionToken()
-            await supabase
-                .from('users')
-                .update({ session_token: sessionToken })
-                .eq('id', existingUser.id)
+            // Generate session token (skip for admin_prodi/superadmin to allow multi-device)
+            const skipSessionToken = ['admin_prodi', 'superadmin'].includes(existingUser.role)
+            if (!skipSessionToken) {
+                const sessionToken = generateSessionToken()
+                await supabase
+                    .from('users')
+                    .update({ session_token: sessionToken })
+                    .eq('id', existingUser.id)
+                localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
+            } else {
+                localStorage.setItem(SESSION_TOKEN_KEY, 'multi_device_allowed')
+            }
 
             const formattedUser = formatUserProfile(existingUser, null)
             localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
-            localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
-
+            
             return { data: formattedUser, error: null }
         }
     } catch (error) {
@@ -207,6 +218,11 @@ export async function validateSession() {
 
     if (!localUser || !localToken) {
         return { valid: false, reason: 'no_session' }
+    }
+
+    // Skip validation for multi-device roles (admin_prodi, superadmin)
+    if (localToken === 'multi_device_allowed') {
+        return { valid: true }
     }
 
     try {

@@ -884,6 +884,17 @@ export const hasilUjianService = {
 
         if (e2) throw e2
         return hasil?.length || 0
+    },
+
+    // Delete ALL hasil_ujian for a specific jadwal (for exam re-do due to technical issues)
+    async deleteByJadwal(jadwalId) {
+        const { error } = await supabase
+            .from('hasil_ujian')
+            .delete()
+            .eq('jadwal_id', jadwalId)
+
+        if (error) throw error
+        return true
     }
 }
 
@@ -1009,6 +1020,17 @@ export const jawabanMahasiswaService = {
             .delete()
             .eq('jadwal_id', jadwalId)
             .eq('mahasiswa_id', mahasiswaId)
+
+        if (error) throw error
+        return true
+    },
+
+    // Delete ALL jawaban for a specific jadwal (for exam re-do)
+    async deleteByJadwal(jadwalId) {
+        const { error } = await supabase
+            .from('jawaban_mahasiswa')
+            .delete()
+            .eq('jadwal_id', jadwalId)
 
         if (error) throw error
         return true

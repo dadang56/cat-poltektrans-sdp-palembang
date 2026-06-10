@@ -697,6 +697,12 @@ function BuatSoalPage() {
     const [selectedPackage, setSelectedPackage] = useState(null) // { matkulId, examType }
     const [createPackageModalOpen, setCreatePackageModalOpen] = useState(false)
 
+    // Edit kelas modal state
+    const [editKelasModal, setEditKelasModal] = useState(false)
+    const [editKelasPackage, setEditKelasPackage] = useState(null)
+    const [editKelasIds, setEditKelasIds] = useState([])
+    const [editKelasLoading, setEditKelasLoading] = useState(false)
+
     // Load matkul, kelas, and soal from Supabase (parallelized for speed)
     useEffect(() => {
         const loadData = async () => {
@@ -1056,6 +1062,43 @@ function BuatSoalPage() {
                 }
             }
         })
+    }
+
+    // Edit kelas for entire package
+    const handleOpenEditKelas = (pkg, e) => {
+        if (e) e.stopPropagation()
+        // Get current kelas_ids from first question or collect all
+        const allKelasIds = [...new Set(pkg.questions.flatMap(q => q.kelasIds || []))]
+        setEditKelasPackage(pkg)
+        setEditKelasIds(allKelasIds)
+        setEditKelasModal(true)
+    }
+
+    const handleSaveEditKelas = async () => {
+        if (!editKelasPackage) return
+        setEditKelasLoading(true)
+        try {
+            // Update all questions in the package
+            const updatePromises = editKelasPackage.questions.map(q =>
+                soalService.update(q.id, { kelas_ids: editKelasIds })
+            )
+            await Promise.all(updatePromises)
+            
+            // Update local state
+            const pkgQuestionIds = new Set(editKelasPackage.questions.map(q => q.id))
+            setQuestions(prev => prev.map(q =>
+                pkgQuestionIds.has(q.id) ? { ...q, kelasIds: [...editKelasIds] } : q
+            ))
+            
+            console.log('[BuatSoal] Kelas updated for package:', editKelasPackage.matkulId, editKelasPackage.examType, 'new kelas:', editKelasIds)
+            setEditKelasModal(false)
+            setEditKelasPackage(null)
+        } catch (error) {
+            console.error('[BuatSoal] Error updating kelas:', error)
+            alert('Gagal mengubah kelas: ' + error.message)
+        } finally {
+            setEditKelasLoading(false)
+        }
     }
 
     const handleImportFromBank = async (importedQuestions) => {
@@ -1567,6 +1610,15 @@ function BuatSoalPage() {
                                                     </span>
                                                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                                                         <button
+                                                            className="btn btn-ghost btn-sm"
+                                                            onClick={(e) => handleOpenEditKelas(pkg, e)}
+                                                            title="Edit Kelas"
+                                                            style={{ padding: '0.25rem 0.5rem', color: 'var(--primary)' }}
+                                                        >
+                                                            <Edit2 size={14} />
+                                                            Edit Kelas
+                                                        </button>
+                                                        <button
                                                             className="btn btn-ghost btn-sm text-error"
                                                             onClick={(e) => {
                                                                 e.stopPropagation()
@@ -1834,6 +1886,91 @@ function BuatSoalPage() {
                     onSelectQuestions={handleImportFromBank}
                     dosenId={user?.id}
                 />
+
+                {/* Edit Kelas Modal */}
+                {editKelasModal && editKelasPackage && (
+                    <div className="modal-overlay" onClick={() => { setEditKelasModal(false); setEditKelasPackage(null) }}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '500px' }}>
+                            <div className="modal-header">
+                                <h3>Edit Kelas - {getMatkulName(editKelasPackage.matkulId)} ({editKelasPackage.examType})</h3>
+                                <button className="btn btn-icon btn-ghost" onClick={() => { setEditKelasModal(false); setEditKelasPackage(null) }}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="modal-body">
+                                <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
+                                    Pilih kelas yang akan di-assign untuk {editKelasPackage.questions.length} soal dalam paket ini.
+                                    Perubahan akan diterapkan ke semua soal sekaligus.
+                                </p>
+                                <div className="form-group">
+                                    <label className="form-label">Distribusi ke Kelas</label>
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.5rem' }}>
+                                        {kelasList.map(k => {
+                                            const isSelected = editKelasIds.includes(k.id)
+                                            return (
+                                                <button
+                                                    key={k.id}
+                                                    type="button"
+                                                    onClick={() => {
+                                                        if (isSelected) {
+                                                            setEditKelasIds(editKelasIds.filter(id => id !== k.id))
+                                                        } else {
+                                                            setEditKelasIds([...editKelasIds, k.id])
+                                                        }
+                                                    }}
+                                                    style={{
+                                                        padding: '8px 16px',
+                                                        borderRadius: '8px',
+                                                        border: isSelected ? '2px solid var(--primary)' : '2px solid var(--border-color)',
+                                                        background: isSelected ? 'var(--primary-50)' : 'var(--bg-secondary)',
+                                                        color: isSelected ? 'var(--primary)' : 'var(--text-primary)',
+                                                        fontWeight: isSelected ? '600' : '400',
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                        fontSize: '0.85rem'
+                                                    }}
+                                                >
+                                                    {isSelected && <CheckCircle size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />}
+                                                    {k.nama}
+                                                </button>
+                                            )
+                                        })}
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-ghost btn-sm"
+                                            onClick={() => setEditKelasIds(kelasList.map(k => k.id))}
+                                        >
+                                            Pilih Semua
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-ghost btn-sm"
+                                            onClick={() => setEditKelasIds([])}
+                                        >
+                                            Hapus Semua
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-ghost" onClick={() => { setEditKelasModal(false); setEditKelasPackage(null) }}>Batal</button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleSaveEditKelas}
+                                    disabled={editKelasLoading}
+                                >
+                                    {editKelasLoading ? (
+                                        <><Loader2 size={16} className="spin" /> Menyimpan...</>
+                                    ) : (
+                                        <><Save size={16} /> Simpan Perubahan</>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Preview Modal */}
                 {previewQuestion && (
