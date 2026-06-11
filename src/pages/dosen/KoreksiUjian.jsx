@@ -19,6 +19,7 @@ import {
     AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { useSettings } from '../../contexts/SettingsContext'
 
 // Data kosong - akan diisi dari data nyata
 const EXAMS_TO_CORRECT = []
@@ -231,6 +232,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
 
 function KoreksiUjianPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
     const [examResults, setExamResults] = useState([])
     const [selectedExam, setSelectedExam] = useState(null)
     const [correctionModal, setCorrectionModal] = useState({ open: false, student: null })
@@ -418,7 +420,7 @@ function KoreksiUjianPage() {
         }
 
         loadData()
-    }, [])
+    }, [settings?.tahunAkademik])
 
     const handleSelectExam = (exam) => {
         setSelectedExam(exam)

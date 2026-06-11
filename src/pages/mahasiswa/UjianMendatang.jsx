@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
 import { jadwalService, matkulService, kelasService, userService, soalService, ruangService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardList,
@@ -185,6 +186,7 @@ function ConfirmExamModal({ isOpen, onClose, exam, onStart }) {
 
 function UjianPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
     const navigate = useNavigate()
 
     const [jadwalList, setJadwalList] = useState([])
@@ -205,7 +207,7 @@ function UjianPage() {
                     // OPTIMIZED: Only load what's needed (removed soalService.getAll and userService.getAll)
                     // jadwal already includes nested matkul, kelas, ruangan, dosen from joins
                     const [jadwal, matkul, kelas, ruang] = await Promise.all([
-                        jadwalService.getAll(),
+                        jadwalService.getAll({ tahun_akademik: settings?.tahunAkademik }),
                         matkulService.getAll(),
                         kelasService.getAll(),
                         ruangService.getAll()
@@ -252,7 +254,7 @@ function UjianPage() {
             setLoading(false)
         }
         loadData()
-    }, [user])
+    }, [user, settings?.tahunAkademik])
 
     // Get mahasiswa's kelas
     const mahasiswaKelasId = user?.kelasId || user?.kelas_id
