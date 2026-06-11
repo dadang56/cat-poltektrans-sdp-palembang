@@ -1248,8 +1248,8 @@ function TakeExamPage() {
                         <Shield size={14} />
                         <span>{warningCount > 0 ? `${warningCount}⚠` : '✓'}</span>
                     </div>
-                    <div className={`exam-timer ${timeLeft < 300 ? 'warning' : ''} ${timeLeft < 60 ? 'danger' : ''}`}>
-                        <Clock size={20} />
+                    <div className={`exam-timer ${timeLeft !== null && timeLeft < 300 ? 'warning' : ''} ${timeLeft !== null && timeLeft < 60 ? 'danger' : ''}`}>
+                        <Clock size={18} />
                         <span>{formatTime(timeLeft)}</span>
                     </div>
                     <button
@@ -1257,7 +1257,7 @@ function TakeExamPage() {
                         onClick={toggleFullscreen}
                         title="Fullscreen"
                     >
-                        <Maximize size={20} />
+                        <Maximize size={18} />
                     </button>
                 </div>
             </header>
@@ -1342,7 +1342,7 @@ function TakeExamPage() {
                                 className={`flag-btn ${flagged.has(question.id) ? 'flagged' : ''}`}
                                 onClick={toggleFlag}
                             >
-                                <Flag size={18} />
+                                <Flag size={16} />
                                 {flagged.has(question.id) ? 'Ditandai' : 'Tandai'}
                             </button>
                         </div>
@@ -1408,7 +1408,7 @@ function TakeExamPage() {
                                             checked={answers[question.id] === true}
                                             onChange={() => handleAnswer(true)}
                                         />
-                                        <CheckCircle size={24} />
+                                        <CheckCircle size={22} />
                                         <span>Benar</span>
                                     </label>
                                     <label className={`tf-option ${answers[question.id] === false ? 'selected' : ''}`}>
@@ -1418,7 +1418,7 @@ function TakeExamPage() {
                                             checked={answers[question.id] === false}
                                             onChange={() => handleAnswer(false)}
                                         />
-                                        <X size={24} />
+                                        <X size={22} />
                                         <span>Salah</span>
                                     </label>
                                 </div>
@@ -1449,7 +1449,7 @@ function TakeExamPage() {
                             disabled={currentQuestion === 0}
                             onClick={() => setCurrentQuestion(prev => prev - 1)}
                         >
-                            <ChevronLeft size={18} />
+                            <ChevronLeft size={16} />
                             Sebelumnya
                         </button>
 
@@ -1459,14 +1459,14 @@ function TakeExamPage() {
                                 onClick={() => setCurrentQuestion(prev => prev + 1)}
                             >
                                 Selanjutnya
-                                <ChevronRight size={18} />
+                                <ChevronRight size={16} />
                             </button>
                         ) : (
                             <button
                                 className="btn btn-accent"
                                 onClick={() => setShowConfirmSubmit(true)}
                             >
-                                <Send size={18} />
+                                <Send size={16} />
                                 Submit Ujian
                             </button>
                         )}
@@ -1475,46 +1475,19 @@ function TakeExamPage() {
             </div>
 
             <style>{`
-                .exam-loading, .exam-error {
-                    display: flex;
-                    flex-direction: column;
-                    align-items: center;
-                    justify-content: center;
-                    min-height: 100vh;
-                    gap: 1rem;
-                    text-align: center;
-                    padding: 2rem;
-                }
-                .exam-error svg {
-                    color: var(--warning);
-                }
-                .question-image {
-                    max-width: 100%;
-                    max-height: 300px;
-                    margin-top: 1rem;
-                    border-radius: 0.5rem;
-                }
-                .zoomable-image {
-                    cursor: zoom-in;
-                    transition: opacity 0.2s ease;
-                    border: 2px solid transparent;
-                }
-                .zoomable-image:hover {
-                    opacity: 0.85;
-                    border-color: var(--primary-400);
-                    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
-                }
                 /* Image Zoom Lightbox */
                 .image-zoom-overlay {
                     position: fixed;
-                    top: 0; left: 0; right: 0; bottom: 0;
-                    background: rgba(0, 0, 0, 0.85);
+                    inset: 0;
+                    background: rgba(0, 0, 0, 0.88);
                     z-index: 99999;
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    animation: zoomFadeIn 0.2s ease;
+                    animation: zoomFadeIn 0.25s ease;
                     cursor: zoom-out;
+                    backdrop-filter: blur(8px);
+                    -webkit-backdrop-filter: blur(8px);
                 }
                 @keyframes zoomFadeIn {
                     from { opacity: 0; }
@@ -1533,16 +1506,17 @@ function TakeExamPage() {
                     max-width: 95vw;
                     max-height: 85vh;
                     object-fit: contain;
-                    border-radius: 8px;
-                    box-shadow: 0 8px 40px rgba(0,0,0,0.5);
+                    border-radius: 12px;
+                    box-shadow: 0 12px 48px rgba(0,0,0,0.5);
                     cursor: default;
                 }
                 .zoom-close-btn {
                     position: absolute;
-                    top: -40px;
+                    top: -44px;
                     right: 0;
-                    background: rgba(255,255,255,0.15);
-                    border: none;
+                    background: rgba(255,255,255,0.12);
+                    backdrop-filter: blur(8px);
+                    border: 1px solid rgba(255,255,255,0.15);
                     color: white;
                     width: 36px;
                     height: 36px;
@@ -1551,16 +1525,18 @@ function TakeExamPage() {
                     display: flex;
                     align-items: center;
                     justify-content: center;
-                    font-size: 1.2rem;
-                    transition: background 0.2s;
+                    font-size: 1.1rem;
+                    transition: all 0.2s ease;
                 }
                 .zoom-close-btn:hover {
-                    background: rgba(255,255,255,0.3);
+                    background: rgba(255,255,255,0.25);
+                    transform: scale(1.05);
                 }
                 .zoom-hint {
-                    color: rgba(255,255,255,0.6);
-                    font-size: 0.8rem;
+                    color: rgba(255,255,255,0.5);
+                    font-size: 0.78rem;
                     text-align: center;
+                    font-weight: 400;
                 }
             `}</style>
 
