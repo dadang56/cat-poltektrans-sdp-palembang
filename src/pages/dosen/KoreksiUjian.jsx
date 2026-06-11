@@ -352,7 +352,9 @@ function KoreksiUjianPage() {
                             totalScore: isFullyCorrected ? hasil.nilai_total : null,
                             maxScore: enrichedAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
                             hasEssay,
-                            isFullyCorrected
+                            isFullyCorrected,
+                            submitType: hasil.submit_type || (hasil.status === 'graded' || hasil.status === 'submitted' ? 'manual' : null),
+                            hasilStatus: hasil.status
                         })
 
                         examGroups[jadwalId].totalStudents = examGroups[jadwalId].students.length
@@ -792,8 +794,12 @@ function KoreksiUjianPage() {
                                                                 <span className="badge badge-success">Selesai</span>
                                                             ) : hasEssayPending ? (
                                                                 <span className="badge badge-warning">Essay Pending</span>
+                                                            ) : student.submitType === 'auto' ? (
+                                                                <span className="badge badge-info" title="Waktu ujian habis, jawaban disimpan otomatis">Submitted (Waktu Habis)</span>
+                                                            ) : student.hasilStatus === 'in_progress' ? (
+                                                                <span className="badge badge-error" title="Mahasiswa tidak submit jawaban">Belum Submit</span>
                                                             ) : (
-                                                                <span className="badge badge-info">Auto-corrected</span>
+                                                                <span className="badge badge-info">Submitted</span>
                                                             )}
                                                         </td>
                                                         <td>

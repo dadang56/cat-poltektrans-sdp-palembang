@@ -47,8 +47,8 @@ function TakeExamPage() {
     const [currentQuestion, setCurrentQuestion] = useState(0)
     const [answers, setAnswers] = useState({})
     const [flagged, setFlagged] = useState(new Set())
-    const [timeLeft, setTimeLeft] = useState(0)
-    const timeLeftRef = useRef(0)
+    const [timeLeft, setTimeLeft] = useState(null) // null = not initialized yet, 0 = time's up
+    const timeLeftRef = useRef(null)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [showWarning, setShowWarning] = useState(false)
     const [warningCount, setWarningCount] = useState(0)
@@ -56,6 +56,7 @@ function TakeExamPage() {
     const [showConfirmSubmit, setShowConfirmSubmit] = useState(false)
     const [showNavigator, setShowNavigator] = useState(false)
     const [examStartTime, setExamStartTime] = useState(null) // actual waktu_mulai
+    const [isAutoSubmitted, setIsAutoSubmitted] = useState(false) // track if auto-submitted by timer
     const [existingHasilId, setExistingHasilId] = useState(null) // for resume
     const [isKicked, setIsKicked] = useState(false) // blocked by pengawas
     const [waitingApproval, setWaitingApproval] = useState(false) // needs pengawas approval to re-enter
@@ -368,9 +369,12 @@ function TakeExamPage() {
                         setTimeLeft(remainingSeconds)
 
                         if (remainingSeconds <= 0) {
-                            // Duration expired while away — auto-submit
-                            console.log('[TakeExam] Duration expired during absence, auto-submitting')
-                            setSubmitted(true)
+                            // Duration expired while away — auto-submit with score calculation
+                            console.log('[TakeExam] Duration expired during absence, auto-submitting with scores')
+                            // We need to submit after state is set, so use a flag
+                            setTimeout(() => {
+                                handleSubmit(true) // true = isAutoSubmit
+                            }, 100)
                         }
                     } else {
                         // NEW session: record start time
@@ -494,14 +498,14 @@ function TakeExamPage() {
 
     // Timer effect
     useEffect(() => {
-        if (submitted || timeLeft <= 0 || loading) return
+        if (submitted || timeLeft === null || timeLeft <= 0 || loading) return
 
         const timer = setInterval(() => {
             setTimeLeft(prev => {
                 const next = prev - 1
                 timeLeftRef.current = next
                 if (prev <= 1) {
-                    handleSubmit()
+                    handleSubmit(true) // true = isAutoSubmit (time's up)
                     return 0
                 }
                 return prev - 1
@@ -666,6 +670,8 @@ function TakeExamPage() {
 
     // Format time
     const formatTime = (seconds) => {
+        if (seconds === null || seconds === undefined) return '⏳ Memuat...'
+        if (seconds <= 0) return '00:00'
         const hrs = Math.floor(seconds / 3600)
         const mins = Math.floor((seconds % 3600) / 60)
         const secs = seconds % 60
@@ -718,7 +724,8 @@ function TakeExamPage() {
         setShowNavigator(false)
     }
 
-    const handleSubmit = () => {
+    const handleSubmit = (isAutoSubmit = false) => {
+        if (isAutoSubmit) setIsAutoSubmitted(true)
         setSubmitted(true)
         setShowConfirmSubmit(false)
 
@@ -823,6 +830,7 @@ function TakeExamPage() {
                     waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
                     waktu_selesai: new Date().toISOString(),
                     status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
+                    submit_type: isAutoSubmit ? 'auto' : 'manual',
                     // Store detailed answers as JSON
                     answers_detail: JSON.stringify(answerDetails)
                 }
@@ -980,13 +988,25 @@ function TakeExamPage() {
 
     if (submitted) {
         const { score, total } = calculateScore()
+        const waktuPengerjaan = timeLeft !== null 
+            ? examData.duration * 60 - timeLeft 
+            : examData.duration * 60
         return (
             <div className="exam-result-page">
                 <div className="result-card animate-scaleIn">
-                    <div className="result-icon success">
-                        <CheckCircle size={64} />
+                    <div className={`result-icon ${isAutoSubmitted ? 'info' : 'success'}`} style={isAutoSubmitted ? { background: 'var(--warning-100)' } : {}}>
+                        {isAutoSubmitted ? (
+                            <Clock size={64} style={{ color: 'var(--warning-600)' }} />
+                        ) : (
+                            <CheckCircle size={64} />
+                        )}
                     </div>
-                    <h1>Ujian Selesai!</h1>
+                    <h1>{isAutoSubmitted ? 'Waktu Ujian Habis' : 'Ujian Selesai!'}</h1>
+                    {isAutoSubmitted && (
+                        <p style={{ color: 'var(--warning-600)', fontSize: '0.95rem', margin: '8px 0 0', fontWeight: 500 }}>
+                            Jawaban Anda telah disimpan dan di-submit secara otomatis.
+                        </p>
+                    )}
                     <p className="result-exam-name">{examData.name}</p>
 
                     <div className="result-stats">
@@ -995,7 +1015,7 @@ function TakeExamPage() {
                             <span className="result-stat-label">Soal Dijawab</span>
                         </div>
                         <div className="result-stat">
-                            <span className="result-stat-value">{formatTime(examData.duration * 60 - timeLeft)}</span>
+                            <span className="result-stat-value">{formatTime(waktuPengerjaan)}</span>
                             <span className="result-stat-label">Waktu Pengerjaan</span>
                         </div>
                         <div className="result-stat">
@@ -1011,7 +1031,10 @@ function TakeExamPage() {
                     </div>
 
                     <p className="result-note">
-                        Hasil akhir akan diumumkan setelah semua jawaban essay dikoreksi oleh dosen.
+                        {isAutoSubmitted 
+                            ? 'Waktu ujian telah habis. Jawaban yang sudah diisi telah tersimpan. Hasil akhir akan diumumkan setelah dikoreksi oleh dosen.'
+                            : 'Hasil akhir akan diumumkan setelah semua jawaban essay dikoreksi oleh dosen.'
+                        }
                     </p>
 
                     <a href="/mahasiswa" className="btn btn-primary btn-lg">
@@ -1185,6 +1208,31 @@ function TakeExamPage() {
                     </div>
                 </div>
             )}
+
+            {/* Time Almost Up Warning Banner */}
+            {timeLeft !== null && timeLeft > 0 && timeLeft <= 120 && !submitted && (
+                <div style={{
+                    position: 'fixed',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    zIndex: 9999,
+                    padding: '10px 20px',
+                    background: timeLeft <= 30 ? 'var(--error-600)' : 'var(--warning-500)',
+                    color: 'white',
+                    textAlign: 'center',
+                    fontWeight: '700',
+                    fontSize: '1rem',
+                    animation: 'pulse 1s ease-in-out infinite',
+                    boxShadow: '0 4px 20px rgba(0,0,0,0.3)'
+                }}>
+                    ⚠️ {timeLeft <= 30 
+                        ? `Waktu tersisa ${timeLeft} detik! Jawaban akan otomatis disimpan.` 
+                        : `Waktu tersisa ${Math.ceil(timeLeft / 60)} menit! Segera selesaikan ujian.`
+                    }
+                </div>
+            )}
+            <style>{`@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.85; } }`}</style>
 
             {/* Header */}
             <header className="exam-header">
