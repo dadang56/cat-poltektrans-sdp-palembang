@@ -342,29 +342,43 @@ function KoreksiUjianPage() {
                             }))
                         }
 
-                        // Filter: only show soal owned by current dosen
-                        // This prevents showing soal from other dosen who teach same matkul
+                        // Store dosen's soal IDs for filtering in correction modal
+                        let dosenSoalIds = null
                         if (user.role === 'dosen') {
-                            const dosenSoalIds = new Set(
+                            dosenSoalIds = new Set(
                                 soalData
                                     .filter(s => String(s.dosen_id) === String(user.id))
                                     .map(s => String(s.id))
                             )
-                            enrichedAnswers = enrichedAnswers.filter(a => 
-                                dosenSoalIds.has(String(a.questionId))
-                            )
                         }
 
-                        // Clean up internal field
-                        enrichedAnswers = enrichedAnswers.map(({ _soalDosenId, ...rest }) => rest)
+                        // For display: filter to dosen's soal only
+                        const dosenAnswers = dosenSoalIds
+                            ? enrichedAnswers.filter(a => dosenSoalIds.has(String(a.questionId)))
+                            : enrichedAnswers
 
-                        const hasEssay = enrichedAnswers.some(a => a.type === 'essay' || a.type === 'uraian')
-                        const hasEssayPending = enrichedAnswers.some(a =>
+                        // Clean up internal field
+                        const cleanAnswers = enrichedAnswers.map(({ _soalDosenId, ...rest }) => rest)
+                        const cleanDosenAnswers = dosenAnswers.map(({ _soalDosenId, ...rest }) => rest)
+
+                        // Status: use full answers for DB status, but dosen answers for display
+                        const dosenHasEssay = cleanDosenAnswers.some(a => a.type === 'essay' || a.type === 'uraian')
+                        const dosenEssayPending = cleanDosenAnswers.some(a =>
                             (a.type === 'essay' || a.type === 'uraian') && (a.earnedPoints === null || a.earnedPoints === undefined)
                         )
-                        // For dosen: check only THIS dosen's filtered answers
-                        // Don't rely on hasil.status which may reflect other dosen's grading
-                        const isFullyCorrected = !hasEssayPending && (enrichedAnswers.length > 0)
+                        
+                        // Fully corrected if: no dosen essay pending, OR no dosen answers (nothing to correct)
+                        const isFullyCorrected = cleanDosenAnswers.length === 0 
+                            ? (hasil.status === 'graded' || hasil.status === 'submitted')
+                            : !dosenEssayPending
+
+                        // Debug: log students that are NOT fully corrected
+                        if (!isFullyCorrected) {
+                            const pendingEssays = cleanDosenAnswers.filter(a => 
+                                (a.type === 'essay' || a.type === 'uraian') && (a.earnedPoints === null || a.earnedPoints === undefined)
+                            )
+                            console.log(`[LOAD DEBUG] ${mahasiswa?.nama} NOT corrected. dosenAnswers: ${cleanDosenAnswers.length}, allAnswers: ${enrichedAnswers.length}, pendingEssays:`, pendingEssays.map(p => ({qId: p.questionId, type: p.type, earned: p.earnedPoints})))
+                        }
 
                         examGroups[jadwalId].students.push({
                             id: hasil.id,
@@ -372,11 +386,12 @@ function KoreksiUjianPage() {
                             studentName: mahasiswa?.nama || 'N/A',
                             nim: mahasiswa?.nim_nip || 'N/A',
                             submittedAt: hasil.waktu_selesai ? new Date(hasil.waktu_selesai).toLocaleString('id-ID') : 'N/A',
-                            answers: enrichedAnswers,
-                            allAnswersCount: answers.length, // Keep track of total answers for save
-                            totalScore: isFullyCorrected ? (enrichedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)) : null,
-                            maxScore: enrichedAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
-                            hasEssay,
+                            answers: cleanDosenAnswers, // Only this dosen's soal for correction modal
+                            fullAnswers: cleanAnswers,  // ALL answers for save merging
+                            allAnswersCount: answers.length,
+                            totalScore: isFullyCorrected ? (cleanDosenAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)) : null,
+                            maxScore: cleanDosenAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
+                            hasEssay: dosenHasEssay,
                             isFullyCorrected,
                             submitType: hasil.submit_type || (hasil.status === 'graded' || hasil.status === 'submitted' ? 'manual' : null),
                             hasilStatus: hasil.status
@@ -495,7 +510,7 @@ function KoreksiUjianPage() {
         try {
             // 1. Update in Supabase — MERGE corrected answers into full answers_detail
             if (isSupabaseConfigured()) {
-                // Fetch current full answers_detail from DB first
+                // Fetch current full answers_detail from DB
                 const { data: currentRecord, error: fetchError } = await supabase
                     .from('hasil_ujian')
                     .select('answers_detail')
@@ -507,49 +522,58 @@ function KoreksiUjianPage() {
                     throw fetchError
                 }
 
-                // Parse current full answers from DB
-                let fullAnswers = []
+                // Parse current answers from DB
+                let dbAnswers = []
                 try {
                     if (currentRecord?.answers_detail) {
-                        fullAnswers = typeof currentRecord.answers_detail === 'string'
+                        dbAnswers = typeof currentRecord.answers_detail === 'string'
                             ? JSON.parse(currentRecord.answers_detail)
                             : currentRecord.answers_detail
                     }
                 } catch (e) {
-                    console.error('Error parsing current answers:', e)
-                    fullAnswers = []
+                    console.error('Error parsing DB answers:', e)
+                    dbAnswers = []
                 }
 
-                // Merge: update only the answers that this dosen corrected
+                // Build map of corrected answers from this dosen
                 const correctedMap = new Map()
                 updatedStudent.answers.forEach(a => {
                     correctedMap.set(String(a.questionId), a)
                 })
 
-                const mergedAnswers = fullAnswers.map(a => {
-                    const corrected = correctedMap.get(String(a.questionId))
-                    if (corrected) {
-                        // Replace with corrected version (has earnedPoints filled in)
-                        return corrected
-                    }
-                    return a // Keep other dosen's answers unchanged
-                })
+                console.log('[Save] DB answers count:', dbAnswers.length, 
+                    'Corrected answers count:', updatedStudent.answers.length)
 
-                // Calculate total score from ALL answers (not just this dosen's)
+                // Merge corrected answers into DB answers
+                let mergedAnswers
+                if (dbAnswers.length > 0) {
+                    mergedAnswers = dbAnswers.map(a => {
+                        const corrected = correctedMap.get(String(a.questionId))
+                        return corrected || a
+                    })
+                    // Also add any corrected answers not in DB (shouldn't happen but safety)
+                    const dbQuestionIds = new Set(dbAnswers.map(a => String(a.questionId)))
+                    updatedStudent.answers.forEach(a => {
+                        if (!dbQuestionIds.has(String(a.questionId))) {
+                            mergedAnswers.push(a)
+                        }
+                    })
+                } else {
+                    // DB was corrupted/empty — use corrected answers directly
+                    mergedAnswers = updatedStudent.answers
+                }
+
+                // Calculate total score from ALL merged answers
                 const totalScore = mergedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
 
-                // Check if ALL essays are graded (across ALL dosen)
-                const allEssaysGraded = !mergedAnswers.some(a => 
-                    (a.type === 'essay' || a.type === 'uraian') && 
-                    (a.earnedPoints === null || a.earnedPoints === undefined)
-                )
+                console.log('[Save] Merged answers count:', mergedAnswers.length, 'Total score:', totalScore)
 
                 await hasilUjianService.update(updatedStudent.resultId, {
                     nilai_total: totalScore,
                     answers_detail: mergedAnswers,
                     status: 'graded'
                 })
-                console.log('[KoreksiUjian] Saved merged correction. Total:', totalScore, 'All graded:', allEssaysGraded)
+                console.log('[KoreksiUjian] Saved merged correction successfully')
             }
 
             // 2. Update student in state
