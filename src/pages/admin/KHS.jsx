@@ -347,7 +347,8 @@ function KHSPage() {
             .info-section { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 9.5pt; }
             .info-left, .info-right { width: 48%; }
             .info-row { display: flex; margin-bottom: 2px; }
-            .info-label { width: 150px; flex-shrink: 0; font-weight: normal; }
+            .info-label { width: 140px; flex-shrink: 0; font-weight: normal; }
+            .info-colon { width: 12px; flex-shrink: 0; }
             .info-value { flex: 1; }
             .grades-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9.5pt; }
             .grades-table th, .grades-table td { border: 1px solid #000; padding: 3px 6px; text-align: center; }
@@ -411,12 +412,12 @@ function KHSPage() {
                         <!-- Student Info -->
                         <div class="info-section">
                             <div class="info-left">
-                                <div class="info-row"><span class="info-label">TAHUN AKADEMIK</span>: ${settings?.tahunAkademik || '2024/2025 Ganjil'}</div>
-                                <div class="info-row"><span class="info-label">NAMA TARUNA</span>: ${mhs?.nama || '-'}</div>
-                                <div class="info-row"><span class="info-label">NOMOR TARUNA</span>: ${mhs?.nim_nip || '-'}</div>
-                                <div class="info-row"><span class="info-label">ANGKATAN</span>: ${kelas?.angkatan ? 'Angkatan ' + kelas.angkatan : mhs?.angkatan || '-'}</div>
-                                <div class="info-row"><span class="info-label">TINGKAT/SEMESTER</span>: ${kelas?.semester ? 'Semester ' + kelas.semester : mhs?.semester || '-'}</div>
-                                <div class="info-row"><span class="info-label">PROGRAM STUDI</span>: ${prodi?.nama || '-'}</div>
+                                <div class="info-row"><span class="info-label">TAHUN AKADEMIK</span><span class="info-colon">:</span><span class="info-value">${settings?.tahunAkademik || '2024/2025 Ganjil'}</span></div>
+                                <div class="info-row"><span class="info-label">NAMA TARUNA</span><span class="info-colon">:</span><span class="info-value">${mhs?.nama || '-'}</span></div>
+                                <div class="info-row"><span class="info-label">NOMOR TARUNA</span><span class="info-colon">:</span><span class="info-value">${mhs?.nim_nip || '-'}</span></div>
+                                <div class="info-row"><span class="info-label">ANGKATAN</span><span class="info-colon">:</span><span class="info-value">${kelas?.angkatan ? 'Angkatan ' + kelas.angkatan : mhs?.angkatan || '-'}</span></div>
+                                <div class="info-row"><span class="info-label">TINGKAT/SEMESTER</span><span class="info-colon">:</span><span class="info-value">${kelas?.semester ? 'Semester ' + kelas.semester : mhs?.semester || '-'}</span></div>
+                                <div class="info-row"><span class="info-label">PROGRAM STUDI</span><span class="info-colon">:</span><span class="info-value">${prodi?.nama || '-'}</span></div>
                             </div>
                             <div class="info-right">
                                 <div class="info-row"><strong>Catatan:</strong></div>
