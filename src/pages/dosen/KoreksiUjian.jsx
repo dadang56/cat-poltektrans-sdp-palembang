@@ -44,8 +44,15 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
     }
 
     const handleSave = () => {
-        const totalScore = answers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
-        onSave({ ...student, answers, totalScore })
+        // Automatically default any null or undefined earnedPoints in essay/uraian answers to 0
+        const gradedAnswers = answers.map(a => {
+            if (isEssayType(a.type) && (a.earnedPoints === null || a.earnedPoints === undefined)) {
+                return { ...a, earnedPoints: 0, isCorrect: false }
+            }
+            return a
+        })
+        const totalScore = gradedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
+        onSave({ ...student, answers: gradedAnswers, totalScore })
         onClose()
     }
 
@@ -315,12 +322,19 @@ function KoreksiUjianPage() {
                         let enrichedAnswers = answers.map(a => {
                             // Lookup soal for this answer
                             const soal = soalData.find(s => String(s.id) === String(a.questionId))
+                            const type = a.type || soal?.tipe_soal || 'pilihan_ganda'
+                            const isEssay = type === 'essay' || type === 'uraian'
+                            let earnedPoints = a.earnedPoints
+                            if (hasil.status === 'graded' && isEssay && (earnedPoints === null || earnedPoints === undefined)) {
+                                earnedPoints = 0
+                            }
                             return {
                                 ...a,
-                                type: a.type || soal?.tipe_soal || 'pilihan_ganda',
+                                type,
                                 maxPoints: (a.maxPoints != null && a.maxPoints !== undefined) 
                                     ? a.maxPoints 
                                     : (soal?.bobot || soal?.points || 10),
+                                earnedPoints,
                                 _soalDosenId: soal?.dosen_id || null
                             }
                         })
@@ -367,10 +381,12 @@ function KoreksiUjianPage() {
                             (a.type === 'essay' || a.type === 'uraian') && (a.earnedPoints === null || a.earnedPoints === undefined)
                         )
                         
-                        // Fully corrected if: no dosen essay pending, OR no dosen answers (nothing to correct)
-                        const isFullyCorrected = cleanDosenAnswers.length === 0 
-                            ? (hasil.status === 'graded' || hasil.status === 'submitted')
-                            : !dosenEssayPending
+                        // Fully corrected if: status is 'graded', OR no dosen essay pending, OR no dosen answers (nothing to correct)
+                        const isFullyCorrected = hasil.status === 'graded' || (
+                            cleanDosenAnswers.length === 0 
+                                ? (hasil.status === 'graded' || hasil.status === 'submitted')
+                                : !dosenEssayPending
+                        )
 
                         // Debug: log students that are NOT fully corrected
                         if (!isFullyCorrected) {
@@ -566,14 +582,41 @@ function KoreksiUjianPage() {
                 // Calculate total score from ALL merged answers
                 const totalScore = mergedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
 
-                console.log('[Save] Merged answers count:', mergedAnswers.length, 'Total score:', totalScore)
+                // Log essay answers specifically
+                const essayAnswers = mergedAnswers.filter(a => a.type === 'essay' || a.type === 'uraian')
+                console.log('[Save] Essay answers being saved:', essayAnswers.map(e => ({
+                    qId: e.questionId, 
+                    earned: e.earnedPoints, 
+                    max: e.maxPoints,
+                    type: e.type
+                })))
 
-                await hasilUjianService.update(updatedStudent.resultId, {
+                const updateResult = await hasilUjianService.update(updatedStudent.resultId, {
                     nilai_total: totalScore,
                     answers_detail: mergedAnswers,
                     status: 'graded'
                 })
-                console.log('[KoreksiUjian] Saved merged correction successfully')
+                console.log('[Save] Update result:', updateResult?.id, 'status:', updateResult?.status)
+
+                // VERIFY: Read back from DB to confirm save worked
+                const { data: verifyRecord } = await supabase
+                    .from('hasil_ujian')
+                    .select('answers_detail, nilai_total, status')
+                    .eq('id', updatedStudent.resultId)
+                    .single()
+                
+                if (verifyRecord?.answers_detail) {
+                    const verifyAnswers = typeof verifyRecord.answers_detail === 'string' 
+                        ? JSON.parse(verifyRecord.answers_detail) 
+                        : verifyRecord.answers_detail
+                    const verifyEssays = verifyAnswers.filter(a => a.type === 'essay' || a.type === 'uraian')
+                    console.log('[VERIFY] DB read-back essays:', verifyEssays.map(e => ({
+                        qId: e.questionId, 
+                        earned: e.earnedPoints, 
+                        type: e.type
+                    })))
+                    console.log('[VERIFY] DB nilai_total:', verifyRecord.nilai_total, 'status:', verifyRecord.status)
+                }
             }
 
             // 2. Update student in state
