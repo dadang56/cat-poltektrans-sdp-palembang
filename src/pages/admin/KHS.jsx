@@ -347,7 +347,7 @@ function KHSPage() {
             .info-section { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 9.5pt; }
             .info-left, .info-right { width: 48%; }
             .info-row { display: flex; margin-bottom: 2px; }
-            .info-label { width: 140px; font-weight: normal; }
+            .info-label { width: 150px; flex-shrink: 0; font-weight: normal; }
             .info-value { flex: 1; }
             .grades-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9.5pt; }
             .grades-table th, .grades-table td { border: 1px solid #000; padding: 3px 6px; text-align: center; }
@@ -356,7 +356,7 @@ function KHSPage() {
             .grades-table tfoot td { font-weight: bold; background: #f5f5f5; }
             .summary { margin: 10px 0; font-size: 9.5pt; border: 1px solid #000; padding: 6px 10px; display: inline-block; }
             .summary-row { display: flex; margin-bottom: 2px; }
-            .summary-label { width: 250px; }
+            .summary-label { width: 250px; flex-shrink: 0; }
             .summary-value { font-weight: bold; }
             .signature-section { margin-top: 15px; font-size: 9.5pt; }
             .date-line { text-align: right; margin-bottom: 5px; }
