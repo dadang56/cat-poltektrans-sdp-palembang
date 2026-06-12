@@ -513,12 +513,12 @@
 }
 
 [data-theme="dark"] .sidebar-nav-item.active {
-    background: linear-gradient(135deg, var(--color-primary-dark, rgba(0, 168, 168, 0.12)) 0%, rgba(15, 23, 42, 0.2) 100%);
-    color: var(--color-primary, var(--accent-400));
+    background: linear-gradient(135deg, var(--color-primary-light, rgba(0, 168, 168, 0.12)) 0%, rgba(15, 23, 42, 0.2) 100%) !important;
+    color: var(--color-primary, var(--accent-400)) !important;
 }
 
 [data-theme="dark"] .sidebar-nav-item.active::before {
-    background: var(--color-primary, var(--accent-500));
+    background: var(--color-primary, var(--accent-500)) !important;
 }
 
 [data-theme="dark"] .sidebar-footer {

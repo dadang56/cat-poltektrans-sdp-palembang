@@ -88,6 +88,30 @@ export function SettingsProvider({ children }) {
                     `hsl(${primaryHSL.h}, ${primaryHSL.s}%, ${Math.min(primaryHSL.l + 15, 95)}%)`)
                 document.documentElement.style.setProperty('--color-primary-dark',
                     `hsl(${primaryHSL.h}, ${primaryHSL.s}%, ${Math.max(primaryHSL.l - 15, 5)}%)`)
+                
+                // Dark mode optimized variants
+                document.documentElement.style.setProperty('--color-primary-dm',
+                    `hsl(${primaryHSL.h}, ${primaryHSL.s}%, 72%)`)
+                document.documentElement.style.setProperty('--color-primary-light-dm',
+                    `hsl(${primaryHSL.h}, ${primaryHSL.s}%, 18%)`)
+                document.documentElement.style.setProperty('--color-primary-dark-dm',
+                    `hsl(${primaryHSL.h}, ${primaryHSL.s}%, 58%)`)
+            }
+
+            const secondaryHSL = hexToHSL(settings.secondaryColor)
+            if (secondaryHSL) {
+                document.documentElement.style.setProperty('--color-secondary-light',
+                    `hsl(${secondaryHSL.h}, ${secondaryHSL.s}%, ${Math.min(secondaryHSL.l + 15, 95)}%)`)
+                document.documentElement.style.setProperty('--color-secondary-dark',
+                    `hsl(${secondaryHSL.h}, ${secondaryHSL.s}%, ${Math.max(secondaryHSL.l - 15, 5)}%)`)
+                
+                // Dark mode optimized variants
+                document.documentElement.style.setProperty('--color-secondary-dm',
+                    `hsl(${secondaryHSL.h}, ${secondaryHSL.s}%, 72%)`)
+                document.documentElement.style.setProperty('--color-secondary-light-dm',
+                    `hsl(${secondaryHSL.h}, ${secondaryHSL.s}%, 18%)`)
+                document.documentElement.style.setProperty('--color-secondary-dark-dm',
+                    `hsl(${secondaryHSL.h}, ${secondaryHSL.s}%, 58%)`)
             }
         }
     }, [settings, isLoaded])
