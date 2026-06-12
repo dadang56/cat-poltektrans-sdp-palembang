@@ -362,7 +362,9 @@ function KoreksiUjianPage() {
                         const hasEssayPending = enrichedAnswers.some(a =>
                             (a.type === 'essay' || a.type === 'uraian') && (a.earnedPoints === null || a.earnedPoints === undefined)
                         )
-                        const isFullyCorrected = hasil.status === 'graded' && !hasEssayPending
+                        // For dosen: check only THIS dosen's filtered answers
+                        // Don't rely on hasil.status which may reflect other dosen's grading
+                        const isFullyCorrected = !hasEssayPending && (enrichedAnswers.length > 0)
 
                         examGroups[jadwalId].students.push({
                             id: hasil.id,
@@ -372,7 +374,7 @@ function KoreksiUjianPage() {
                             submittedAt: hasil.waktu_selesai ? new Date(hasil.waktu_selesai).toLocaleString('id-ID') : 'N/A',
                             answers: enrichedAnswers,
                             allAnswersCount: answers.length, // Keep track of total answers for save
-                            totalScore: isFullyCorrected ? hasil.nilai_total : null,
+                            totalScore: isFullyCorrected ? (enrichedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)) : null,
                             maxScore: enrichedAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
                             hasEssay,
                             isFullyCorrected,
@@ -545,7 +547,7 @@ function KoreksiUjianPage() {
                 await hasilUjianService.update(updatedStudent.resultId, {
                     nilai_total: totalScore,
                     answers_detail: mergedAnswers,
-                    status: allEssaysGraded ? 'graded' : 'submitted'
+                    status: 'graded'
                 })
                 console.log('[KoreksiUjian] Saved merged correction. Total:', totalScore, 'All graded:', allEssaysGraded)
             }
