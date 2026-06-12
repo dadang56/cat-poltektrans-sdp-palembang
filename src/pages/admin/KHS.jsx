@@ -334,42 +334,42 @@ function KHSPage() {
     // Shared KHS print styles
     const getKHSStyles = () => `
         <style>
-            @page { size: A4 portrait; margin: 15mm; }
+            @page { size: A4 portrait; margin: 8mm 12mm; }
             * { margin: 0; padding: 0; box-sizing: border-box; }
-            body { font-family: 'Times New Roman', serif; font-size: 11pt; padding: 15px; }
-            .letterhead { display: flex; align-items: center; gap: 15px; border-bottom: 3px solid #000; padding-bottom: 12px; margin-bottom: 15px; }
+            body { font-family: 'Times New Roman', serif; font-size: 10.5pt; padding: 0; }
+            .letterhead { display: flex; align-items: center; gap: 15px; border-bottom: 3px solid #000; padding-bottom: 8px; margin-bottom: 10px; }
             .letterhead-logo { flex-shrink: 0; }
-            .letterhead-logo img { height: 70px; width: auto; }
+            .letterhead-logo img { height: 60px; width: auto; }
             .letterhead-text { flex: 1; text-align: center; }
-            .letterhead-text h2 { font-size: 14pt; font-weight: bold; margin: 3px 0; text-transform: uppercase; }
-            .letterhead-text .contact { font-size: 9pt; margin-top: 3px; }
-            .doc-title { text-align: center; margin: 20px 0; font-size: 14pt; font-weight: bold; text-decoration: underline; }
-            .info-section { display: flex; justify-content: space-between; margin-bottom: 15px; font-size: 10pt; }
+            .letterhead-text h2 { font-size: 13pt; font-weight: bold; margin: 2px 0; text-transform: uppercase; }
+            .letterhead-text .contact { font-size: 8.5pt; margin-top: 2px; }
+            .doc-title { text-align: center; margin: 10px 0; font-size: 13pt; font-weight: bold; text-decoration: underline; }
+            .info-section { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 9.5pt; }
             .info-left, .info-right { width: 48%; }
-            .info-row { display: flex; margin-bottom: 3px; }
+            .info-row { display: flex; margin-bottom: 2px; }
             .info-label { width: 140px; font-weight: normal; }
             .info-value { flex: 1; }
-            .grades-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; font-size: 10pt; }
-            .grades-table th, .grades-table td { border: 1px solid #000; padding: 5px 8px; text-align: center; }
+            .grades-table { width: 100%; border-collapse: collapse; margin-bottom: 10px; font-size: 9.5pt; }
+            .grades-table th, .grades-table td { border: 1px solid #000; padding: 3px 6px; text-align: center; }
             .grades-table th { background: #f0f0f0; font-weight: bold; }
             .grades-table td.left { text-align: left; }
             .grades-table tfoot td { font-weight: bold; background: #f5f5f5; }
-            .summary { margin: 15px 0; font-size: 10pt; border: 1px solid #000; padding: 10px; display: inline-block; }
-            .summary-row { display: flex; margin-bottom: 3px; }
+            .summary { margin: 10px 0; font-size: 9.5pt; border: 1px solid #000; padding: 6px 10px; display: inline-block; }
+            .summary-row { display: flex; margin-bottom: 2px; }
             .summary-label { width: 250px; }
             .summary-value { font-weight: bold; }
-            .signature-section { margin-top: 30px; font-size: 10pt; }
-            .date-line { text-align: right; margin-bottom: 10px; }
+            .signature-section { margin-top: 15px; font-size: 9.5pt; }
+            .date-line { text-align: right; margin-bottom: 5px; }
             .signatures { display: flex; justify-content: space-between; }
             .signature-box { text-align: center; width: 220px; }
-            .signature-box .title { font-weight: normal; margin-bottom: 5px; line-height: 1.4; }
-            .signature-box .space { height: 60px; }
+            .signature-box .title { font-weight: normal; margin-bottom: 5px; line-height: 1.3; }
+            .signature-box .space { height: 45px; }
             .signature-box .name { font-weight: bold; text-decoration: underline; }
-            .signature-box .nip { font-size: 9pt; }
-            .ipk-section { margin: 15px 0; font-size: 10pt; }
-            .ipk-section p { font-weight: bold; margin-bottom: 5px; text-align: center; }
-            .ipk-table { width: 100%; border-collapse: collapse; font-size: 9pt; }
-            .ipk-table th, .ipk-table td { border: 1px solid #000; padding: 4px 8px; text-align: center; }
+            .signature-box .nip { font-size: 8.5pt; }
+            .ipk-section { margin: 10px 0; font-size: 9.5pt; }
+            .ipk-section p { font-weight: bold; margin-bottom: 3px; text-align: center; }
+            .ipk-table { width: 100%; border-collapse: collapse; font-size: 8.5pt; }
+            .ipk-table th, .ipk-table td { border: 1px solid #000; padding: 3px 6px; text-align: center; }
             .ipk-table th { background: #f0f0f0; font-weight: bold; }
         </style>
     `
