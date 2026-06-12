@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
-import { jadwalService, matkulService, prodiService, userService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, prodiService, userService, hasilUjianService, kehadiranService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardCheck,
     Users,
@@ -11,7 +11,8 @@ import {
     Check,
     X,
     Calendar,
-    Clock
+    Clock,
+    Save
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
@@ -37,6 +38,7 @@ function AttendancePage() {
     const [usersList, setUsersList] = useState([])
     const [roomStudents, setRoomStudents] = useState([]) // Students in selected room
     const printRef = useRef(null)
+    const [saving, setSaving] = useState(false)
 
     useEffect(() => {
         const loadData = async () => {
@@ -141,18 +143,109 @@ function AttendancePage() {
 
                 setRoomStudents(students)
 
-                // Auto-set attendance from exam results
-                const initialData = {}
-                students.forEach(s => {
-                    initialData[s.id] = {
-                        status: s.submitted ? 'hadir' : 'tidak_hadir',
-                        reason: s.submitted ? '' : 'alpha'
-                    }
-                })
-                setAttendanceData(initialData)
+                // Try to load existing saved attendance from database
+                const savedRecords = await kehadiranService.getByJadwal(room.id)
+                
+                if (savedRecords && savedRecords.length > 0) {
+                    const savedMap = {}
+                    savedRecords.forEach(r => {
+                        let statusVal = 'tidak_hadir'
+                        let reasonVal = 'alpha'
+                        
+                        if (r.status === 'hadir') {
+                            statusVal = 'hadir'
+                            reasonVal = ''
+                        } else if (r.status === 'izin') {
+                            statusVal = 'tidak_hadir'
+                            reasonVal = 'izin'
+                        } else if (r.status === 'tidak_hadir') {
+                            statusVal = 'tidak_hadir'
+                            reasonVal = r.keterangan || 'alpha'
+                        }
+                        
+                        savedMap[r.mahasiswa_id] = {
+                            status: statusVal,
+                            reason: reasonVal
+                        }
+                    })
+                    
+                    // Fill defaults for any missing students
+                    students.forEach(s => {
+                        if (!savedMap[s.id]) {
+                            savedMap[s.id] = {
+                                status: s.submitted ? 'hadir' : 'tidak_hadir',
+                                reason: s.submitted ? '' : 'alpha'
+                            }
+                        }
+                    })
+                    setAttendanceData(savedMap)
+                } else {
+                    // Fallback: Auto-set attendance from exam results
+                    const initialData = {}
+                    students.forEach(s => {
+                        initialData[s.id] = {
+                            status: s.submitted ? 'hadir' : 'tidak_hadir',
+                            reason: s.submitted ? '' : 'alpha'
+                        }
+                    })
+                    setAttendanceData(initialData)
+                }
             } catch (error) {
                 console.error('[Attendance] Error loading room students:', error)
             }
+        }
+    }
+
+    // Save attendance records to Supabase
+    const handleSaveAttendance = async () => {
+        if (!selectedRoom || !isSupabaseConfigured() || roomStudents.length === 0) return
+
+        setSaving(true)
+        try {
+            // Prepare records for batch upsert
+            const records = roomStudents.map(student => {
+                const data = attendanceData[student.id] || { status: 'tidak_hadir', reason: 'alpha' }
+                
+                let statusVal = 'belum'
+                let ketVal = null
+                
+                if (data.status === 'hadir') {
+                    statusVal = 'hadir'
+                } else if (data.status === 'tidak_hadir') {
+                    if (data.reason === 'izin') {
+                        statusVal = 'izin'
+                        ketVal = 'izin'
+                    } else if (data.reason === 'sakit') {
+                        statusVal = 'tidak_hadir'
+                        ketVal = 'sakit'
+                    } else {
+                        statusVal = 'tidak_hadir'
+                        ketVal = 'alpha'
+                    }
+                }
+                
+                return {
+                    jadwal_id: selectedRoom.id,
+                    mahasiswa_id: student.id,
+                    status: statusVal,
+                    keterangan: ketVal,
+                    waktu_hadir: statusVal === 'hadir' ? new Date().toISOString() : null,
+                    dicatat_oleh: user?.id,
+                    updated_at: new Date().toISOString()
+                }
+            })
+
+            // Batch save all records using upsert
+            await Promise.all(
+                records.map(record => kehadiranService.upsert(record))
+            )
+
+            alert('Daftar hadir berhasil disimpan!')
+        } catch (error) {
+            console.error('[Attendance] Save error:', error)
+            alert('Gagal menyimpan daftar hadir. Silakan coba lagi.')
+        } finally {
+            setSaving(false)
         }
     }
 
@@ -213,10 +306,20 @@ function AttendancePage() {
                     </div>
                     <div className="page-actions">
                         {selectedRoom && (
-                            <button className="btn btn-primary" onClick={handlePrint}>
-                                <Printer size={18} />
-                                Print Daftar Hadir
-                            </button>
+                            <>
+                                <button 
+                                    className="btn btn-success" 
+                                    onClick={handleSaveAttendance}
+                                    disabled={saving}
+                                >
+                                    <Save size={18} />
+                                    {saving ? 'Menyimpan...' : 'Simpan Kehadiran'}
+                                </button>
+                                <button className="btn btn-primary" onClick={handlePrint}>
+                                    <Printer size={18} />
+                                    Print Daftar Hadir
+                                </button>
+                            </>
                         )}
                     </div>
                 </div>

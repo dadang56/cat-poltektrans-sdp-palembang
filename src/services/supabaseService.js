@@ -554,9 +554,10 @@ export const kehadiranService = {
         const { data, error } = await supabase
             .from('kehadiran')
             .select(`
-        *,
-        mahasiswa:mahasiswa_id(id, nama, nim_nip)
-      `)
+                *,
+                mahasiswa:mahasiswa_id(id, nama, nim_nip),
+                pengawas:dicatat_oleh(id, nama)
+            `)
             .eq('jadwal_id', jadwalId)
 
         if (error) throw error
@@ -601,9 +602,10 @@ export const kehadiranService = {
         const { data, error } = await supabase
             .from('kehadiran')
             .select(`
-        *,
-        mahasiswa:mahasiswa_id(id, nama, nim_nip)
-      `)
+                *,
+                mahasiswa:mahasiswa_id(id, nama, nim_nip),
+                pengawas:dicatat_oleh(id, nama)
+            `)
             .in('jadwal_id', jadwalIds)
 
         if (error) throw error
@@ -1049,9 +1051,9 @@ export const beritaAcaraService = {
             .select(`
                 *,
                 jadwal:jadwal_id(
-                    id, tanggal, waktu_mulai, waktu_selesai, tipe,
-                    matkul:matkul_id(id, nama, kode),
-                    kelas:kelas_id(id, nama),
+                    id, tanggal, waktu_mulai, waktu_selesai, tipe, prodi_id,
+                    matkul:matkul_id(id, nama, kode, prodi_id),
+                    kelas:kelas_id(id, nama, prodi_id),
                     ruangan:ruangan_id(id, nama)
                 ),
                 pengawas:pengawas_id(id, nama, nim_nip)

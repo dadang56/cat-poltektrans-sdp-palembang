@@ -27,6 +27,8 @@ function PengawasDashboard() {
   const [matkulList, setMatkulList] = useState([])
   const [examRooms, setExamRooms] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showReminder, setShowReminder] = useState(false)
+  const [reminderData, setReminderData] = useState([])
 
   useEffect(() => {
     const loadData = async () => {
@@ -50,6 +52,56 @@ function PengawasDashboard() {
 
     loadData()
   }, [])
+
+  // Check if there are unsaved report logs for today's exams supervised by this user
+  useEffect(() => {
+    const checkReportsStatus = async () => {
+      if (loading || jadwalList.length === 0 || !user?.id) return
+
+      try {
+        const now = new Date()
+        const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+
+        // Filter today's schedules supervised by this user
+        const todaySupervised = (jadwalList || []).filter(j => 
+          j.tanggal === todayStr && 
+          (String(j.pengawas_id) === String(user.id) || String(j.pengawas?.id) === String(user.id))
+        )
+
+        if (todaySupervised.length === 0) return
+
+        const { beritaAcaraService, kehadiranService } = await import('../../services/supabaseService')
+
+        const checks = await Promise.all(
+          todaySupervised.map(async (j) => {
+            const [ba, attendance] = await Promise.all([
+              beritaAcaraService.getByJadwal(j.id).catch(() => null),
+              kehadiranService.getByJadwal(j.id).catch(() => [])
+            ])
+
+            const hasBA = !!ba
+            const hasAttendance = attendance && attendance.length > 0
+
+            return {
+              jadwal: j,
+              hasBA,
+              hasAttendance
+            }
+          })
+        )
+
+        const missing = checks.filter(c => !c.hasBA || !c.hasAttendance)
+        if (missing.length > 0) {
+          setReminderData(missing)
+          setShowReminder(true)
+        }
+      } catch (err) {
+        console.error('[PengawasDashboard] Error checking report status:', err)
+      }
+    }
+
+    checkReportsStatus()
+  }, [loading, jadwalList, user])
 
   const now = new Date()
 
@@ -205,6 +257,52 @@ function PengawasDashboard() {
           </>
         )}
       </div>
+
+      {/* Reminder Modal */}
+      {showReminder && (
+        <div className="modal-overlay" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div className="modal" style={{ maxWidth: '500px', width: '100%', margin: '20px' }}>
+            <div className="modal-header" style={{ borderColor: 'var(--warning-200)', background: 'rgba(245, 158, 11, 0.05)', padding: '16px' }}>
+              <h3 style={{ display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--warning-600)', margin: 0, fontSize: '1.1rem' }}>
+                <AlertTriangle size={20} />
+                Pengingat Laporan Ujian
+              </h3>
+              <button className="btn btn-icon btn-ghost" onClick={() => setShowReminder(false)} style={{ fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            <div className="modal-body" style={{ padding: '20px' }}>
+              <p style={{ marginBottom: '16px', fontWeight: 500 }}>
+                Harap segera mengisi dan menyimpan laporan untuk jadwal ujian Anda hari ini:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {reminderData.map(({ jadwal, hasBA, hasAttendance }) => {
+                  const matkulName = matkulList.find(m => String(m.id) === String(jadwal.matkul_id))?.nama || jadwal.nama_matkul || 'Ujian'
+                  return (
+                    <div key={jadwal.id} className="card animate-slideUp" style={{ padding: '12px', background: 'var(--bg-tertiary)' }}>
+                      <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '6px' }}>{matkulName}</div>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
+                        {jadwal.tipe || 'UTS'} • {jadwal.ruangan?.nama || 'Ruang'} • {jadwal.waktu_mulai}
+                      </div>
+                      <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem' }}>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: hasAttendance ? 'var(--success-600)' : 'var(--error-600)', fontWeight: 500 }}>
+                          {hasAttendance ? '✓ Daftar Hadir Tersimpan' : '✗ Daftar Hadir Belum Simpan'}
+                        </span>
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: hasBA ? 'var(--success-600)' : 'var(--error-600)', fontWeight: 500 }}>
+                          {hasBA ? '✓ Berita Acara Tersimpan' : '✗ Berita Acara Belum Simpan'}
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+            <div className="modal-footer" style={{ justifyContent: 'flex-end', gap: '10px', padding: '16px' }}>
+              <button className="btn btn-ghost" onClick={() => setShowReminder(false)}>Nanti Saja</button>
+              <button className="btn btn-primary" onClick={() => navigate('/pengawas/attendance')}>Isi Daftar Hadir</button>
+              <button className="btn btn-accent" onClick={() => navigate('/pengawas/berita-acara')}>Isi Berita Acara</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <style>{`
         .monitor-cards {

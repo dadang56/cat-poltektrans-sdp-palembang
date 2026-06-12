@@ -128,6 +128,22 @@ function BeritaAcaraPage() {
 
                 setRoomStudentCount({ total: seenStudents.size, hadir: hadirCount })
                 setKelasNames([...kelasSet].join(', ') || '-')
+
+                // Try to load existing saved berita acara from database
+                const existingBA = await beritaAcaraService.getByJadwal(room.jadwalIds[0])
+                if (existingBA) {
+                    const catatan = existingBA.catatan || ''
+                    const parts = catatan.split('\n\n')
+                    setFormData({
+                        incidents: parts[0] || '',
+                        notes: parts.slice(1).join('\n\n') || ''
+                    })
+                } else {
+                    setFormData({
+                        incidents: '',
+                        notes: ''
+                    })
+                }
             } catch (error) {
                 console.error('[BeritaAcara] Error loading room students:', error)
             }

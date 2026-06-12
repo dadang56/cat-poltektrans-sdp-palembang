@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { exportToXLSX } from '../../utils/excelUtils'
-import { hasilUjianService, jadwalService, prodiService, userService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, jadwalService, prodiService, userService, kehadiranService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardCheck,
     Search,
@@ -73,6 +73,12 @@ function RekapKehadiranPage() {
                     : []
                 console.log('[RekapKehadiran] Hasil ujian loaded:', hasilData?.length)
 
+                // Load saved kehadiran records from database
+                const kehadiranDataDb = jadwalIds.length > 0
+                    ? (await kehadiranService.getByJadwalIds(jadwalIds) || []).filter(Boolean)
+                    : []
+                console.log('[RekapKehadiran] Kehadiran DB loaded:', kehadiranDataDb?.length)
+
                 // Group by exam - per ujian view
                 const examGroups = {}
                 jadwalData?.forEach(j => {
@@ -87,23 +93,53 @@ function RekapKehadiranPage() {
                     // Get submitted results for this jadwal
                     const submittedResults = hasilData?.filter(r => r.jadwal_id === j.id) || []
 
-                    examGroups[j.id] = {
-                        id: j.id,
-                        examName: `${j.tipe || 'UJIAN'} ${matkul.nama || 'Ujian'}`,
-                        room: ruangan.nama || '-',
-                        date: j.tanggal,
-                        time: `${j.waktu_mulai || '08:00'} - ${j.waktu_selesai || '10:00'}`,
-                        pengawas: pengawas.nama || 'Pengawas',
-                        prodiId: matkul.prodi_id,
-                        tahunAkademik: j.tahun_akademik || '',
-                        kelas: kelas.nama || '-',
-                        summary: {
+                    // Get saved kehadiran for this jadwal
+                    const jKehadiran = kehadiranDataDb.filter(k => k.jadwal_id === j.id)
+                    let summaryStats = {}
+                    let pengawasName = pengawas.nama || 'Pengawas'
+
+                    if (jKehadiran.length > 0) {
+                        const total = studentsInKelas.length
+                        const hadir = jKehadiran.filter(k => k.status === 'hadir').length
+                        const sakit = jKehadiran.filter(k => k.status === 'tidak_hadir' && k.keterangan === 'sakit').length
+                        const izin = jKehadiran.filter(k => k.status === 'izin').length
+                        const alpha = jKehadiran.filter(k => k.status === 'tidak_hadir' && k.keterangan === 'alpha').length
+
+                        summaryStats = {
+                            total,
+                            hadir,
+                            sakit,
+                            izin,
+                            alpha
+                        }
+
+                        // Use actual supervisor who saved the attendance list
+                        const recordedBy = jKehadiran.find(k => k.pengawas?.nama)?.pengawas?.nama
+                        if (recordedBy) {
+                            pengawasName = recordedBy
+                        }
+                    } else {
+                        // Fallback: estimate from exam results
+                        summaryStats = {
                             total: studentsInKelas.length,
                             hadir: submittedResults.length,
                             sakit: 0,
                             izin: 0,
                             alpha: Math.max(0, studentsInKelas.length - submittedResults.length)
                         }
+                    }
+
+                    examGroups[j.id] = {
+                        id: j.id,
+                        examName: `${j.tipe || 'UJIAN'} ${matkul.nama || 'Ujian'}`,
+                        room: ruangan.nama || '-',
+                        date: j.tanggal,
+                        time: `${j.waktu_mulai || '08:00'} - ${j.waktu_selesai || '10:00'}`,
+                        pengawas: pengawasName,
+                        prodiId: matkul.prodi_id,
+                        tahunAkademik: j.tahun_akademik || '',
+                        kelas: kelas.nama || '-',
+                        summary: summaryStats
                     }
                 })
                 setKehadiranData(Object.values(examGroups))
@@ -117,6 +153,35 @@ function RekapKehadiranPage() {
                     // Get results where this student attended
                     const attendedExams = hasilData?.filter(r => r.mahasiswa_id === m.id) || []
 
+                    // Get saved kehadiran for this student
+                    const studentKehadiran = kehadiranDataDb.filter(k => k.mahasiswa_id === m.id)
+                    let stats = {}
+
+                    if (studentKehadiran.length > 0) {
+                        const total = examsForKelas.length
+                        const hadir = studentKehadiran.filter(k => k.status === 'hadir').length
+                        const sakit = studentKehadiran.filter(k => k.status === 'tidak_hadir' && k.keterangan === 'sakit').length
+                        const izin = studentKehadiran.filter(k => k.status === 'izin').length
+                        const alpha = studentKehadiran.filter(k => k.status === 'tidak_hadir' && k.keterangan === 'alpha').length
+
+                        stats = {
+                            total,
+                            hadir,
+                            sakit,
+                            izin,
+                            alpha
+                        }
+                    } else {
+                        // Fallback: estimate from exam results
+                        stats = {
+                            total: examsForKelas.length,
+                            hadir: attendedExams.length,
+                            sakit: 0,
+                            izin: 0,
+                            alpha: Math.max(0, examsForKelas.length - attendedExams.length)
+                        }
+                    }
+
                     mahasiswaAttendance[m.id] = {
                         id: m.id,
                         nim: m.nim_nip,
@@ -124,11 +189,7 @@ function RekapKehadiranPage() {
                         kelas: kelas.nama || '-',
                         ruangan: '-',
                         prodiId: m.prodi_id,
-                        total: examsForKelas.length,
-                        hadir: attendedExams.length,
-                        sakit: 0,
-                        izin: 0,
-                        alpha: Math.max(0, examsForKelas.length - attendedExams.length)
+                        ...stats
                     }
                 })
                 setKehadiranPerMahasiswa(Object.values(mahasiswaAttendance))
