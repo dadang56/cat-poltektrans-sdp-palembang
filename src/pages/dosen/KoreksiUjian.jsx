@@ -312,13 +312,15 @@ function KoreksiUjianPage() {
 
                         // Enrich answers with maxPoints from soal if missing
                         let enrichedAnswers = answers.map(a => {
-                            if (a.maxPoints != null && a.maxPoints !== undefined) return a
-                            // Lookup max points and type from soal data
+                            // Lookup soal for this answer
                             const soal = soalData.find(s => String(s.id) === String(a.questionId))
                             return {
                                 ...a,
                                 type: a.type || soal?.tipe_soal || 'pilihan_ganda',
-                                maxPoints: soal?.bobot || soal?.points || a.maxPoints || 10
+                                maxPoints: (a.maxPoints != null && a.maxPoints !== undefined) 
+                                    ? a.maxPoints 
+                                    : (soal?.bobot || soal?.points || 10),
+                                _soalDosenId: soal?.dosen_id || null
                             }
                         })
 
@@ -334,9 +336,26 @@ function KoreksiUjianPage() {
                                 answer: null,
                                 maxPoints: s.bobot || 10,
                                 earnedPoints: null,
-                                isCorrect: false
+                                isCorrect: false,
+                                _soalDosenId: s.dosen_id || null
                             }))
                         }
+
+                        // Filter: only show soal owned by current dosen
+                        // This prevents showing soal from other dosen who teach same matkul
+                        if (user.role === 'dosen') {
+                            const dosenSoalIds = new Set(
+                                soalData
+                                    .filter(s => String(s.dosen_id) === String(user.id))
+                                    .map(s => String(s.id))
+                            )
+                            enrichedAnswers = enrichedAnswers.filter(a => 
+                                dosenSoalIds.has(String(a.questionId))
+                            )
+                        }
+
+                        // Clean up internal field
+                        enrichedAnswers = enrichedAnswers.map(({ _soalDosenId, ...rest }) => rest)
 
                         const hasEssay = enrichedAnswers.some(a => a.type === 'essay' || a.type === 'uraian')
                         const hasEssayPending = enrichedAnswers.some(a =>
@@ -351,6 +370,7 @@ function KoreksiUjianPage() {
                             nim: mahasiswa?.nim_nip || 'N/A',
                             submittedAt: hasil.waktu_selesai ? new Date(hasil.waktu_selesai).toLocaleString('id-ID') : 'N/A',
                             answers: enrichedAnswers,
+                            allAnswersCount: answers.length, // Keep track of total answers for save
                             totalScore: isFullyCorrected ? hasil.nilai_total : null,
                             maxScore: enrichedAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0) || 100,
                             hasEssay,
