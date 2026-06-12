@@ -719,15 +719,9 @@ function KHSPage() {
                                                 key={m.id}
                                                 className={`student-item ${selectedMahasiswa?.id === m.id ? 'active' : ''}`}
                                                 onClick={() => setSelectedMahasiswa(m)}
-                                                style={{
-                                                    padding: '12px 16px',
-                                                    borderBottom: '1px solid var(--color-border)',
-                                                    cursor: 'pointer',
-                                                    backgroundColor: selectedMahasiswa?.id === m.id ? 'var(--color-primary-light)' : 'transparent'
-                                                }}
                                             >
-                                                <div style={{ fontWeight: 600 }}>{m.nama}</div>
-                                                <div style={{ fontSize: '0.85rem', color: 'var(--color-text-muted)' }}>
+                                                <div className="student-item-name">{m.nama}</div>
+                                                <div className="student-item-details">
                                                     {m.nim_nip} • {getKelasName(m.kelas_id)}
                                                 </div>
                                             </div>
