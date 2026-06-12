@@ -709,8 +709,8 @@ export const hasilUjianService = {
         console.log('[getByDosen] Method 1 (direct dosen_id):', jadwalDirect?.length || 0, 'jadwal')
 
         // Method 2: Get jadwal via matkul_id from soal created by this dosen
-        // DO NOT filter by dosen_id here — jadwal may have NULL dosen_id
-        // but the dosen still "owns" it because they created the soal
+        // Only include jadwal where dosen_id matches OR dosen_id is NULL
+        // This prevents showing jadwal assigned to OTHER dosen for same matkul
         const { data: soalData, error: soalError } = await supabase
             .from('soal')
             .select('matkul_id')
@@ -724,17 +724,18 @@ export const hasilUjianService = {
             const matkulIds = [...new Set(soalData.map(s => s.matkul_id).filter(Boolean))]
             console.log('[getByDosen] Unique matkul IDs from soal:', matkulIds.length)
             if (matkulIds.length > 0) {
-                // Find jadwal by matkul — include jadwal where dosen_id is NULL or matches
+                // Find jadwal by matkul where dosen_id = this dosen OR dosen_id is NULL
                 const { data: jadwalData2, error: jadwalError2 } = await supabase
                     .from('jadwal_ujian')
                     .select('id')
                     .in('matkul_id', matkulIds)
                     .is('deleted_at', null)
+                    .or(`dosen_id.eq.${dosenId},dosen_id.is.null`)
 
                 if (!jadwalError2 && jadwalData2) {
                     jadwalFromSoal = jadwalData2
                 }
-                console.log('[getByDosen] Method 2 jadwal from matkul:', jadwalFromSoal.length)
+                console.log('[getByDosen] Method 2 jadwal from matkul (dosen or null):', jadwalFromSoal.length)
             }
         }
 
