@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { exportToXLSX } from '../../utils/excelUtils'
-import { userService, prodiService, kelasService, matkulService, nilaiPusbangkatarService, isSupabaseConfigured } from '../../services/supabaseService'
+import { userService, prodiService, kelasService, matkulService, hasilUjianService, nilaiPusbangkatarService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -124,10 +124,44 @@ function KHSPage() {
                     }
                 }
 
-                if (savedNilai) {
-                    setNilaiAkhirData(JSON.parse(savedNilai))
-                    console.log('[KHS] Nilai akhir loaded:', Object.keys(JSON.parse(savedNilai)).length, 'records')
-                }
+                    // Load nilai akhir from hasil_ujian table
+                    const hasilData = await hasilUjianService.getAll()
+                    console.log('[KHS] Hasil ujian loaded:', hasilData?.length)
+
+                    // Build nilaiAkhirData: { matkulId: { studentId: { nt, nuts, np, uas } } }
+                    const builtNilai = {}
+                    hasilData?.forEach(r => {
+                        const jadwal = r.jadwal || {}
+                        const matkul = jadwal.matkul || {}
+                        const matkulId = matkul.id
+                        const mahasiswaId = r.mahasiswa_id
+                        const tipeUjian = jadwal.tipe
+
+                        if (!matkulId || !mahasiswaId) return
+
+                        if (!builtNilai[matkulId]) builtNilai[matkulId] = {}
+                        if (!builtNilai[matkulId][mahasiswaId]) {
+                            builtNilai[matkulId][mahasiswaId] = {
+                                nt: null, nuts: null, np: null, uas: null
+                            }
+                        }
+
+                        const entry = builtNilai[matkulId][mahasiswaId]
+                        const dbScore = Number(r.nilai_total || 0)
+
+                        // Map UTS/UAS scores from exam results
+                        if (tipeUjian === 'UTS' && dbScore > 0) entry.nuts = dbScore
+                        if (tipeUjian === 'UAS' && dbScore > 0) entry.uas = dbScore
+
+                        // Also pick up nilai_tugas (NT) and nilai_praktek (NP) if stored
+                        if (r.nilai_tugas != null) entry.nt = r.nilai_tugas
+                        if (r.nilai_praktek != null) entry.np = r.nilai_praktek
+                        if (r.nilai_uts != null && entry.nuts == null) entry.nuts = r.nilai_uts
+                        if (r.nilai_uas != null && entry.uas == null) entry.uas = r.nilai_uas
+                    })
+
+                    setNilaiAkhirData(builtNilai)
+                    console.log('[KHS] Built nilaiAkhirData:', Object.keys(builtNilai).length, 'matkul')
 
                 // Load NK/NS from nilai_pusbangkatar table
                 const currentTA = settings?.tahunAkademik || '2024/2025 Ganjil'
