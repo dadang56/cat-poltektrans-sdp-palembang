@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { hasilUjianService, jawabanMahasiswaService, soalService, jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
+import { supabase } from '../../lib/supabase'
 import {
     CheckSquare,
     Clock,
@@ -490,14 +491,63 @@ function KoreksiUjianPage() {
 
     const handleSaveCorrection = async (updatedStudent) => {
         try {
-            // 1. Update in Supabase
+            // 1. Update in Supabase — MERGE corrected answers into full answers_detail
             if (isSupabaseConfigured()) {
-                await hasilUjianService.update(updatedStudent.resultId, {
-                    nilai_total: Number(updatedStudent.totalScore),
-                    answers_detail: updatedStudent.answers, // Send object directly (Supabase handles JSON)
-                    status: 'graded'
+                // Fetch current full answers_detail from DB first
+                const { data: currentRecord, error: fetchError } = await supabase
+                    .from('hasil_ujian')
+                    .select('answers_detail')
+                    .eq('id', updatedStudent.resultId)
+                    .single()
+
+                if (fetchError) {
+                    console.error('Error fetching current answers:', fetchError)
+                    throw fetchError
+                }
+
+                // Parse current full answers from DB
+                let fullAnswers = []
+                try {
+                    if (currentRecord?.answers_detail) {
+                        fullAnswers = typeof currentRecord.answers_detail === 'string'
+                            ? JSON.parse(currentRecord.answers_detail)
+                            : currentRecord.answers_detail
+                    }
+                } catch (e) {
+                    console.error('Error parsing current answers:', e)
+                    fullAnswers = []
+                }
+
+                // Merge: update only the answers that this dosen corrected
+                const correctedMap = new Map()
+                updatedStudent.answers.forEach(a => {
+                    correctedMap.set(String(a.questionId), a)
                 })
-                console.log('Saved correction to Supabase')
+
+                const mergedAnswers = fullAnswers.map(a => {
+                    const corrected = correctedMap.get(String(a.questionId))
+                    if (corrected) {
+                        // Replace with corrected version (has earnedPoints filled in)
+                        return corrected
+                    }
+                    return a // Keep other dosen's answers unchanged
+                })
+
+                // Calculate total score from ALL answers (not just this dosen's)
+                const totalScore = mergedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
+
+                // Check if ALL essays are graded (across ALL dosen)
+                const allEssaysGraded = !mergedAnswers.some(a => 
+                    (a.type === 'essay' || a.type === 'uraian') && 
+                    (a.earnedPoints === null || a.earnedPoints === undefined)
+                )
+
+                await hasilUjianService.update(updatedStudent.resultId, {
+                    nilai_total: totalScore,
+                    answers_detail: mergedAnswers,
+                    status: allEssaysGraded ? 'graded' : 'submitted'
+                })
+                console.log('[KoreksiUjian] Saved merged correction. Total:', totalScore, 'All graded:', allEssaysGraded)
             }
 
             // 2. Update student in state
