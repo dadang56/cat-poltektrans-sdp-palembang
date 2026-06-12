@@ -503,25 +503,27 @@ function AttendancePage() {
             <div style={{ display: 'none' }}>
                 <div ref={printRef}>
                     <style>{`
-                        @page { size: A4 portrait; margin: 15mm; }
-                        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif !important; }
-                        body { font-size: 11pt; }
-                        .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
-                        .print-logo { width: 60px; height: 60px; object-fit: contain; }
-                        .print-institution { flex: 1; text-align: center; }
-                        .print-institution h2 { font-size: 14pt; text-transform: uppercase; }
-                        .print-institution p { font-size: 10pt; margin: 3px 0 0; }
-                        .print-title { text-align: center; margin: 20px 0; }
-                        .print-title h3 { font-size: 13pt; text-decoration: underline; }
-                        .print-info { margin-bottom: 15px; }
-                        .print-info td { padding: 3px 10px 3px 0; }
-                        .print-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
-                        .print-table th, .print-table td { border: 1px solid #000; padding: 6px 8px; text-align: left; }
-                        .print-table th { background: #f0f0f0; font-weight: bold; text-align: center; }
-                        .print-table td.center { text-align: center; }
-                        .print-footer { margin-top: 40px; display: flex; justify-content: space-between; }
-                        .print-sign { text-align: center; width: 200px; }
-                        .print-sign-line { border-bottom: 1px solid #000; margin-top: 60px; margin-bottom: 5px; }
+                        @media print {
+                            @page { size: A4 portrait; margin: 15mm; }
+                            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif !important; }
+                            body { font-size: 11pt; }
+                            .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 10px; margin-bottom: 20px; }
+                            .print-logo { width: 60px; height: 60px; object-fit: contain; }
+                            .print-institution { flex: 1; text-align: center; }
+                            .print-institution h2 { font-size: 14pt; text-transform: uppercase; }
+                            .print-institution p { font-size: 10pt; margin: 3px 0 0; }
+                            .print-title { text-align: center; margin: 20px 0; }
+                            .print-title h3 { font-size: 13pt; text-decoration: underline; }
+                            .print-info { margin-bottom: 15px; }
+                            .print-info td { padding: 3px 10px 3px 0; }
+                            .print-table { width: 100%; border-collapse: collapse; margin: 15px 0; }
+                            .print-table th, .print-table td { border: 1px solid #000; padding: 6px 8px; text-align: left; }
+                            .print-table th { background: #f0f0f0; font-weight: bold; text-align: center; }
+                            .print-table td.center { text-align: center; }
+                            .print-footer { margin-top: 40px; display: flex; justify-content: space-between; }
+                            .print-sign { text-align: center; width: 200px; }
+                            .print-sign-line { border-bottom: 1px solid #000; margin-top: 60px; margin-bottom: 5px; }
+                        }
                     `}</style>
 
                     <div className="print-header">

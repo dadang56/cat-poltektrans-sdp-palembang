@@ -356,23 +356,25 @@ function ReportsPage() {
             <div style={{ display: 'none' }}>
                 <div ref={printRef}>
                     <style>{`
-                        @page { size: A4; margin: 1.5cm; }
-                        body { font-family: 'Times New Roman', serif; font-size: 12pt; }
-                        .print-header { text-align: center; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 20px; }
-                        .print-logo { max-height: 80px; margin-bottom: 10px; }
-                        .print-institution { font-size: 16pt; font-weight: bold; text-transform: uppercase; margin: 0; }
-                        .print-address { font-size: 10pt; margin: 5px 0; }
-                        .print-title { text-align: center; font-size: 14pt; font-weight: bold; margin: 20px 0; text-decoration: underline; }
-                        .print-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 10pt; }
-                        .print-table th, .print-table td { border: 1px solid #000; padding: 6px 8px; text-align: left; }
-                        .print-table th { background: #f0f0f0; font-weight: bold; }
-                        .print-table td.center { text-align: center; }
-                        .print-footer { margin-top: 40px; }
-                        .print-signature { float: right; width: 200px; text-align: center; }
-                        .print-signature-space { height: 80px; }
-                        .print-signature-name { font-weight: bold; text-decoration: underline; }
-                        .print-signature-title { font-size: 10pt; }
-                        .print-date { margin-bottom: 10px; }
+                        @media print {
+                            @page { size: A4; margin: 1.5cm; }
+                            body { font-family: 'Times New Roman', serif; font-size: 12pt; }
+                            .print-header { text-align: center; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 20px; }
+                            .print-logo { max-height: 80px; margin-bottom: 10px; }
+                            .print-institution { font-size: 16pt; font-weight: bold; text-transform: uppercase; margin: 0; }
+                            .print-address { font-size: 10pt; margin: 5px 0; }
+                            .print-title { text-align: center; font-size: 14pt; font-weight: bold; margin: 20px 0; text-decoration: underline; }
+                            .print-table { width: 100%; border-collapse: collapse; margin: 20px 0; font-size: 10pt; }
+                            .print-table th, .print-table td { border: 1px solid #000; padding: 6px 8px; text-align: left; }
+                            .print-table th { background: #f0f0f0; font-weight: bold; }
+                            .print-table td.center { text-align: center; }
+                            .print-footer { margin-top: 40px; }
+                            .print-signature { float: right; width: 200px; text-align: center; }
+                            .print-signature-space { height: 80px; }
+                            .print-signature-name { font-weight: bold; text-decoration: underline; }
+                            .print-signature-title { font-size: 10pt; }
+                            .print-date { margin-bottom: 10px; }
+                        }
                     `}</style>
 
                     <div className="print-header">

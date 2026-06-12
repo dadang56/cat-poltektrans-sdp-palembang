@@ -393,29 +393,31 @@ function BeritaAcaraPage() {
             <div style={{ display: 'none' }}>
                 <div ref={printRef}>
                     <style>{`
-                        @page { size: A4 portrait; margin: 20mm; }
-                        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif !important; }
-                        body { font-size: 12pt; line-height: 1.5; }
-                        .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 25px; }
-                        .print-logo { width: 70px; height: 70px; object-fit: contain; }
-                        .print-institution { flex: 1; text-align: center; }
-                        .print-institution h2 { font-size: 16pt; text-transform: uppercase; }
-                        .print-institution p { font-size: 11pt; margin: 3px 0 0; }
-                        .print-title { text-align: center; margin: 25px 0; }
-                        .print-title h3 { font-size: 14pt; text-decoration: underline; }
-                        .print-section { margin-bottom: 20px; }
-                        .print-section h4 { font-size: 12pt; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
-                        .print-info-table { width: 100%; border-collapse: collapse; }
-                        .print-info-table td { padding: 5px 0; vertical-align: top; }
-                        .print-info-table td:first-child { width: 180px; }
-                        .print-attendance-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
-                        .print-attendance-table th, .print-attendance-table td { border: 1px solid #000; padding: 8px 12px; text-align: left; }
-                        .print-attendance-table th { background: #f0f0f0; }
-                        .print-attendance-table td:last-child { text-align: center; }
-                        .print-notes { background: #fafafa; border: 1px solid #ddd; padding: 15px; min-height: 80px; margin-top: 10px; }
-                        .print-footer { margin-top: 50px; display: flex; justify-content: flex-end; }
-                        .print-sign { text-align: center; width: 250px; }
-                        .print-sign-line { border-bottom: 1px solid #000; margin-top: 80px; margin-bottom: 5px; }
+                        @media print {
+                            @page { size: A4 portrait; margin: 20mm; }
+                            * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Times New Roman', serif !important; }
+                            body { font-size: 12pt; line-height: 1.5; }
+                            .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px double #000; padding-bottom: 15px; margin-bottom: 25px; }
+                            .print-logo { width: 70px; height: 70px; object-fit: contain; }
+                            .print-institution { flex: 1; text-align: center; }
+                            .print-institution h2 { font-size: 16pt; text-transform: uppercase; }
+                            .print-institution p { font-size: 11pt; margin: 3px 0 0; }
+                            .print-title { text-align: center; margin: 25px 0; }
+                            .print-title h3 { font-size: 14pt; text-decoration: underline; }
+                            .print-section { margin-bottom: 20px; }
+                            .print-section h4 { font-size: 12pt; margin-bottom: 10px; border-bottom: 1px solid #ccc; padding-bottom: 5px; }
+                            .print-info-table { width: 100%; border-collapse: collapse; }
+                            .print-info-table td { padding: 5px 0; vertical-align: top; }
+                            .print-info-table td:first-child { width: 180px; }
+                            .print-attendance-table { width: 100%; border-collapse: collapse; margin: 10px 0; }
+                            .print-attendance-table th, .print-attendance-table td { border: 1px solid #000; padding: 8px 12px; text-align: left; }
+                            .print-attendance-table th { background: #f0f0f0; }
+                            .print-attendance-table td:last-child { text-align: center; }
+                            .print-notes { background: #fafafa; border: 1px solid #ddd; padding: 15px; min-height: 80px; margin-top: 10px; }
+                            .print-footer { margin-top: 50px; display: flex; justify-content: flex-end; }
+                            .print-sign { text-align: center; width: 250px; }
+                            .print-sign-line { border-bottom: 1px solid #000; margin-top: 80px; margin-bottom: 5px; }
+                        }
                     `}</style>
 
                     <div className="print-header">

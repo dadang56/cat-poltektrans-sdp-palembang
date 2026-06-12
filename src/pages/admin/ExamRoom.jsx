@@ -675,26 +675,28 @@ function ExamRoomPage() {
             <div style={{ display: 'none' }}>
                 <div ref={printRef}>
                     <style>{`
-                        @page { size: A4 landscape; margin: 10mm; }
-                        * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif !important; }
-                        body { font-size: 9pt; }
-                        .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px solid #0891b2; padding-bottom: 10px; margin-bottom: 15px; }
-                        .print-logo { width: 50px; height: 50px; object-fit: contain; }
-                        .print-institution h2 { font-size: 14pt; color: #0891b2; margin: 0; }
-                        .print-institution p { font-size: 9pt; color: #666; margin: 2px 0 0; }
-                        .print-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 10px 0; color: #1f2937; }
-                        .print-room-name { text-align: center; font-size: 13pt; color: #0891b2; margin-bottom: 15px; }
-                        .print-board { background: #e5e7eb; padding: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border-radius: 4px; }
-                        .print-seats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
-                        .print-seat { border: 2px solid #ddd; border-radius: 6px; padding: 8px; text-align: center; min-height: 80px; }
-                        .print-seat-prodi { display: inline-block; padding: 2px 8px; border-radius: 3px; color: white; font-size: 8pt; font-weight: bold; margin-bottom: 4px; }
-                        .print-seat-number { font-size: 11pt; font-weight: bold; color: #0891b2; margin-bottom: 2px; }
-                        .print-seat-name { font-size: 8pt; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-                        .print-seat-nim { font-size: 7pt; color: #666; }
-                        .print-legend { display: flex; gap: 20px; justify-content: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; }
-                        .print-legend-item { display: flex; align-items: center; gap: 5px; font-size: 8pt; }
-                        .print-legend-color { width: 15px; height: 15px; border-radius: 3px; }
-                        .page-break { page-break-after: always; }
+                        @media print {
+                            @page { size: A4 landscape; margin: 10mm; }
+                            * { margin: 0; padding: 0; box-sizing: border-box; font-family: Arial, sans-serif !important; }
+                            body { font-size: 9pt; }
+                            .print-header { display: flex; align-items: center; gap: 15px; border-bottom: 3px solid #0891b2; padding-bottom: 10px; margin-bottom: 15px; }
+                            .print-logo { width: 50px; height: 50px; object-fit: contain; }
+                            .print-institution h2 { font-size: 14pt; color: #0891b2; margin: 0; }
+                            .print-institution p { font-size: 9pt; color: #666; margin: 2px 0 0; }
+                            .print-title { text-align: center; font-size: 16pt; font-weight: bold; margin: 10px 0; color: #1f2937; }
+                            .print-room-name { text-align: center; font-size: 13pt; color: #0891b2; margin-bottom: 15px; }
+                            .print-board { background: #e5e7eb; padding: 8px; text-align: center; font-weight: bold; margin-bottom: 15px; border-radius: 4px; }
+                            .print-seats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-bottom: 20px; }
+                            .print-seat { border: 2px solid #ddd; border-radius: 6px; padding: 8px; text-align: center; min-height: 80px; }
+                            .print-seat-prodi { display: inline-block; padding: 2px 8px; border-radius: 3px; color: white; font-size: 8pt; font-weight: bold; margin-bottom: 4px; }
+                            .print-seat-number { font-size: 11pt; font-weight: bold; color: #0891b2; margin-bottom: 2px; }
+                            .print-seat-name { font-size: 8pt; font-weight: 600; color: #1f2937; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+                            .print-seat-nim { font-size: 7pt; color: #666; }
+                            .print-legend { display: flex; gap: 20px; justify-content: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid #ddd; }
+                            .print-legend-item { display: flex; align-items: center; gap: 5px; font-size: 8pt; }
+                            .print-legend-color { width: 15px; height: 15px; border-radius: 3px; }
+                            .page-break { page-break-after: always; }
+                        }
                     `}</style>
 
                     {rooms.map((room, roomIndex) => (

@@ -310,149 +310,151 @@ function StudentCardPage() {
             <div style={{ display: 'none' }}>
                 <div ref={printRef}>
                     <style>{`
-                        @page { 
-                            size: A4; 
-                            margin: 15mm; 
-                        }
-                        * {
-                            margin: 0;
-                            padding: 0;
-                            box-sizing: border-box;
-                        }
-                        body { 
-                            font-family: Arial, sans-serif; 
-                            font-size: 11pt; 
-                            background: white;
-                        }
-                        .cards-container { 
-                            display: grid;
-                            grid-template-columns: repeat(2, 1fr);
-                            gap: 8mm;
-                            padding: 0;
-                            width: 100%;
-                        }
-                        .id-card { 
-                            width: 100%;
-                            min-height: 60mm;
-                            border: 2px solid #0891b2;
-                            border-radius: 10px;
-                            padding: 5mm;
-                            box-sizing: border-box;
-                            background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);
-                            page-break-inside: avoid;
-                            break-inside: avoid;
-                        }
-                        .card-header {
-                            display: flex;
-                            align-items: center;
-                            gap: 4mm;
-                            border-bottom: 2px solid #0891b2;
-                            padding-bottom: 3mm;
-                            margin-bottom: 3mm;
-                        }
-                        .card-logo {
-                            width: 15mm;
-                            height: 15mm;
-                            object-fit: contain;
-                        }
-                        .card-logo-placeholder {
-                            width: 15mm;
-                            height: 15mm;
-                            background: linear-gradient(135deg, #0891b2, #0e7490);
-                            border-radius: 6px;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            color: white;
-                            font-weight: bold;
-                            font-size: 9pt;
-                        }
-                        .card-institution {
-                            flex: 1;
-                        }
-                        .card-institution h3 {
-                            font-size: 9pt;
-                            margin: 0 0 1mm 0;
-                            color: #0891b2;
-                            font-weight: bold;
-                            text-transform: uppercase;
-                        }
-                        .card-institution p {
-                            font-size: 7pt;
-                            margin: 0;
-                            color: #666;
-                        }
-                        .card-title {
-                            text-align: center;
-                            font-size: 9pt;
-                            font-weight: bold;
-                            color: white;
-                            background: linear-gradient(135deg, #0891b2, #0e7490);
-                            padding: 2mm;
-                            border-radius: 4px;
-                            margin-bottom: 3mm;
-                            letter-spacing: 1px;
-                        }
-                        .card-body {
-                            display: flex;
-                            gap: 4mm;
-                        }
-                        .card-photo {
-                            width: 22mm;
-                            height: 28mm;
-                            border: 2px solid #0891b2;
-                            border-radius: 4px;
-                            overflow: hidden;
-                            background: #f0f0f0;
-                            display: flex;
-                            align-items: center;
-                            justify-content: center;
-                            flex-shrink: 0;
-                        }
-                        .card-photo img {
-                            width: 100%;
-                            height: 100%;
-                            object-fit: cover;
-                        }
-                        .card-photo-placeholder {
-                            color: #999;
-                            font-size: 24pt;
-                        }
-                        .card-details {
-                            flex: 1;
-                            font-size: 8pt;
-                        }
-                        .card-details table {
-                            width: 100%;
-                            border-collapse: collapse;
-                        }
-                        .card-details td {
-                            padding: 1mm 0;
-                            vertical-align: top;
-                        }
-                        .card-details td:first-child {
-                            width: 16mm;
-                            color: #666;
-                            font-weight: 500;
-                        }
-                        .card-details td:last-child {
-                            font-weight: 600;
-                            color: #333;
-                        }
-                        .credentials-box {
-                            margin-top: 3mm;
-                            padding: 2mm 3mm;
-                            background: linear-gradient(135deg, #fef3c7, #fef9c3);
-                            border: 1.5px solid #f59e0b;
-                            border-radius: 4px;
-                            font-size: 7.5pt;
-                        }
-                        .credentials-box strong {
-                            color: #b45309;
-                        }
-                        .credentials-box span {
-                            color: #1f2937;
-                            font-weight: 600;
+                        @media print {
+                            @page { 
+                                size: A4; 
+                                margin: 15mm; 
+                            }
+                            * {
+                                margin: 0;
+                                padding: 0;
+                                box-sizing: border-box;
+                            }
+                            body { 
+                                font-family: Arial, sans-serif; 
+                                font-size: 11pt; 
+                                background: white;
+                            }
+                            .cards-container { 
+                                display: grid;
+                                grid-template-columns: repeat(2, 1fr);
+                                gap: 8mm;
+                                padding: 0;
+                                width: 100%;
+                            }
+                            .id-card { 
+                                width: 100%;
+                                min-height: 60mm;
+                                border: 2px solid #0891b2;
+                                border-radius: 10px;
+                                padding: 5mm;
+                                box-sizing: border-box;
+                                background: linear-gradient(180deg, #ffffff 0%, #f0f9ff 100%);
+                                page-break-inside: avoid;
+                                break-inside: avoid;
+                            }
+                            .card-header {
+                                display: flex;
+                                align-items: center;
+                                gap: 4mm;
+                                border-bottom: 2px solid #0891b2;
+                                padding-bottom: 3mm;
+                                margin-bottom: 3mm;
+                            }
+                            .card-logo {
+                                width: 15mm;
+                                height: 15mm;
+                                object-fit: contain;
+                            }
+                            .card-logo-placeholder {
+                                width: 15mm;
+                                height: 15mm;
+                                background: linear-gradient(135deg, #0891b2, #0e7490);
+                                border-radius: 6px;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                color: white;
+                                font-weight: bold;
+                                font-size: 9pt;
+                            }
+                            .card-institution {
+                                flex: 1;
+                            }
+                            .card-institution h3 {
+                                font-size: 9pt;
+                                margin: 0 0 1mm 0;
+                                color: #0891b2;
+                                font-weight: bold;
+                                text-transform: uppercase;
+                            }
+                            .card-institution p {
+                                font-size: 7pt;
+                                margin: 0;
+                                color: #666;
+                            }
+                            .card-title {
+                                text-align: center;
+                                font-size: 9pt;
+                                font-weight: bold;
+                                color: white;
+                                background: linear-gradient(135deg, #0891b2, #0e7490);
+                                padding: 2mm;
+                                border-radius: 4px;
+                                margin-bottom: 3mm;
+                                letter-spacing: 1px;
+                            }
+                            .card-body {
+                                display: flex;
+                                gap: 4mm;
+                            }
+                            .card-photo {
+                                width: 22mm;
+                                height: 28mm;
+                                border: 2px solid #0891b2;
+                                border-radius: 4px;
+                                overflow: hidden;
+                                background: #f0f0f0;
+                                display: flex;
+                                align-items: center;
+                                justify-content: center;
+                                flex-shrink: 0;
+                            }
+                            .card-photo img {
+                                width: 100%;
+                                height: 100%;
+                                object-fit: cover;
+                            }
+                            .card-photo-placeholder {
+                                color: #999;
+                                font-size: 24pt;
+                            }
+                            .card-details {
+                                flex: 1;
+                                font-size: 8pt;
+                            }
+                            .card-details table {
+                                width: 100%;
+                                border-collapse: collapse;
+                            }
+                            .card-details td {
+                                padding: 1mm 0;
+                                vertical-align: top;
+                            }
+                            .card-details td:first-child {
+                                width: 16mm;
+                                color: #666;
+                                font-weight: 500;
+                            }
+                            .card-details td:last-child {
+                                font-weight: 600;
+                                color: #333;
+                            }
+                            .credentials-box {
+                                margin-top: 3mm;
+                                padding: 2mm 3mm;
+                                background: linear-gradient(135deg, #fef3c7, #fef9c3);
+                                border: 1.5px solid #f59e0b;
+                                border-radius: 4px;
+                                font-size: 7.5pt;
+                            }
+                            .credentials-box strong {
+                                color: #b45309;
+                            }
+                            .credentials-box span {
+                                color: #1f2937;
+                                font-weight: 600;
+                            }
                         }
                     `}</style>
 
