@@ -640,6 +640,7 @@ export const hasilUjianService = {
                 )
             `)
             .order('created_at', { ascending: false })
+            .range(0, 9999)
 
         if (filters.prodi_id) {
             // This needs to filter through nested relations
@@ -708,7 +709,8 @@ export const hasilUjianService = {
         console.log('[getByDosen] Method 1 (direct dosen_id):', jadwalDirect?.length || 0, 'jadwal')
 
         // Method 2: Get jadwal via matkul_id from soal created by this dosen
-        // IMPORTANT: Also filter by dosen_id to avoid showing jadwal for other kelas
+        // DO NOT filter by dosen_id here — jadwal may have NULL dosen_id
+        // but the dosen still "owns" it because they created the soal
         const { data: soalData, error: soalError } = await supabase
             .from('soal')
             .select('matkul_id')
@@ -722,18 +724,17 @@ export const hasilUjianService = {
             const matkulIds = [...new Set(soalData.map(s => s.matkul_id).filter(Boolean))]
             console.log('[getByDosen] Unique matkul IDs from soal:', matkulIds.length)
             if (matkulIds.length > 0) {
-                // Filter by BOTH matkul_id AND dosen_id to only get this dosen's assigned jadwal
+                // Find jadwal by matkul — include jadwal where dosen_id is NULL or matches
                 const { data: jadwalData2, error: jadwalError2 } = await supabase
                     .from('jadwal_ujian')
                     .select('id')
                     .in('matkul_id', matkulIds)
-                    .eq('dosen_id', dosenId)
                     .is('deleted_at', null)
 
                 if (!jadwalError2 && jadwalData2) {
                     jadwalFromSoal = jadwalData2
                 }
-                console.log('[getByDosen] Method 2 jadwal from matkul (filtered by dosen):', jadwalFromSoal.length)
+                console.log('[getByDosen] Method 2 jadwal from matkul:', jadwalFromSoal.length)
             }
         }
 
@@ -751,7 +752,7 @@ export const hasilUjianService = {
 
         console.log('[getByDosen] Found', uniqueJadwalIds.length, 'unique jadwal for dosen')
 
-        // Fetch results for those schedules
+        // Fetch results for those schedules — use range to avoid 1000 row limit
         const { data, error } = await supabase
             .from('hasil_ujian')
             .select(`
@@ -779,6 +780,7 @@ export const hasilUjianService = {
             `)
             .in('jadwal_id', uniqueJadwalIds)
             .order('created_at', { ascending: false })
+            .range(0, 9999)
 
         if (error) throw error
         console.log('[getByDosen] Returning', data?.length || 0, 'results')
