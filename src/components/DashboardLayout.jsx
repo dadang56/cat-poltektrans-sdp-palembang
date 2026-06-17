@@ -191,8 +191,7 @@ function DashboardLayout({ children }) {
                         >
                             <Menu size={20} />
                         </button>
-                    </div>
-                    <div className="header-right">
+
                         {/* User Info */}
                         <div className="header-user-info">
                             <div className="avatar avatar-sm">
@@ -204,15 +203,6 @@ function DashboardLayout({ children }) {
                             </div>
                         </div>
 
-                        {/* Theme Toggle */}
-                        <button
-                            className="btn btn-icon btn-ghost"
-                            onClick={toggleTheme}
-                            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
-                        >
-                            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                        </button>
-
                         {/* Logout Button */}
                         <button
                             className="btn btn-ghost btn-sm header-logout-btn"
@@ -221,6 +211,16 @@ function DashboardLayout({ children }) {
                         >
                             <LogOut size={18} />
                             <span className="logout-text">Keluar</span>
+                        </button>
+                    </div>
+                    <div className="header-right">
+                        {/* Theme Toggle */}
+                        <button
+                            className="btn btn-icon btn-ghost"
+                            onClick={toggleTheme}
+                            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+                        >
+                            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                         </button>
                     </div>
                 </header>
