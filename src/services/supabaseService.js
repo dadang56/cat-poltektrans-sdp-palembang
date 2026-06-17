@@ -849,7 +849,6 @@ export const hasilUjianService = {
         return data
     },
 
-    // Get students who failed (< 70) on a specific jadwal — candidates for remedial
     async getMengulangStudents(jadwalId) {
         const { data, error } = await supabase
             .from('hasil_ujian')

@@ -529,7 +529,7 @@ function KoreksiUjianPage() {
                 // Fetch current full answers_detail from DB
                 const { data: currentRecord, error: fetchError } = await supabase
                     .from('hasil_ujian')
-                    .select('answers_detail')
+                    .select('answers_detail, is_ulang')
                     .eq('id', updatedStudent.resultId)
                     .single()
 
@@ -591,8 +591,15 @@ function KoreksiUjianPage() {
                     type: e.type
                 })))
 
+                const isUlang = currentRecord?.is_ulang || false
+                let nilaiFinal = totalScore
+                if (isUlang && totalScore >= 70) {
+                    nilaiFinal = 70
+                }
+
                 const updateResult = await hasilUjianService.update(updatedStudent.resultId, {
                     nilai_total: totalScore,
+                    nilai_final: nilaiFinal,
                     answers_detail: mergedAnswers,
                     status: 'graded'
                 })

@@ -232,9 +232,21 @@ function UjianPage() {
                             const ulangJadwal = jadwal.filter(j => j.tipe === 'ULANG' && j.parent_jadwal_id)
                             const eligibility = {}
                             for (const uj of ulangJadwal) {
-                                // Check if student scored < 70 on parent exam
+                                // Check if student scored < 70 on parent exam (using percentage score calculated from nilai_total)
                                 const parentResult = results?.find(r => String(r.jadwal_id) === String(uj.parent_jadwal_id))
-                                if (parentResult && parentResult.nilai_total < 70) {
+                                
+                                let parentScore = 0
+                                let hasParentResult = false
+                                if (parentResult) {
+                                    hasParentResult = true
+                                    const rawScore = parentResult.nilai_total ?? 0
+                                    const maxScore = parentResult.max_score || null
+                                    parentScore = maxScore && maxScore > 0
+                                        ? Math.round((rawScore / maxScore) * 100)
+                                        : rawScore
+                                }
+
+                                if (!hasParentResult || parentScore < 70) {
                                     // Check if student hasn't exceeded max retakes (2)
                                     const ulangCount = await hasilUjianService.getUlangCount(uj.parent_jadwal_id, user.id)
                                     eligibility[uj.id] = ulangCount < 2

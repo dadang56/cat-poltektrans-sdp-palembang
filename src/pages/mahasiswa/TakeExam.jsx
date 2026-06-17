@@ -1046,8 +1046,25 @@ function TakeExamPage() {
         )
     }
 
+    const watermarkText = encodeURIComponent(`${user?.nim_nip || user?.nim || ''} - ${user?.nama || user?.name || ''}`);
+    const watermarkBg = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='200' viewBox='0 0 300 200'%3E%3Ctext x='50%25' y='50%25' fill='%2364748b' font-size='12' font-family='Inter, sans-serif' font-weight='500' text-anchor='middle' transform='rotate(-25, 150, 100)'%3E${watermarkText}%3C/text%3E%3C/svg%3E")`;
+    const watermarkStyle = {
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        width: '100vw',
+        height: '100vh',
+        pointerEvents: 'none',
+        zIndex: 9999,
+        opacity: 0.06,
+        backgroundImage: watermarkBg,
+        backgroundRepeat: 'repeat',
+    };
+
     return (
         <div className="take-exam-page">
+            {/* Watermark overlay */}
+            <div style={watermarkStyle} aria-hidden="true" />
             {/* SEB Required Modal */}
             {showSEBWarning && sebRequired && (
                 <div className="warning-overlay">
