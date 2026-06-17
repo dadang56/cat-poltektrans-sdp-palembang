@@ -725,7 +725,8 @@ function TakeExamPage() {
     }
 
     const handleSubmit = (isAutoSubmit = false) => {
-        if (isAutoSubmit) setIsAutoSubmitted(true)
+        const autoSubmitVal = isAutoSubmit === true
+        if (autoSubmitVal) setIsAutoSubmitted(true)
         setSubmitted(true)
         setShowConfirmSubmit(false)
 
@@ -830,7 +831,7 @@ function TakeExamPage() {
                     waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
                     waktu_selesai: new Date().toISOString(),
                     status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
-                    submit_type: isAutoSubmit ? 'auto' : 'manual',
+                    submit_type: autoSubmitVal ? 'auto' : 'manual',
                     // Store detailed answers as JSON
                     answers_detail: JSON.stringify(answerDetails)
                 }
@@ -1200,7 +1201,7 @@ function TakeExamPage() {
                             <button className="btn btn-ghost" onClick={() => setShowConfirmSubmit(false)}>
                                 Kembali
                             </button>
-                            <button className="btn btn-primary" onClick={handleSubmit}>
+                            <button className="btn btn-primary" onClick={() => handleSubmit(false)}>
                                 <Send size={16} />
                                 Submit Ujian
                             </button>
