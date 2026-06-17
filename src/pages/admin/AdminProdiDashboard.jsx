@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
-import { userService, jadwalService, matkulService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
+import { userService, jadwalService, matkulService, soalService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Users,
     FileText,
@@ -19,7 +19,10 @@ import {
     CheckCircle2,
     XCircle,
     ToggleLeft,
-    ToggleRight
+    ToggleRight,
+    Search,
+    Filter,
+    Percent
 } from 'lucide-react'
 import './Dashboard.css'
 
@@ -42,6 +45,10 @@ function AdminProdiDashboard() {
     const navigate = useNavigate()
     const { settings, saveSettings } = useSettings()
     const [selectedTahunAkademik, setSelectedTahunAkademik] = useState('')
+
+    const [koreksiProgress, setKoreksiProgress] = useState([])
+    const [koreksiSearch, setKoreksiSearch] = useState('')
+    const [koreksiFilter, setKoreksiFilter] = useState('all')
 
     const [stats, setStats] = useState([
         { label: 'Total User', value: '0', icon: Users, color: 'primary', trend: '-' },
@@ -184,12 +191,13 @@ function AdminProdiDashboard() {
                 }
 
                 // Filter by prodi for admin_prodi
-                if (user?.prodiId) {
+                const userProdiId = user?.prodiId || user?.prodi_id
+                if (userProdiId) {
                     jadwalList = jadwalList.filter(j => {
                         // jadwal doesn't have prodi_id directly - check via matkul relation
                         const matkulProdiId = j.matkul?.prodi_id
                         if (!matkulProdiId) return true // include if no prodi info (legacy data)
-                        return String(matkulProdiId) === String(user.prodiId)
+                        return String(matkulProdiId) === String(userProdiId)
                     })
                 }
 
@@ -200,6 +208,64 @@ function AdminProdiDashboard() {
                         return jTA === selectedTahunAkademik
                     })
                 }
+
+                // Fetch hasil_ujian for all jadwal to calculate correction progress
+                let hasilList = []
+                if (isSupabaseConfigured() && jadwalList.length > 0) {
+                    const jadwalIds = jadwalList.map(j => j.id)
+                    hasilList = await hasilUjianService.getByJadwalIds(jadwalIds)
+                }
+
+                // Filter for UTS/UAS schedules only
+                const utsUasJadwal = jadwalList.filter(j => {
+                    const tipe = (j.tipe || j.tipe_ujian || '').toUpperCase()
+                    return tipe === 'UTS' || tipe === 'UAS'
+                })
+
+                const progressList = utsUasJadwal.map(j => {
+                    const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
+                    const dosenId = j.dosen_id || j.dosen?.id
+                    const dosenName = j.dosen?.nama || usersList.find(u => String(u.id) === String(dosenId))?.nama || '-'
+                    const tipe = (j.tipe || j.tipe_ujian || 'UTS').toUpperCase()
+                    const hasPraktek = (mk?.sks_praktek > 0) || (mk?.sksPraktek > 0)
+
+                    // Find all hasil_ujian for this jadwal
+                    const resultsForJadwal = hasilList.filter(h => String(h.jadwal_id) === String(j.id))
+
+                    // Find students in this class
+                    const classStudents = usersList.filter(u => u.role === 'mahasiswa' && String(u.kelas_id || u.kelasId) === String(j.kelas_id))
+                    const totalExpected = classStudents.length
+
+                    // Count submissions (status is submitted or graded)
+                    const submittedCount = resultsForJadwal.filter(r => r.status === 'submitted' || r.status === 'graded').length
+
+                    // Count graded submissions (status is graded)
+                    const gradedCount = resultsForJadwal.filter(r => r.status === 'graded').length
+
+                    // Count complete final grades
+                    const completeCount = resultsForJadwal.filter(r => {
+                        const hasNt = r.nilai_tugas !== null && r.nilai_tugas !== undefined
+                        const hasNuts = r.nilai_uts !== null && r.nilai_uts !== undefined
+                        const hasNuas = r.nilai_uas !== null && r.nilai_uas !== undefined
+                        const hasNp = !hasPraktek || (r.nilai_praktek !== null && r.nilai_praktek !== undefined)
+                        return hasNt && hasNuts && hasNuas && hasNp
+                    }).length
+
+                    return {
+                        id: j.id,
+                        matkulNama: mk?.nama || '-',
+                        matkulKode: mk?.kode || '-',
+                        kelasNama: j.kelas?.nama || '-',
+                        tipe,
+                        dosenName,
+                        totalExpected,
+                        submittedCount,
+                        gradedCount,
+                        completeCount,
+                        hasPraktek
+                    }
+                })
+                setKoreksiProgress(progressList)
 
                 const now = new Date()
                 // Use local date (WIB) instead of UTC
@@ -305,6 +371,26 @@ function AdminProdiDashboard() {
         const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
         return diffDays
     }
+
+    const filteredKoreksiProgress = koreksiProgress.filter(item => {
+        const matchesSearch = item.matkulNama.toLowerCase().includes(koreksiSearch.toLowerCase()) || 
+                              item.dosenName.toLowerCase().includes(koreksiSearch.toLowerCase()) ||
+                              item.matkulKode.toLowerCase().includes(koreksiSearch.toLowerCase())
+        
+        if (!matchesSearch) return false
+
+        const hasSubmissions = item.submittedCount > 0
+        if (koreksiFilter === 'incomplete') {
+            return hasSubmissions && item.gradedCount < item.submittedCount
+        }
+        if (koreksiFilter === 'complete') {
+            return hasSubmissions && item.gradedCount === item.submittedCount
+        }
+        if (koreksiFilter === 'na_complete') {
+            return item.totalExpected > 0 && item.completeCount === item.totalExpected
+        }
+        return true
+    })
 
     return (
         <DashboardLayout>
@@ -527,6 +613,132 @@ function AdminProdiDashboard() {
                                 <div className="empty-state">
                                     <BookOpen size={32} className="text-muted" />
                                     <p>Tidak ada jadwal ujian mendatang</p>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+
+                    {/* Progres Koreksi & Nilai Akhir (UTS & UAS) */}
+                    <div className="card card-wide">
+                        <div className="card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+                            <div className="flex items-center gap-3">
+                                <Percent size={20} className="text-primary" />
+                                <h3 className="font-semibold">Progres Koreksi & Nilai Akhir (UTS & UAS)</h3>
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+                                {/* Search input */}
+                                <div style={{ position: 'relative' }}>
+                                    <Search size={16} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-muted)' }} />
+                                    <input
+                                        type="text"
+                                        className="form-input"
+                                        placeholder="Cari matkul / dosen..."
+                                        value={koreksiSearch}
+                                        onChange={(e) => setKoreksiSearch(e.target.value)}
+                                        style={{ paddingLeft: '32px', minWidth: '200px', height: '38px', fontSize: 'var(--font-size-sm)' }}
+                                    />
+                                </div>
+                                {/* Filter dropdown */}
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                    <Filter size={16} className="text-muted" />
+                                    <select
+                                        className="form-input"
+                                        value={koreksiFilter}
+                                        onChange={(e) => setKoreksiFilter(e.target.value)}
+                                        style={{ minWidth: '170px', height: '38px', fontSize: 'var(--font-size-sm)' }}
+                                    >
+                                        <option value="all">Semua Status</option>
+                                        <option value="incomplete">Belum Selesai</option>
+                                        <option value="complete">Selesai Koreksi</option>
+                                        <option value="na_complete">Nilai Akhir Selesai</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                        <div className="card-body">
+                            {filteredKoreksiProgress.length > 0 ? (
+                                <div className="table-responsive">
+                                    <table className="table-clean" style={{ width: '100%', borderCollapse: 'collapse' }}>
+                                        <thead>
+                                            <tr>
+                                                <th style={{ textAlign: 'left', padding: '12px', color: 'var(--text-muted)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', borderBottom: '2px solid var(--border-color)' }}>Mata Kuliah / Kelas</th>
+                                                <th style={{ textAlign: 'left', padding: '12px', color: 'var(--text-muted)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', borderBottom: '2px solid var(--border-color)' }}>Dosen Pengampu / Tipe</th>
+                                                <th style={{ textAlign: 'left', padding: '12px', color: 'var(--text-muted)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', borderBottom: '2px solid var(--border-color)' }}>Progres Koreksi (Nilai Ujian)</th>
+                                                <th style={{ textAlign: 'left', padding: '12px', color: 'var(--text-muted)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', borderBottom: '2px solid var(--border-color)' }}>Progres Nilai Akhir</th>
+                                                <th style={{ textAlign: 'center', padding: '12px', color: 'var(--text-muted)', fontWeight: 'var(--font-semibold)', fontSize: 'var(--font-size-xs)', textTransform: 'uppercase', borderBottom: '2px solid var(--border-color)' }}>Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredKoreksiProgress.map((item) => {
+                                                const hasSubmissions = item.submittedCount > 0
+                                                const koreksiPercent = hasSubmissions ? Math.round((item.gradedCount / item.submittedCount) * 100) : 0
+                                                const naPercent = item.totalExpected > 0 ? Math.round((item.completeCount / item.totalExpected) * 100) : 0
+                                                
+                                                // Status determination
+                                                let statusBadge = { text: 'Belum Ada Ujian', class: 'badge-muted' }
+                                                if (hasSubmissions) {
+                                                    if (item.gradedCount < item.submittedCount) {
+                                                        statusBadge = { text: 'Sedang Dikoreksi', class: 'badge-warning' }
+                                                    } else if (item.completeCount === item.totalExpected && item.totalExpected > 0) {
+                                                        statusBadge = { text: 'Nilai Akhir Selesai', class: 'badge-success' }
+                                                    } else {
+                                                        statusBadge = { text: 'Selesai Koreksi', class: 'badge-info' }
+                                                    }
+                                                }
+
+                                                return (
+                                                    <tr key={item.id} style={{ borderBottom: '1px solid var(--border-color)' }}>
+                                                        <td style={{ padding: '12px' }}>
+                                                            <div style={{ fontWeight: 'var(--font-semibold)', color: 'var(--text-primary)' }}>{item.matkulNama}</div>
+                                                            <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--text-muted)' }}>{item.matkulKode} • Kelas {item.kelasNama}</div>
+                                                        </td>
+                                                        <td style={{ padding: '12px' }}>
+                                                            <div style={{ color: 'var(--text-primary)' }}>{item.dosenName}</div>
+                                                            <div style={{ fontSize: 'var(--font-size-xs)', marginTop: '4px' }}>
+                                                                <span className={`badge ${item.tipe === 'UTS' ? 'badge-primary' : 'badge-accent'}`} style={{ fontSize: '10px', padding: '2px 6px' }}>
+                                                                    {item.tipe}
+                                                                </span>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '12px', minWidth: '180px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xs)', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                                                                <span>{item.gradedCount} / {item.submittedCount} Ujian</span>
+                                                                <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>{koreksiPercent}%</span>
+                                                            </div>
+                                                            <div className="progress-bar-container">
+                                                                <div className="progress-bar-fill" style={{ 
+                                                                    width: `${koreksiPercent}%`, 
+                                                                    background: koreksiPercent === 100 ? 'var(--success-500)' : 'var(--primary-500)' 
+                                                                }}></div>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '12px', minWidth: '180px' }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xs)', marginBottom: '4px', color: 'var(--text-muted)' }}>
+                                                                <span>{item.completeCount} / {item.totalExpected} Mahasiswa</span>
+                                                                <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>{naPercent}%</span>
+                                                            </div>
+                                                            <div className="progress-bar-container">
+                                                                <div className="progress-bar-fill" style={{ 
+                                                                    width: `${naPercent}%`, 
+                                                                    background: naPercent === 100 ? 'var(--success-500)' : naPercent > 0 ? 'var(--warning-500)' : 'var(--border-color)'
+                                                                }}></div>
+                                                            </div>
+                                                        </td>
+                                                        <td style={{ padding: '12px', textAlign: 'center' }}>
+                                                            <span className={`badge ${statusBadge.class}`} style={{ whiteSpace: 'nowrap' }}>
+                                                                {statusBadge.text}
+                                                            </span>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            ) : (
+                                <div className="empty-state">
+                                    <Percent size={32} className="text-muted" />
+                                    <p>Tidak ada data progres koreksi</p>
                                 </div>
                             )}
                         </div>
@@ -764,6 +976,42 @@ function AdminProdiDashboard() {
                 .soal-points.complete { color: var(--success-600); }
                 .soal-points.partial { color: var(--warning-600); }
                 .soal-points.empty { color: var(--error-600); }
+
+                /* Correction Progress Section Styling */
+                .progress-bar-container {
+                    width: 100%;
+                    height: 8px;
+                    background: var(--bg-secondary);
+                    border-radius: var(--radius-full);
+                    overflow: hidden;
+                    margin-top: 4px;
+                }
+                .progress-bar-fill {
+                    height: 100%;
+                    border-radius: var(--radius-full);
+                    transition: width 0.3s ease;
+                }
+                .badge-muted {
+                    background: var(--bg-secondary) !important;
+                    color: var(--text-muted) !important;
+                    border: 1px solid var(--border-color);
+                }
+                .badge-info {
+                    background: var(--primary-100) !important;
+                    color: var(--primary-700) !important;
+                }
+                [data-theme="dark"] .badge-info {
+                    background: rgba(14, 165, 233, 0.15) !important;
+                    color: var(--primary-300) !important;
+                }
+                .badge-accent {
+                    background: var(--accent-100) !important;
+                    color: var(--accent-700) !important;
+                }
+                [data-theme="dark"] .badge-accent {
+                    background: rgba(147, 51, 234, 0.15) !important;
+                    color: var(--accent-300) !important;
+                }
             `}</style>
         </DashboardLayout >
     )
