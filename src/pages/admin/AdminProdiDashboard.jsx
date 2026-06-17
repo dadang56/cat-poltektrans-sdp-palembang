@@ -387,7 +387,8 @@ function AdminProdiDashboard() {
             return hasSubmissions && item.gradedCount === item.submittedCount
         }
         if (koreksiFilter === 'na_complete') {
-            return item.totalExpected > 0 && item.completeCount === item.totalExpected
+            const expected = item.submittedCount > 0 ? item.submittedCount : item.totalExpected
+            return expected > 0 && item.completeCount === expected
         }
         return true
     })
@@ -671,14 +672,15 @@ function AdminProdiDashboard() {
                                             {filteredKoreksiProgress.map((item) => {
                                                 const hasSubmissions = item.submittedCount > 0
                                                 const koreksiPercent = hasSubmissions ? Math.round((item.gradedCount / item.submittedCount) * 100) : 0
-                                                const naPercent = item.totalExpected > 0 ? Math.round((item.completeCount / item.totalExpected) * 100) : 0
+                                                const naExpected = hasSubmissions ? item.submittedCount : item.totalExpected
+                                                const naPercent = naExpected > 0 ? Math.round((item.completeCount / naExpected) * 100) : 0
                                                 
                                                 // Status determination
                                                 let statusBadge = { text: 'Belum Ada Ujian', class: 'badge-muted' }
                                                 if (hasSubmissions) {
                                                     if (item.gradedCount < item.submittedCount) {
                                                         statusBadge = { text: 'Sedang Dikoreksi', class: 'badge-warning' }
-                                                    } else if (item.completeCount === item.totalExpected && item.totalExpected > 0) {
+                                                    } else if (item.completeCount === naExpected && naExpected > 0) {
                                                         statusBadge = { text: 'Nilai Akhir Selesai', class: 'badge-success' }
                                                     } else {
                                                         statusBadge = { text: 'Selesai Koreksi', class: 'badge-info' }
@@ -713,7 +715,7 @@ function AdminProdiDashboard() {
                                                         </td>
                                                         <td style={{ padding: '12px', minWidth: '180px' }}>
                                                             <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 'var(--font-size-xs)', marginBottom: '4px', color: 'var(--text-muted)' }}>
-                                                                <span>{item.completeCount} / {item.totalExpected} Mahasiswa</span>
+                                                                <span>{item.completeCount} / {naExpected} Mahasiswa</span>
                                                                 <span style={{ fontWeight: 'var(--font-bold)', color: 'var(--text-primary)' }}>{naPercent}%</span>
                                                             </div>
                                                             <div className="progress-bar-container">
