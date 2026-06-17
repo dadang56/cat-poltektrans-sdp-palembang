@@ -395,18 +395,17 @@ function AdminProdiDashboard() {
     return (
         <DashboardLayout>
             <div className="dashboard-page animate-fadeIn">
-                <div className="page-header">
-                    <div>
-                        <h1 className="page-title">Dashboard Admin Prodi</h1>
-                        <p className="page-subtitle">Selamat datang, {user?.name}!</p>
+                {/* Premium Welcome Banner */}
+                <div className="welcome-banner-card animate-fadeIn">
+                    <div className="welcome-banner-text">
+                        <h1 className="welcome-title">Dashboard Admin Prodi</h1>
+                        <p className="welcome-subtitle">Selamat datang kembali, <strong>{user?.name || 'Admin Prodi'}</strong>! Berikut adalah rangkuman aktivitas prodi Anda.</p>
                     </div>
-                    <div className="tahun-akademik-selector">
-                        <Calendar size={18} />
+                    <div className="tahun-akademik-selector-premium">
+                        <Calendar size={16} />
                         <select
-                            className="form-input"
                             value={selectedTahunAkademik}
                             onChange={(e) => handleTahunAkademikChange(e.target.value)}
-                            style={{ minWidth: '180px' }}
                         >
                             {TAHUN_AJARAN_OPTIONS.map(ta => (
                                 <option key={ta} value={ta}>{ta}</option>
@@ -1011,6 +1010,237 @@ function AdminProdiDashboard() {
                 [data-theme="dark"] .badge-accent {
                     background: rgba(147, 51, 234, 0.15) !important;
                     color: var(--accent-300) !important;
+                }
+
+                /* Premium Welcome Banner Styling */
+                .welcome-banner-card {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    padding: 28px 36px;
+                    background: linear-gradient(135deg, var(--color-primary-dark, var(--primary-700)) 0%, var(--color-primary, var(--primary-600)) 100%);
+                    border-radius: var(--radius-2xl);
+                    color: white;
+                    margin-bottom: var(--space-6);
+                    box-shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.3);
+                    position: relative;
+                    overflow: hidden;
+                    flex-wrap: wrap;
+                    gap: 16px;
+                    border: 1px solid rgba(255, 255, 255, 0.1);
+                }
+
+                .welcome-banner-card::after {
+                    content: '';
+                    position: absolute;
+                    right: -10%;
+                    top: -50%;
+                    width: 350px;
+                    height: 350px;
+                    border-radius: 50%;
+                    background: radial-gradient(circle, rgba(255,255,255,0.15) 0%, rgba(255,255,255,0) 70%);
+                    pointer-events: none;
+                }
+
+                .welcome-title {
+                    font-size: var(--font-size-2xl);
+                    font-weight: 800;
+                    color: white !important;
+                    margin: 0 0 8px;
+                    letter-spacing: -0.5px;
+                }
+
+                .welcome-subtitle {
+                    font-size: var(--font-size-sm);
+                    color: rgba(255, 255, 255, 0.85);
+                    margin: 0;
+                }
+
+                .tahun-akademik-selector-premium {
+                    display: flex;
+                    align-items: center;
+                    gap: 8px;
+                    padding: 8px 16px;
+                    background: rgba(255, 255, 255, 0.12);
+                    border: 1px solid rgba(255, 255, 255, 0.18);
+                    border-radius: var(--radius-xl);
+                    color: white;
+                    backdrop-filter: blur(12px);
+                    -webkit-backdrop-filter: blur(12px);
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+                }
+
+                .tahun-akademik-selector-premium:hover {
+                    background: rgba(255, 255, 255, 0.2);
+                    border-color: rgba(255, 255, 255, 0.35);
+                    transform: translateY(-1px);
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+                }
+
+                .tahun-akademik-selector-premium select {
+                    background: transparent;
+                    border: none;
+                    color: white;
+                    font-size: var(--font-size-sm);
+                    font-weight: 600;
+                    cursor: pointer;
+                    outline: none;
+                    padding: 4px 8px;
+                }
+
+                .tahun-akademik-selector-premium select option {
+                    color: var(--text-primary);
+                    background: var(--bg-secondary);
+                }
+
+                /* Premium Stat Cards Overrides */
+                .stat-card {
+                    background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-tertiary) 100%) !important;
+                    border: 1px solid var(--border-color) !important;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.02), 0 2px 4px -1px rgba(0, 0, 0, 0.01) !important;
+                    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                }
+
+                .stat-card:hover {
+                    transform: translateY(-4px) !important;
+                    border-color: var(--border-hover-color, var(--color-primary-dark)) !important;
+                }
+
+                .stat-primary { --border-hover-color: var(--primary-400); }
+                .stat-accent { --border-hover-color: var(--accent-400); }
+                .stat-success { --border-hover-color: var(--success-400); }
+                .stat-warning { --border-hover-color: var(--warning-400); }
+
+                .stat-primary:hover { box-shadow: 0 12px 24px -10px rgba(99, 102, 241, 0.15) !important; }
+                .stat-accent:hover { box-shadow: 0 12px 24px -10px rgba(147, 51, 234, 0.15) !important; }
+                .stat-success:hover { box-shadow: 0 12px 24px -10px rgba(34, 197, 94, 0.15) !important; }
+                .stat-warning:hover { box-shadow: 0 12px 24px -10px rgba(245, 158, 11, 0.15) !important; }
+
+                .stat-icon {
+                    width: 48px !important;
+                    height: 48px !important;
+                    border-radius: 12px !important;
+                    background: transparent !important;
+                    transition: all 0.3s ease !important;
+                }
+
+                .stat-primary .stat-icon {
+                    background: rgba(99, 102, 241, 0.08) !important;
+                    color: var(--primary-600) !important;
+                }
+                [data-theme="dark"] .stat-primary .stat-icon {
+                    background: rgba(99, 102, 241, 0.2) !important;
+                    color: var(--primary-300) !important;
+                }
+
+                .stat-accent .stat-icon {
+                    background: rgba(147, 51, 234, 0.08) !important;
+                    color: var(--accent-600) !important;
+                }
+                [data-theme="dark"] .stat-accent .stat-icon {
+                    background: rgba(147, 51, 234, 0.2) !important;
+                    color: var(--accent-300) !important;
+                }
+
+                .stat-success .stat-icon {
+                    background: rgba(34, 197, 94, 0.08) !important;
+                    color: var(--success-600) !important;
+                }
+                [data-theme="dark"] .stat-success .stat-icon {
+                    background: rgba(34, 197, 94, 0.2) !important;
+                    color: var(--success-300) !important;
+                }
+
+                .stat-warning .stat-icon {
+                    background: rgba(245, 158, 11, 0.08) !important;
+                    color: var(--warning-600) !important;
+                }
+                [data-theme="dark"] .stat-warning .stat-icon {
+                    background: rgba(245, 158, 11, 0.2) !important;
+                    color: var(--warning-300) !important;
+                }
+
+                .stat-trend {
+                    background: rgba(34, 197, 94, 0.08) !important;
+                    color: var(--success-600) !important;
+                }
+                [data-theme="dark"] .stat-trend {
+                    background: rgba(34, 197, 94, 0.15) !important;
+                    color: var(--success-300) !important;
+                }
+
+                /* Premium Card and Table Layouts */
+                .card {
+                    border: 1px solid var(--border-color) !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.02) !important;
+                    transition: all 0.3s ease !important;
+                }
+
+                .card:hover {
+                    box-shadow: 0 10px 20px -8px rgba(0, 0, 0, 0.04) !important;
+                }
+
+                [data-theme="dark"] .card {
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+                }
+
+                .card-header {
+                    border-bottom: 1px solid var(--border-color) !important;
+                    padding: var(--space-4) var(--space-5) !important;
+                }
+
+                .card-body {
+                    padding: var(--space-5) !important;
+                }
+
+                /* Premium Lists */
+                .jadwal-item {
+                    background: var(--bg-secondary) !important;
+                    border: 1px solid var(--border-color) !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                }
+
+                .jadwal-item:hover {
+                    transform: translateX(4px) !important;
+                    border-color: var(--color-primary, var(--primary-500)) !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+                    background: var(--bg-tertiary) !important;
+                }
+
+                .soal-readiness-item {
+                    background: var(--bg-secondary) !important;
+                    border: 1px solid var(--border-color) !important;
+                    border-left: 4px solid var(--border-color) !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
+                    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+                }
+
+                .soal-readiness-item:hover {
+                    transform: translateX(4px) !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.04) !important;
+                    background: var(--bg-tertiary) !important;
+                }
+
+                .soal-readiness-item.ready {
+                    border-left-color: var(--success-500) !important;
+                }
+
+                .soal-readiness-item.not-ready {
+                    border-left-color: var(--error-500) !important;
+                    background: rgba(239, 68, 68, 0.02) !important;
+                }
+                [data-theme="dark"] .soal-readiness-item.not-ready {
+                    background: rgba(239, 68, 68, 0.05) !important;
+                }
+
+                /* Empty State Premium */
+                .empty-state {
+                    padding: var(--space-10) var(--space-6) !important;
+                    background: var(--bg-tertiary);
+                    border-radius: var(--radius-xl);
+                    border: 2px dashed var(--border-color);
+                    margin: var(--space-2) 0;
                 }
             `}</style>
         </DashboardLayout >
