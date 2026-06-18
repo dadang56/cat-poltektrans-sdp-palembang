@@ -700,10 +700,44 @@ export const hasilUjianService = {
     async getByDosen(dosenId) {
         console.log('[getByDosen] Starting for dosenId:', dosenId)
         
+        // Fetch Dosen's class and matkul configuration from users table first
+        const { data: userProfiles, error: profileError } = await supabase
+            .from('users')
+            .select('kelas_ids, matkul_ids')
+            .eq('id', dosenId)
+            .limit(1)
+
+        if (profileError) {
+            console.error('Error fetching dosen profile in getByDosen:', profileError)
+        }
+
+        const userProfile = userProfiles && userProfiles.length > 0 ? userProfiles[0] : null
+
+        let allowedKelasIds = []
+        let allowedMatkulIds = []
+        if (userProfile) {
+            try {
+                allowedKelasIds = typeof userProfile.kelas_ids === 'string'
+                    ? JSON.parse(userProfile.kelas_ids)
+                    : (userProfile.kelas_ids || [])
+            } catch (e) {
+                console.error('Error parsing kelas_ids in getByDosen:', e)
+            }
+            try {
+                allowedMatkulIds = typeof userProfile.matkul_ids === 'string'
+                    ? JSON.parse(userProfile.matkul_ids)
+                    : (userProfile.matkul_ids || [])
+            } catch (e) {
+                console.error('Error parsing matkul_ids in getByDosen:', e)
+            }
+        }
+        
+        console.log('[getByDosen] allowedKelasIds:', allowedKelasIds, 'allowedMatkulIds:', allowedMatkulIds)
+
         // Method 1: Get jadwal where dosen_id is set directly
         const { data: jadwalDirect, error: jadwalError1 } = await supabase
             .from('jadwal_ujian')
-            .select('id')
+            .select('id, kelas_id, matkul_id')
             .eq('dosen_id', dosenId)
             .is('deleted_at', null)
 
@@ -728,7 +762,7 @@ export const hasilUjianService = {
                 // Only get jadwal where dosen_id matches this dosen
                 const { data: jadwalData2, error: jadwalError2 } = await supabase
                     .from('jadwal_ujian')
-                    .select('id')
+                    .select('id, kelas_id, matkul_id')
                     .in('matkul_id', matkulIds)
                     .eq('dosen_id', dosenId)
                     .is('deleted_at', null)
@@ -740,10 +774,26 @@ export const hasilUjianService = {
             }
         }
 
-        // Combine jadwal IDs from both methods
+        // Apply filters based on allowed classes/subjects
+        let filteredJadwalDirect = jadwalDirect || []
+        let filteredJadwalFromSoal = jadwalFromSoal || []
+
+        if (allowedKelasIds && allowedKelasIds.length > 0) {
+            const cleanAllowedKelasIds = allowedKelasIds.map(String)
+            filteredJadwalDirect = filteredJadwalDirect.filter(j => j.kelas_id && cleanAllowedKelasIds.includes(String(j.kelas_id)))
+            filteredJadwalFromSoal = filteredJadwalFromSoal.filter(j => j.kelas_id && cleanAllowedKelasIds.includes(String(j.kelas_id)))
+        }
+
+        if (allowedMatkulIds && allowedMatkulIds.length > 0) {
+            const cleanAllowedMatkulIds = allowedMatkulIds.map(String)
+            filteredJadwalDirect = filteredJadwalDirect.filter(j => j.matkul_id && cleanAllowedMatkulIds.includes(String(j.matkul_id)))
+            filteredJadwalFromSoal = filteredJadwalFromSoal.filter(j => j.matkul_id && cleanAllowedMatkulIds.includes(String(j.matkul_id)))
+        }
+
+        // Combine filtered jadwal IDs from both methods
         const allJadwalIds = [
-            ...(jadwalDirect || []).map(j => j.id),
-            ...jadwalFromSoal.map(j => j.id)
+            ...filteredJadwalDirect.map(j => j.id),
+            ...filteredJadwalFromSoal.map(j => j.id)
         ]
         const uniqueJadwalIds = [...new Set(allJadwalIds)]
 
