@@ -194,6 +194,21 @@ body {
   --color-secondary: #00a8a8 !important;
   --color-secondary-light: rgba(0, 168, 168, 0.08) !important;
   --color-secondary-dark: #008585 !important;
+
+  /* Dark Mode Semantic Colors for alerts and badges */
+  --success-50: rgba(16, 185, 129, 0.1);
+  --success-500: #10b981;
+  --success-600: #34d399;
+  --warning-50: rgba(245, 158, 11, 0.1);
+  --warning-500: #f59e0b;
+  --warning-600: #fbbf24;
+  --warning-700: #fef08a;
+  --error-50: rgba(239, 68, 68, 0.1);
+  --error-500: #ef4444;
+  --error-600: #fca5a5;
+  --info-50: rgba(59, 130, 246, 0.1);
+  --info-500: #3b82f6;
+  --info-600: #60a5fa;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb {

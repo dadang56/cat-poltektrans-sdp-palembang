@@ -234,7 +234,12 @@
     text-overflow: ellipsis;
 }
 
-/* Hide header brand on smaller screens to keep header clean */
+/* Hide header brand on desktop because sidebar has it, show on mobile */
+@media (min-width: 1025px) {
+    .header-brand {
+        display: none;
+    }
+}
 @media (max-width: 768px) {
     .header-brand {
         display: none;
@@ -275,26 +280,31 @@
 .header-user-details {
     display: flex;
     flex-direction: column;
-    line-height: 1.2;
+    align-items: flex-start;
+    line-height: 1.1;
 }
 
 .header-user-name {
     font-size: var(--font-size-sm);
-    font-weight: var(--font-semibold);
+    font-weight: var(--font-bold);
     color: var(--text-primary);
-    max-width: 300px;
+    max-width: 180px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
 }
 
 .header-user-role {
-    font-size: var(--font-size-xs);
-    color: var(--text-muted);
-    max-width: 300px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
+    font-size: 8px;
+    font-weight: var(--font-bold);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(59, 130, 246, 0.15);
+    color: #93c5fd;
+    padding: 2px 6px;
+    border-radius: var(--radius-sm);
+    margin-top: 4px;
+    display: inline-block;
 }
 
 /* Header Logout Button */
@@ -302,24 +312,26 @@
     display: flex;
     align-items: center;
     gap: var(--space-2);
-    padding: var(--space-2) var(--space-3);
-    color: var(--error-600);
-    border-radius: var(--radius-md);
-    transition: all var(--transition-fast);
+    padding: var(--space-1) var(--space-4) !important;
+    border: 1px solid rgba(239, 68, 68, 0.4) !important;
+    color: #fca5a5 !important;
+    background: rgba(239, 68, 68, 0.05) !important;
+    border-radius: var(--radius-full) !important;
+    transition: all var(--transition-fast) !important;
+    height: 32px;
 }
 
 .header-logout-btn:hover {
-    background: var(--error-50);
+    background: #dc2626 !important;
+    color: white !important;
+    border-color: #dc2626 !important;
+    box-shadow: 0 0 12px rgba(220, 38, 38, 0.4);
 }
 
 /* Dark Mode Adjustments */
-[data-theme="dark"] .header-logout-btn:hover {
-    background: rgba(239, 68, 68, 0.1);
-}
-
 [data-theme="dark"] .header-user-info {
-    background: var(--gray-800);
-    border-color: var(--gray-700);
+    background: var(--bg-tertiary);
+    border-color: var(--border-color);
 }
 
 /* Mobile: Hide user details text, show only avatar */
