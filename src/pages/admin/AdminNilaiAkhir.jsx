@@ -91,8 +91,9 @@ function AdminNilaiAkhirPage() {
                 const prodiData = await prodiService.getAll()
                 setProdiList(prodiData || [])
 
-                // Load ALL hasil ujian (not filtered by dosen)
-                const results = await hasilUjianService.getAll()
+                // Load hasil ujian filtered by matkul_prodi_id if admin_prodi
+                const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}
+                const results = await hasilUjianService.getAll(filter)
                 console.log('[AdminNilaiAkhir] Loaded results:', results?.length)
 
                 // Log first result structure for debugging

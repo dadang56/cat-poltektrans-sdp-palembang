@@ -259,8 +259,9 @@ function KoreksiUjianPage() {
                         console.log('[KoreksiUjian] Fetching for Dosen:', user.id)
                         hasilData = await hasilUjianService.getByDosen(user.id)
                     } else {
-                        // Admin can see all
-                        hasilData = await hasilUjianService.getAll()
+                        // Admin can see all (filtered by matkul_prodi_id if admin_prodi)
+                        const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}
+                        hasilData = await hasilUjianService.getAll(filter)
                     }
 
                     const soalData = await soalService.getAll()
@@ -695,7 +696,8 @@ function KoreksiUjianPage() {
             if (user.role === 'dosen') {
                 allHasil = await hasilUjianService.getByDosen(user.id)
             } else {
-                allHasil = await hasilUjianService.getAll()
+                const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}
+                allHasil = await hasilUjianService.getAll(filter)
             }
 
             let changedCount = 0

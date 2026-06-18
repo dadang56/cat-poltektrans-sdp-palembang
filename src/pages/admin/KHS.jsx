@@ -124,8 +124,9 @@ function KHSPage() {
                     }
                 }
 
-                    // Load nilai akhir from hasil_ujian table
-                    const hasilData = await hasilUjianService.getAll()
+                    // Load nilai akhir from hasil_ujian table (filtered by mahasiswa_prodi_id if admin_prodi)
+                    const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { mahasiswa_prodi_id: user.prodi_id } : {}
+                    const hasilData = await hasilUjianService.getAll(filter)
                     console.log('[KHS] Hasil ujian loaded:', hasilData?.length)
 
                     // Build nilaiAkhirData: { matkulId: { studentId: { nt, nuts, np, uas } } }

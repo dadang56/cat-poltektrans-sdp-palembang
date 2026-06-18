@@ -618,9 +618,7 @@ export const kehadiranService = {
 // ============================================
 export const hasilUjianService = {
     async getAll(filters = {}) {
-        let query = supabase
-            .from('hasil_ujian')
-            .select(`
+        let selectStr = `
                 *,
                 mahasiswa:mahasiswa_id(
                     id, 
@@ -640,13 +638,69 @@ export const hasilUjianService = {
                     matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
                     dosen:dosen_id(id, nama, nim_nip)
                 )
-            `)
+        `
+
+        const matkulProdiId = filters.matkul_prodi_id
+        const mahasiswaProdiId = filters.mahasiswa_prodi_id || filters.prodi_id
+
+        if (matkulProdiId) {
+            selectStr = `
+                *,
+                mahasiswa:mahasiswa_id(
+                    id, 
+                    nama, 
+                    nim_nip,
+                    kelas:kelas_id(
+                        id, 
+                        nama,
+                        prodi:prodi_id(id, nama)
+                    )
+                ),
+                jadwal:jadwal_id!inner(
+                    id,
+                    tanggal,
+                    tipe,
+                    tahun_akademik,
+                    matkul:matkul_id!inner(id, nama, kode, prodi_id, sks_praktek),
+                    dosen:dosen_id(id, nama, nim_nip)
+                )
+            `
+        } else if (mahasiswaProdiId) {
+            selectStr = `
+                *,
+                mahasiswa:mahasiswa_id!inner(
+                    id, 
+                    nama, 
+                    nim_nip,
+                    prodi_id,
+                    kelas:kelas_id(
+                        id, 
+                        nama,
+                        prodi:prodi_id(id, nama)
+                    )
+                ),
+                jadwal:jadwal_id(
+                    id,
+                    tanggal,
+                    tipe,
+                    tahun_akademik,
+                    matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
+                    dosen:dosen_id(id, nama, nim_nip)
+                )
+            `
+        }
+
+        let query = supabase
+            .from('hasil_ujian')
+            .select(selectStr)
             .order('created_at', { ascending: false })
             .range(0, 9999)
 
-        if (filters.prodi_id) {
-            // This needs to filter through nested relations
-            query = query.not('mahasiswa', 'is', null)
+        if (matkulProdiId) {
+            query = query.eq('jadwal.matkul.prodi_id', matkulProdiId)
+        }
+        if (mahasiswaProdiId) {
+            query = query.eq('mahasiswa.prodi_id', mahasiswaProdiId)
         }
 
         const { data, error } = await query
