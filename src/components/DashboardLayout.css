@@ -184,6 +184,63 @@
     gap: var(--space-4);
 }
 
+/* Header Brand Logo & Name */
+.header-brand {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    margin-right: var(--space-3);
+    padding-right: var(--space-4);
+    border-right: 1px solid var(--border-color);
+}
+
+.header-logo-image {
+    width: 32px;
+    height: 32px;
+    object-fit: contain;
+}
+
+.header-logo-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background: linear-gradient(135deg, var(--primary-600) 0%, var(--accent-600) 100%);
+    border-radius: var(--radius-md);
+    color: white;
+}
+
+.header-logo-text {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+}
+
+.header-logo-title {
+    font-size: var(--font-size-sm);
+    font-weight: var(--font-bold);
+    color: var(--text-primary);
+    letter-spacing: 0.5px;
+}
+
+.header-logo-subtitle {
+    font-size: 9px;
+    color: var(--text-muted);
+    font-weight: var(--font-medium);
+    max-width: 140px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Hide header brand on smaller screens to keep header clean */
+@media (max-width: 768px) {
+    .header-brand {
+        display: none;
+    }
+}
+
 .header-right {
     display: flex;
     align-items: center;

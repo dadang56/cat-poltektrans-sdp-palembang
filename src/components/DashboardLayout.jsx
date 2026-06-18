@@ -192,6 +192,21 @@ function DashboardLayout({ children }) {
                             <Menu size={20} />
                         </button>
 
+                        {/* Logo and App Name as symbol */}
+                        <div className="header-brand">
+                            {settings?.logoUrl ? (
+                                <img src={settings.logoUrl} alt="Logo" className="header-logo-image" />
+                            ) : (
+                                <div className="header-logo-icon">
+                                    <GraduationCap size={20} />
+                                </div>
+                            )}
+                            <div className="header-logo-text">
+                                <span className="header-logo-title">{settings?.appName?.split(' ')[0] || 'Si-PANDU'}</span>
+                                <span className="header-logo-subtitle">{settings?.appName?.split(' ').slice(1).join(' ') || ''}</span>
+                            </div>
+                        </div>
+
                         {/* User Info */}
                         <div className="header-user-info">
                             <div className="avatar avatar-sm">

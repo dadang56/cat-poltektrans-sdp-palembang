@@ -105,6 +105,13 @@ function Login() {
                 <div className="wave wave-1"></div>
                 <div className="wave wave-2"></div>
                 <div className="wave wave-3"></div>
+
+                {/* Glowing Orbs for dynamic moving background */}
+                <div className="glowing-orb orb-1"></div>
+                <div className="glowing-orb orb-2"></div>
+                <div className="glowing-orb orb-3"></div>
+                <div className="glowing-orb orb-4"></div>
+
                 <div className="ship-container-1">
                     <Ship className="floating-icon ship-1" size={48} />
                 </div>
@@ -133,21 +140,6 @@ function Login() {
                         <p className="branding-subtitle">{settings?.institution || 'Politeknik Transportasi Sungai Danau dan Penyeberangan Palembang'}</p>
                         <div className="branding-divider"></div>
                         <p className="branding-tagline">{settings?.appSubtitle || 'Sistem Ujian Online Berbasis Komputer'}</p>
-
-                        <div className="branding-features">
-                            <div className="feature-item">
-                                <span className="feature-icon">🔒</span>
-                                <span>Keamanan Terjamin</span>
-                            </div>
-                            <div className="feature-item">
-                                <span className="feature-icon">⚡</span>
-                                <span>Cepat & Responsif</span>
-                            </div>
-                            <div className="feature-item">
-                                <span className="feature-icon">📊</span>
-                                <span>Hasil Real-time</span>
-                            </div>
-                        </div>
                     </div>
                 </div>
 
