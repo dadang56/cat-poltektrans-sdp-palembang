@@ -85,7 +85,7 @@ function ProtectedRoute({ children, allowedRoles }) {
 function App() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [theme, setTheme] = useState('light')
+  const [theme, setTheme] = useState('dark')
   const [sessionMessage, setSessionMessage] = useState(null)
 
   // Check for existing session on mount using authService
@@ -99,7 +99,7 @@ function App() {
         }
 
         // Load theme preference
-        const savedTheme = localStorage.getItem('cat_theme') || 'light'
+        const savedTheme = localStorage.getItem('cat_theme') || 'dark'
         setTheme(savedTheme)
         document.documentElement.setAttribute('data-theme', savedTheme)
       } catch (error) {

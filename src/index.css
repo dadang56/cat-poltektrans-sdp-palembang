@@ -178,22 +178,22 @@ body {
 
 /* Dark Theme */
 [data-theme="dark"] {
-  --bg-primary: var(--gray-950);
-  --bg-secondary: var(--gray-900);
-  --bg-tertiary: var(--gray-800);
-  --text-primary: var(--gray-50);
-  --text-secondary: var(--gray-300);
-  --text-muted: var(--gray-500);
-  --border-color: var(--gray-700);
-  --border-focus: var(--accent-500);
+  --bg-primary: #060b13;
+  --bg-secondary: #0d1424;
+  --bg-tertiary: #131b2e;
+  --text-primary: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #64748b;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --border-focus: #d4af37;
 
   /* Map theme primary/secondary variables to their dark-mode optimized HSL variants */
-  --color-primary: var(--color-primary-dm) !important;
-  --color-primary-light: var(--color-primary-light-dm) !important;
-  --color-primary-dark: var(--color-primary-dark-dm) !important;
-  --color-secondary: var(--color-secondary-dm) !important;
-  --color-secondary-light: var(--color-secondary-light-dm) !important;
-  --color-secondary-dark: var(--color-secondary-dark-dm) !important;
+  --color-primary: #d4af37 !important;
+  --color-primary-light: rgba(212, 175, 55, 0.08) !important;
+  --color-primary-dark: #b59228 !important;
+  --color-secondary: #00a8a8 !important;
+  --color-secondary-light: rgba(0, 168, 168, 0.08) !important;
+  --color-secondary-dark: #008585 !important;
 }
 
 [data-theme="dark"] ::-webkit-scrollbar-thumb {

@@ -561,51 +561,71 @@
    ============================================ */
 
 [data-theme="dark"] .sidebar {
-    background: var(--gray-900);
-    border-color: var(--gray-800);
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
 }
 
 [data-theme="dark"] .sidebar-header {
-    border-color: var(--gray-800);
+    border-color: var(--border-color);
 }
 
 [data-theme="dark"] .sidebar-nav-item {
-    color: var(--gray-300);
+    color: var(--text-secondary);
 }
 
 [data-theme="dark"] .sidebar-nav-item:hover {
-    background: var(--gray-800);
-    color: var(--gray-100);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
 }
 
 [data-theme="dark"] .sidebar-nav-item.active {
-    background: linear-gradient(135deg, var(--color-primary-light, rgba(0, 168, 168, 0.12)) 0%, rgba(15, 23, 42, 0.2) 100%) !important;
-    color: var(--color-primary, var(--accent-400)) !important;
+    background: rgba(212, 175, 55, 0.05) !important;
+    color: var(--color-primary, #d4af37) !important;
+    border: 1px solid var(--color-primary, #d4af37);
+    border-radius: var(--radius-md);
 }
 
 [data-theme="dark"] .sidebar-nav-item.active::before {
-    background: var(--color-primary, var(--accent-500)) !important;
+    display: none !important;
 }
 
 [data-theme="dark"] .sidebar-footer {
-    border-color: var(--gray-800);
+    border-color: var(--border-color);
 }
 
 [data-theme="dark"] .user-info {
-    background: var(--gray-800);
+    background: var(--bg-tertiary);
 }
 
 [data-theme="dark"] .user-name {
-    color: var(--gray-100);
+    color: var(--text-primary);
 }
 
 [data-theme="dark"] .user-role {
-    color: var(--gray-400);
+    color: var(--text-secondary);
 }
 
 [data-theme="dark"] .main-header {
-    background: rgba(15, 23, 42, 0.75);
-    border-color: var(--gray-800);
+    background: rgba(13, 20, 36, 0.8) !important;
+    border-color: var(--border-color);
+}
+
+/* Watermark Background like in Siakad */
+[data-theme="dark"] .dashboard-layout::after {
+    content: '';
+    position: fixed;
+    top: 55%;
+    left: 55%;
+    transform: translate(-50%, -50%);
+    width: 60vh;
+    height: 60vh;
+    background-image: url('/logo.png');
+    background-repeat: no-repeat;
+    background-position: center;
+    background-size: contain;
+    opacity: 0.02; /* Extremely faint watermark */
+    pointer-events: none;
+    z-index: 0;
 }
 
 /* ============================================
