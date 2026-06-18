@@ -113,7 +113,10 @@ function AdminNilaiAkhirPage() {
                 const dosenMap = new Map()
                 const matkulMap = new Map()
 
-                results?.forEach((r, idx) => {
+                // Sort results by created_at ascending (oldest first) so that newer exam records correctly overwrite older ones
+                const sortedResults = results ? [...results].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)) : []
+
+                sortedResults.forEach((r, idx) => {
                     try {
                         const jadwal = r.jadwal || {}
                         const matkul = jadwal.matkul || {}
@@ -174,12 +177,14 @@ function AdminNilaiAkhirPage() {
                             }
                         }
 
-                        // Update UTS or UAS score from exam records (overrides manual input)
-                        const dbScore = Number(r.nilai_total || 0)
-                        if (tipeUjian === 'UTS' && dbScore > 0) {
-                            groups[groupKey].students[mahasiswaId].nuts = dbScore
-                        } else if (tipeUjian === 'UAS' && dbScore > 0) {
-                            groups[groupKey].students[mahasiswaId].uas = dbScore
+                        // Update UTS or UAS score from exam results (nilai_total)
+                        const dbScore = r.nilai_total != null ? Number(r.nilai_total) : null
+                        if (dbScore != null) {
+                            if (tipeUjian === 'UTS') {
+                                groups[groupKey].students[mahasiswaId].nuts = dbScore
+                            } else if (tipeUjian === 'UAS') {
+                                groups[groupKey].students[mahasiswaId].uas = dbScore
+                            }
                         }
 
                         // Update NT/NP from DB if available

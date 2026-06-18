@@ -124,7 +124,10 @@ function NilaiAkhirPage() {
                 // 4. Process grades
                 const gradesByMatkul = {}
 
-                results.forEach(r => {
+                // Sort results by created_at ascending (oldest first) so that newer exam records correctly overwrite older ones
+                const sortedResults = results ? [...results].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)) : []
+
+                sortedResults.forEach(r => {
                     const matkulId = r.jadwal?.matkul_id
                     const mahasiswaId = r.mahasiswa_id
                     const tipeUjian = (r.jadwal?.tipe || r.jadwal?.tipe_ujian || '').toUpperCase()

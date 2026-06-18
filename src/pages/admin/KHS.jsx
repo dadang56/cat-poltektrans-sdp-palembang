@@ -130,7 +130,9 @@ function KHSPage() {
 
                     // Build nilaiAkhirData: { matkulId: { studentId: { nt, nuts, np, uas } } }
                     const builtNilai = {}
-                    hasilData?.forEach(r => {
+                    // Sort hasilData by created_at ascending so that newer exam records correctly overwrite older ones
+                    const sortedHasil = hasilData ? [...hasilData].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)) : []
+                    sortedHasil.forEach(r => {
                         const jadwal = r.jadwal || {}
                         const matkul = jadwal.matkul || {}
                         const matkulId = matkul.id
@@ -147,11 +149,13 @@ function KHSPage() {
                         }
 
                         const entry = builtNilai[matkulId][mahasiswaId]
-                        const dbScore = Number(r.nilai_total || 0)
+                        const dbScore = r.nilai_total != null ? Number(r.nilai_total) : null
 
                         // Map UTS/UAS scores from exam results
-                        if (tipeUjian === 'UTS' && dbScore > 0) entry.nuts = dbScore
-                        if (tipeUjian === 'UAS' && dbScore > 0) entry.uas = dbScore
+                        if (dbScore != null) {
+                            if (tipeUjian === 'UTS') entry.nuts = dbScore
+                            if (tipeUjian === 'UAS') entry.uas = dbScore
+                        }
 
                         // Also pick up nilai_tugas (NT) and nilai_praktek (NP) if stored
                         if (r.nilai_tugas != null) entry.nt = r.nilai_tugas
