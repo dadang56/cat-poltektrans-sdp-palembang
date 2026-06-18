@@ -363,43 +363,38 @@ function NilaiAkhirPage() {
             <head>
                 <title>Nilai Akhir - ${selectedMatkul.nama}</title>
                 <style>
-                    @page { size: A4 landscape; margin: 12mm; }
-                    body { font-family: 'Times New Roman', serif; padding: 15px; font-size: 11pt; }
-                    .letterhead {
-                        display: flex;
-                        align-items: center;
-                        gap: 20px;
-                        border-bottom: 3px double #000;
-                        padding-bottom: 15px;
-                        margin-bottom: 20px;
-                    }
+                    @page { size: A4 portrait; margin: 8mm 12mm 6mm; }
+                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                    body { font-family: 'Times New Roman', serif; font-size: 9.5pt; padding: 0; line-height: 1.35; }
+                    .letterhead { display: flex; align-items: center; gap: 12px; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 10px; }
+                    .letterhead img { height: 55px; width: auto; }
                     .letterhead-logo {
-                        width: 70px; height: 70px;
-                        border: 2px solid #1e3a5f; border-radius: 50%;
-                        display: flex; align-items: center; justify-content: center;
-                        flex-direction: column; background: white;
+                        flex-shrink: 0;
                     }
+                    .letterhead-logo img { height: 55px; width: auto; }
                     .letterhead-logo .logo-icon { font-size: 24pt; line-height: 1; }
                     .letterhead-logo .logo-text { font-size: 6pt; color: #1e3a5f; font-weight: bold; }
                     .letterhead-text { flex: 1; text-align: center; }
-                    .letterhead-text h1 { margin: 5px 0; font-size: 16pt; text-transform: uppercase; }
-                    .letterhead-text p { margin: 3px 0; font-size: 10pt; }
-                    .document-title { text-align: center; margin: 20px 0; }
-                    .document-title h3 { text-decoration: underline; margin: 0; font-size: 14pt; }
-                    .exam-info { margin-bottom: 12px; font-size: 10pt; }
+                    .letterhead-text h1 { margin: 2px 0; font-size: 12.5pt; text-transform: uppercase; font-weight: bold; }
+                    .letterhead-text p { margin: 2px 0; font-size: 8.5pt; }
+                    .document-title { text-align: center; margin: 10px 0 5px; }
+                    .document-title h3 { text-decoration: underline; margin: 0; font-size: 12.5pt; font-weight: bold; }
+                    .document-title p { margin-top: 2px; font-size: 9.5pt; }
+                    .exam-info { margin-bottom: 4px; font-size: 9.5pt; }
                     .exam-info p { margin: 2px 0; }
-                    .bobot-info { margin-bottom: 10px; font-size: 9pt; font-style: italic; color: #555; }
-                    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-                    th, td { border: 1px solid #000; padding: 4px 6px; text-align: center; font-size: 10pt; }
+                    .bobot-info { margin-bottom: 8px; font-size: 8.5pt; font-style: italic; color: #555; }
+                    table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5pt; }
+                    th, td { border: 1px solid #000; padding: 3px 5px; text-align: center; }
                     th { background: #f0f0f0; font-weight: bold; }
                     td.name { text-align: left; }
                     .grade-a { color: #166534; font-weight: bold; }
                     .grade-b { color: #854d0e; font-weight: bold; }
                     .grade-c { color: #1e40af; }
                     .grade-e { color: #dc2626; font-weight: bold; }
-                    .signature-section { margin-top: 40px; display: flex; justify-content: flex-end; }
-                    .signature-box { text-align: center; width: 250px; }
-                    .signature-line { margin-top: 60px; padding-top: 5px; }
+                    .signature-section { margin-top: 20px; display: flex; justify-content: flex-end; page-break-inside: avoid; }
+                    .signature-box { text-align: center; width: 220px; font-size: 9.5pt; }
+                    .signature-line { margin-top: 45px; padding-top: 5px; }
+                    .signature-line p { margin: 2px 0; }
                 </style>
             </head>
             <body>

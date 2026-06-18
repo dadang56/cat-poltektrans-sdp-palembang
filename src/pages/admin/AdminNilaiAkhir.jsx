@@ -249,28 +249,28 @@ function AdminNilaiAkhirPage() {
             <head>
                 <title>Nilai Akhir - ${group.matkulNama}</title>
                 <style>
-                    @page { size: A4 portrait; margin: 15mm; }
+                    @page { size: A4 portrait; margin: 8mm 12mm 6mm; }
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: 'Times New Roman', serif; font-size: 11pt; padding: 15px; }
-                    .letterhead { display: flex; align-items: center; gap: 15px; border-bottom: 3px solid #000; padding-bottom: 12px; margin-bottom: 15px; }
+                    body { font-family: 'Times New Roman', serif; font-size: 9.5pt; padding: 0; line-height: 1.35; }
+                    .letterhead { display: flex; align-items: center; gap: 12px; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 10px; }
                     .letterhead-logo { flex-shrink: 0; }
-                    .letterhead-logo img { height: 70px; width: auto; }
+                    .letterhead-logo img { height: 55px; width: auto; }
                     .letterhead-text { flex: 1; text-align: center; }
-                    .letterhead-text h2 { font-size: 14pt; font-weight: bold; margin: 3px 0; text-transform: uppercase; }
-                    .letterhead-text .contact { font-size: 9pt; margin-top: 3px; }
-                    .doc-title { text-align: center; margin: 20px 0; font-size: 14pt; font-weight: bold; text-decoration: underline; }
-                    .info-row { margin-bottom: 3px; font-size: 10pt; }
+                    .letterhead-text h2 { font-size: 12.5pt; font-weight: bold; margin: 2px 0; text-transform: uppercase; }
+                    .letterhead-text .contact { font-size: 8.5pt; margin-top: 2px; }
+                    .doc-title { text-align: center; margin: 10px 0 5px; font-size: 12.5pt; font-weight: bold; text-decoration: underline; }
+                    .info-row { margin-bottom: 2px; font-size: 9.5pt; }
                     .info-label { display: inline-block; width: 140px; }
-                    table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10pt; }
-                    th, td { border: 1px solid #000; padding: 5px 8px; text-align: center; }
+                    table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5pt; }
+                    th, td { border: 1px solid #000; padding: 3px 5px; text-align: center; }
                     th { background: #f0f0f0; font-weight: bold; }
                     td.left { text-align: left; }
-                    .signatures { display: flex; justify-content: space-between; margin-top: 40px; font-size: 10pt; }
+                    .signatures { display: flex; justify-content: space-between; margin-top: 20px; font-size: 9.5pt; page-break-inside: avoid; }
                     .signature-box { text-align: center; width: 220px; }
-                    .signature-box .title { font-weight: normal; margin-bottom: 5px; line-height: 1.4; }
-                    .signature-box .space { height: 60px; }
+                    .signature-box .title { font-weight: normal; margin-bottom: 5px; line-height: 1.3; }
+                    .signature-box .space { height: 45px; }
                     .signature-box .name { font-weight: bold; text-decoration: underline; }
-                    .signature-box .nip { font-size: 9pt; }
+                    .signature-box .nip { font-size: 8.5pt; }
                 </style>
             </head>
             <body>
@@ -446,28 +446,28 @@ function AdminNilaiAkhirPage() {
             <head>
                 <title>Nilai Akhir Kolektif - ${filteredGroups.length} Mata Kuliah</title>
                 <style>
-                    @page { size: A4 portrait; margin: 15mm; }
+                    @page { size: A4 portrait; margin: 8mm 12mm 6mm; }
                     * { margin: 0; padding: 0; box-sizing: border-box; }
-                    body { font-family: 'Times New Roman', serif; font-size: 11pt; padding: 15px; }
-                    .letterhead { display: flex; align-items: center; gap: 15px; border-bottom: 3px solid #000; padding-bottom: 12px; margin-bottom: 15px; }
+                    body { font-family: 'Times New Roman', serif; font-size: 9.5pt; padding: 0; line-height: 1.35; }
+                    .letterhead { display: flex; align-items: center; gap: 12px; border-bottom: 3px double #000; padding-bottom: 8px; margin-bottom: 10px; }
                     .letterhead-logo { flex-shrink: 0; }
-                    .letterhead-logo img { height: 70px; width: auto; }
+                    .letterhead-logo img { height: 55px; width: auto; }
                     .letterhead-text { flex: 1; text-align: center; }
-                    .letterhead-text h2 { font-size: 14pt; font-weight: bold; margin: 3px 0; text-transform: uppercase; }
-                    .letterhead-text .contact { font-size: 9pt; margin-top: 3px; }
-                    .doc-title { text-align: center; margin: 20px 0; font-size: 14pt; font-weight: bold; text-decoration: underline; }
-                    .info-row { margin-bottom: 3px; font-size: 10pt; }
+                    .letterhead-text h2 { font-size: 12.5pt; font-weight: bold; margin: 2px 0; text-transform: uppercase; }
+                    .letterhead-text .contact { font-size: 8.5pt; margin-top: 2px; }
+                    .doc-title { text-align: center; margin: 10px 0 5px; font-size: 12.5pt; font-weight: bold; text-decoration: underline; }
+                    .info-row { margin-bottom: 2px; font-size: 9.5pt; }
                     .info-label { display: inline-block; width: 140px; }
-                    table { width: 100%; border-collapse: collapse; margin: 15px 0; font-size: 10pt; }
-                    th, td { border: 1px solid #000; padding: 5px 8px; text-align: center; }
+                    table { width: 100%; border-collapse: collapse; margin: 10px 0; font-size: 9.5pt; }
+                    th, td { border: 1px solid #000; padding: 3px 5px; text-align: center; }
                     th { background: #f0f0f0; font-weight: bold; }
                     td.left { text-align: left; }
-                    .signatures { display: flex; justify-content: space-between; margin-top: 40px; font-size: 10pt; }
+                    .signatures { display: flex; justify-content: space-between; margin-top: 20px; font-size: 9.5pt; page-break-inside: avoid; }
                     .signature-box { text-align: center; width: 220px; }
-                    .signature-box .title { font-weight: normal; margin-bottom: 5px; line-height: 1.4; }
-                    .signature-box .space { height: 60px; }
+                    .signature-box .title { font-weight: normal; margin-bottom: 5px; line-height: 1.3; }
+                    .signature-box .space { height: 45px; }
                     .signature-box .name { font-weight: bold; text-decoration: underline; }
-                    .signature-box .nip { font-size: 9pt; }
+                    .signature-box .nip { font-size: 8.5pt; }
                 </style>
             </head>
             <body>
