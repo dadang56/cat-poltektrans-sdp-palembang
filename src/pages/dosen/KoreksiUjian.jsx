@@ -127,6 +127,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                             <div className="essay-grading-list">
                                 {essayAnswers.map((answer, idx) => {
                                     const question = questions.find(q => String(q.id) === String(answer.questionId))
+                                    const questionImg = question?.gambar || question?.image
                                     return (
                                         <div key={idx} className="essay-grading-item">
                                             <div className="essay-q-header">
@@ -134,6 +135,23 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                 <span className="essay-max-points">Maks: {answer.maxPoints} poin</span>
                                             </div>
                                             <p className="essay-question-text">{question?.pertanyaan || question?.text || 'Soal tidak ditemukan'}</p>
+                                            {questionImg && (
+                                                <div className="question-image-container" style={{ marginTop: '10px', marginBottom: '15px' }}>
+                                                    <img
+                                                        src={questionImg}
+                                                        alt="Gambar Soal"
+                                                        style={{
+                                                            maxWidth: '100%',
+                                                            maxHeight: '200px',
+                                                            borderRadius: 'var(--radius-md, 8px)',
+                                                            border: '1px solid var(--border-color, #e2e8f0)',
+                                                            cursor: 'zoom-in'
+                                                        }}
+                                                        onClick={() => window.open(questionImg, '_blank')}
+                                                        title="Klik untuk memperbesar gambar"
+                                                    />
+                                                </div>
+                                            )}
                                             <div className="essay-answer-box">
                                                 <strong>Jawaban:</strong>
                                                 <p>{answer.answer || '(Tidak dijawab)'}</p>
