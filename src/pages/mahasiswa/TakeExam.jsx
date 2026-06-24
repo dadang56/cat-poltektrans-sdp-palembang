@@ -75,6 +75,10 @@ function TakeExamPage() {
     // Load exam from Supabase
     useEffect(() => {
         const loadExamData = async () => {
+            if (!user) {
+                console.log('TakeExam: Waiting for user session to load...')
+                return
+            }
             console.log('TakeExam: Loading exam with id:', id, 'type:', typeof id)
 
             try {
@@ -199,8 +203,10 @@ function TakeExamPage() {
                         seedHash |= 0
                     }
                     const seededRandom = (max) => {
-                        seedHash = (seedHash * 1103515245 + 12345) & 0x7fffffff
-                        return seedHash % max
+                        // Use Math.imul to avoid float overflow & precision loss in 32-bit integer multiplication
+                        seedHash = (Math.imul(seedHash, 1103515245) + 12345) & 0x7fffffff
+                        // Extract high-order bits for superior pseudo-random distribution
+                        return (seedHash >>> 16) % max
                     }
 
                     // Group by cluster
