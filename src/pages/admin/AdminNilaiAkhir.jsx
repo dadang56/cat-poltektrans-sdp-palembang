@@ -70,6 +70,7 @@ function AdminNilaiAkhirPage() {
     const [prodiList, setProdiList] = useState([])
     const [dosenFilter, setDosenFilter] = useState('all')
     const [matkulFilter, setMatkulFilter] = useState('all')
+    const [kelasFilter, setKelasFilter] = useState('all')
     const [search, setSearch] = useState('')
     const [expandedMatkul, setExpandedMatkul] = useState(null)
 
@@ -77,6 +78,7 @@ function AdminNilaiAkhirPage() {
     const [gradeGroups, setGradeGroups] = useState([])
     const [dosenList, setDosenList] = useState([])
     const [matkulList, setMatkulList] = useState([])
+    const [kelasList, setKelasList] = useState([])
 
     useEffect(() => {
         const loadData = async () => {
@@ -113,6 +115,7 @@ function AdminNilaiAkhirPage() {
                 const groups = {}
                 const dosenMap = new Map()
                 const matkulMap = new Map()
+                const kelasMap = new Map()
 
                 // Sort results by created_at ascending (oldest first) so that newer exam records correctly overwrite older ones
                 const sortedResults = results ? [...results].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)) : []
@@ -123,6 +126,7 @@ function AdminNilaiAkhirPage() {
                         const matkul = jadwal.matkul || {}
                         const dosen = jadwal.dosen || {}
                         const mahasiswa = r.mahasiswa || {}
+                        const kelas = mahasiswa.kelas || {}
                         const tipeUjian = jadwal.tipe
 
                         // Skip only if no matkul info at all
@@ -148,6 +152,11 @@ function AdminNilaiAkhirPage() {
                         }
                         if (!matkulMap.has(matkul.id)) matkulMap.set(matkul.id, matkul)
 
+                        // Track classes for filters
+                        if (kelas.id) {
+                            kelasMap.set(kelas.id, kelas.nama)
+                        }
+
                         const groupKey = `${matkul.id}_${dosenId}`
 
                         if (!groups[groupKey]) {
@@ -171,6 +180,8 @@ function AdminNilaiAkhirPage() {
                                 id: mahasiswaId,
                                 nim: mahasiswa.nim_nip || '-',
                                 name: mahasiswa.nama || 'Unknown',
+                                kelasId: kelas.id || null,
+                                kelasNama: kelas.nama || '-',
                                 nt: r.nilai_tugas ?? null,
                                 nuts: r.nilai_uts ?? null,
                                 np: r.nilai_praktek ?? null,
@@ -212,6 +223,7 @@ function AdminNilaiAkhirPage() {
                 setGradeGroups(groupArray)
                 setDosenList(Array.from(dosenMap.values()))
                 setMatkulList(Array.from(matkulMap.values()))
+                setKelasList(Array.from(kelasMap.entries()).map(([id, nama]) => ({ id, nama })).sort((a, b) => a.nama.localeCompare(b.nama)))
 
             } catch (error) {
                 console.error('[AdminNilaiAkhir] Error:', error)
@@ -233,10 +245,20 @@ function AdminNilaiAkhirPage() {
     }
 
     // Filter groups
-    const filteredGroups = gradeGroups.filter(g => {
+    const filteredGroups = gradeGroups.map(g => {
+        const studentsFiltered = g.students.filter(s => {
+            const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.nim.includes(search)
+            const matchesKelas = kelasFilter === 'all' || String(s.kelasId) === String(kelasFilter)
+            return matchesSearch && matchesKelas
+        })
+        return {
+            ...g,
+            studentsFiltered
+        }
+    }).filter(g => {
         const matchesDosen = dosenFilter === 'all' || String(g.dosenId) === String(dosenFilter)
         const matchesMatkul = matkulFilter === 'all' || String(g.matkulId) === String(matkulFilter)
-        return matchesDosen && matchesMatkul
+        return matchesDosen && matchesMatkul && g.studentsFiltered.length > 0
     })
 
     // Print single matkul+dosen group
@@ -244,9 +266,11 @@ function AdminNilaiAkhirPage() {
         const kaprodiInfo = getKaprodiInfo()
         const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 
-        const studentsFiltered = group.students.filter(s =>
-            s.name.toLowerCase().includes(search.toLowerCase()) || s.nim.includes(search)
-        )
+        const studentsFiltered = group.studentsFiltered || group.students.filter(s => {
+            const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) || s.nim.includes(search)
+            const matchesKelas = kelasFilter === 'all' || String(s.kelasId) === String(kelasFilter)
+            return matchesSearch && matchesKelas
+        })
 
         const printWindow = window.open('', '_blank')
         printWindow.document.write(`
@@ -299,6 +323,7 @@ function AdminNilaiAkhirPage() {
 
                 <div class="info-row"><span class="info-label">Mata Kuliah</span>: ${group.matkulNama} (${group.matkulKode})</div>
                 <div class="info-row"><span class="info-label">Dosen Pengampu</span>: ${group.dosenNama}</div>
+                ${kelasFilter !== 'all' ? `<div class="info-row"><span class="info-label">Kelas</span>: ${kelasList.find(k => String(k.id) === String(kelasFilter))?.nama || ''}</div>` : ''}
                 <div class="info-row"><span class="info-label">Rumus Nilai</span>: ${group.hasPraktek ? 'NT(10%) + NUTS(20%) + NP(20%) + UAS(50%)' : 'NT(10%) + NUTS(30%) + UAS(60%)'}</div>
 
                 <table>
@@ -367,7 +392,7 @@ function AdminNilaiAkhirPage() {
         const today = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })
 
         const allPages = filteredGroups.map((group, gIdx) => {
-            const students = group.students
+            const students = group.studentsFiltered || group.students
             return `
                 <div class="letterhead">
                     <div class="letterhead-logo">
@@ -388,6 +413,7 @@ function AdminNilaiAkhirPage() {
 
                 <div class="info-row"><span class="info-label">Mata Kuliah</span>: ${group.matkulNama} (${group.matkulKode})</div>
                 <div class="info-row"><span class="info-label">Dosen Pengampu</span>: ${group.dosenNama}</div>
+                ${kelasFilter !== 'all' ? `<div class="info-row"><span class="info-label">Kelas</span>: ${kelasList.find(k => String(k.id) === String(kelasFilter))?.nama || ''}</div>` : ''}
 
                 <table>
                     <thead>
@@ -488,10 +514,11 @@ function AdminNilaiAkhirPage() {
     // Export excel
     const handleExportExcel = () => {
         if (filteredGroups.length === 0) return
-        const rows = [['No', 'Mata Kuliah', 'Kode', 'Dosen', 'NIM', 'Nama', 'NT', 'NUTS', 'NP', 'UAS', 'NAK', 'NH', 'Score']]
+        const rows = [['No', 'Mata Kuliah', 'Kode', 'Dosen', 'Kelas', 'NIM', 'Nama', 'NT', 'NUTS', 'NP', 'UAS', 'NAK', 'NH', 'Score']]
         let counter = 1
         filteredGroups.forEach(g => {
-            g.students.forEach(s => {
+            const students = g.studentsFiltered || g.students
+            students.forEach(s => {
                 const nak = calculateNAK(s, g.hasPraktek)
                 const nh = getNilaiHuruf(nak)
                 const score = getScoreAkhir(nak)
@@ -500,6 +527,7 @@ function AdminNilaiAkhirPage() {
                     g.matkulNama,
                     g.matkulKode,
                     g.dosenNama,
+                    s.kelasNama || '-',
                     s.nim,
                     s.name,
                     s.nt ?? '-',
@@ -582,6 +610,15 @@ function AdminNilaiAkhirPage() {
                                 </select>
                             </div>
                             <div className="filter-group">
+                                <label>Kelas</label>
+                                <select className="form-select" value={kelasFilter} onChange={e => setKelasFilter(e.target.value)}>
+                                    <option value="all">Semua Kelas</option>
+                                    {kelasList.map(k => (
+                                        <option key={k.id} value={k.id}>{k.nama}</option>
+                                    ))}
+                                </select>
+                            </div>
+                            <div className="filter-group">
                                 <label>Cari Mahasiswa</label>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '8px 12px', background: 'var(--bg-tertiary)', borderRadius: '8px' }}>
                                     <Search size={16} />
@@ -623,9 +660,7 @@ function AdminNilaiAkhirPage() {
                 ) : (
                     filteredGroups.map((group) => {
                         const isExpanded = expandedMatkul === `${group.matkulId}_${group.dosenId}`
-                        const studentsFiltered = group.students.filter(s =>
-                            s.name.toLowerCase().includes(search.toLowerCase()) || s.nim.includes(search)
-                        )
+                        const studentsFiltered = group.studentsFiltered || group.students
 
                         return (
                             <div className="card mb-4" key={`${group.matkulId}_${group.dosenId}`}>
@@ -637,7 +672,7 @@ function AdminNilaiAkhirPage() {
                                         <h3 style={{ marginBottom: '4px' }}>{group.matkulNama} <small style={{ color: 'var(--color-text-muted)' }}>({group.matkulKode})</small></h3>
                                         <p className="text-muted" style={{ fontSize: '13px' }}>
                                             <Users size={14} style={{ marginRight: '4px', verticalAlign: 'middle' }} />
-                                            Dosen: {group.dosenNama} | {group.students.length} mahasiswa
+                                            Dosen: {group.dosenNama} | {studentsFiltered.length} mahasiswa
                                             {group.hasPraktek && ' | Praktek'}
                                         </p>
                                     </div>
@@ -657,6 +692,7 @@ function AdminNilaiAkhirPage() {
                                                         <th>No</th>
                                                         <th>Nama</th>
                                                         <th>NIM</th>
+                                                        <th>Kelas</th>
                                                         <th className="text-center">NT<br /><small>10%</small></th>
                                                         <th className="text-center">NUTS<br /><small>{group.hasPraktek ? '20%' : '30%'}</small></th>
                                                         {group.hasPraktek && <th className="text-center">NP<br /><small>20%</small></th>}
@@ -676,6 +712,7 @@ function AdminNilaiAkhirPage() {
                                                                 <td>{index + 1}</td>
                                                                 <td>{student.name}</td>
                                                                 <td>{student.nim}</td>
+                                                                <td>{student.kelasNama || '-'}</td>
                                                                 <td className="text-center">{student.nt ?? <span style={{ color: 'var(--text-muted)' }}>-</span>}</td>
                                                                 <td className="text-center">{student.nuts ?? <span style={{ color: 'var(--text-muted)' }}>-</span>}</td>
                                                                 {group.hasPraktek && (
@@ -720,6 +757,26 @@ function AdminNilaiAkhirPage() {
                 [data-theme="dark"] .info-box strong,
                 [data-theme="dark"] .info-box span { color: #93c5fd; }
                 [data-theme="dark"] .info-box .info-icon { color: #60a5fa; }
+
+                .filters-row {
+                    display: flex;
+                    gap: 16px;
+                    margin-bottom: 16px;
+                    flex-wrap: wrap;
+                    align-items: flex-end;
+                }
+                .filter-group {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 8px;
+                    min-width: 200px;
+                    flex: 1;
+                }
+                .filter-group label {
+                    font-size: 13px;
+                    font-weight: 500;
+                    color: var(--color-text-muted);
+                }
             `}</style>
         </DashboardLayout>
     )
