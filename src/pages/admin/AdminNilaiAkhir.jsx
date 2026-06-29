@@ -93,23 +93,36 @@ function AdminNilaiAkhirPage() {
                 const prodiData = await prodiService.getAll()
                 setProdiList(prodiData || [])
 
-                // Load hasil ujian filtered by matkul_prodi_id if admin_prodi
+                // 1. Load all schedules (jadwal_ujian)
+                const allJadwal = await jadwalService.getAll()
+                console.log('[AdminNilaiAkhir] Loaded schedules:', allJadwal?.length)
+
+                const currentTA = settings?.tahunAkademik
+                const filteredJadwal = allJadwal.filter(j => {
+                    // Filter by tahun_akademik
+                    if (currentTA && j.tahun_akademik !== currentTA) return false
+                    
+                    // Filter by prodi if admin_prodi
+                    if (user?.role === 'admin_prodi' && user.prodi_id) {
+                        const matkulProdi = j.matkul?.prodi_id
+                        if (matkulProdi && String(matkulProdi) !== String(user.prodi_id)) return false
+                    }
+                    return true
+                })
+
+                // 2. Load all students (mahasiswa) for classes
+                let activeStudents = []
+                if (user?.role === 'admin_prodi' && user.prodi_id) {
+                    activeStudents = await userService.getAll({ role: 'mahasiswa', prodi_id: user.prodi_id })
+                } else {
+                    activeStudents = await userService.getAll({ role: 'mahasiswa' })
+                }
+                console.log('[AdminNilaiAkhir] Loaded active students:', activeStudents?.length)
+
+                // 3. Load hasil ujian filtered by matkul_prodi_id if admin_prodi
                 const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}
                 const results = await hasilUjianService.getAll(filter)
                 console.log('[AdminNilaiAkhir] Loaded results:', results?.length)
-
-                // Log first result structure for debugging
-                if (results?.length > 0) {
-                    const r0 = results[0]
-                    console.log('[AdminNilaiAkhir] First result sample:', {
-                        id: r0.id,
-                        jadwal: r0.jadwal ? { id: r0.jadwal.id, tipe: r0.jadwal.tipe, matkul: r0.jadwal.matkul, dosen: r0.jadwal.dosen } : null,
-                        mahasiswa: r0.mahasiswa ? { id: r0.mahasiswa.id, nama: r0.mahasiswa.nama } : null,
-                        nilai_total: r0.nilai_total,
-                        nilai_tugas: r0.nilai_tugas,
-                        nilai_praktek: r0.nilai_praktek
-                    })
-                }
 
                 // Group by matkul + dosen combination
                 const groups = {}
@@ -117,10 +130,69 @@ function AdminNilaiAkhirPage() {
                 const matkulMap = new Map()
                 const kelasMap = new Map()
 
-                // Sort results by created_at ascending (oldest first) so that newer exam records correctly overwrite older ones
+                // First, pre-populate all scheduled matkul + dosen groups & their students
+                filteredJadwal.forEach(j => {
+                    const matkul = j.matkul || {}
+                    const dosen = j.dosen || {}
+                    const kelas = j.kelas || {}
+
+                    if (!matkul.id) return
+
+                    const dosenId = dosen.id || j.dosen_id || 'unknown'
+                    const dosenNama = dosen.nama || (dosenId !== 'unknown' ? 'Dosen' : 'Belum Ditentukan')
+                    const dosenNip = dosen.nim_nip || ''
+
+                    // Track dosen and matkul for filters
+                    if (dosenId !== 'unknown' && !dosenMap.has(dosenId)) {
+                        dosenMap.set(dosenId, { id: dosenId, nama: dosenNama, nim_nip: dosenNip })
+                    }
+                    if (!matkulMap.has(matkul.id)) matkulMap.set(matkul.id, matkul)
+
+                    // Track classes for filters
+                    if (kelas.id) {
+                        kelasMap.set(kelas.id, kelas.nama)
+                    }
+
+                    const groupKey = `${matkul.id}_${dosenId}`
+
+                    if (!groups[groupKey]) {
+                        groups[groupKey] = {
+                            matkulId: matkul.id,
+                            matkulNama: matkul.nama || 'N/A',
+                            matkulKode: matkul.kode || '',
+                            hasPraktek: (matkul.sks_praktek > 0) || (matkul.sksPraktek > 0),
+                            dosenId: dosenId,
+                            dosenNama: dosenNama,
+                            dosenNip: dosenNip,
+                            students: {}
+                        }
+                    }
+
+                    // Pre-populate students of this class
+                    if (kelas.id) {
+                        const classStudents = activeStudents.filter(s => String(s.kelas_id) === String(kelas.id))
+                        classStudents.forEach(s => {
+                            if (!groups[groupKey].students[s.id]) {
+                                groups[groupKey].students[s.id] = {
+                                    id: s.id,
+                                    nim: s.nim_nip || '-',
+                                    name: s.nama || 'Unknown',
+                                    kelasId: kelas.id || null,
+                                    kelasNama: kelas.nama || '-',
+                                    nt: null,
+                                    nuts: null,
+                                    np: null,
+                                    uas: null
+                                }
+                            }
+                        })
+                    }
+                })
+
+                // Next, update grades from exam results (hasil_ujian)
                 const sortedResults = results ? [...results].sort((a, b) => new Date(a.created_at || 0) - new Date(b.created_at || 0)) : []
 
-                sortedResults.forEach((r, idx) => {
+                sortedResults.forEach((r) => {
                     try {
                         const jadwal = r.jadwal || {}
                         const matkul = jadwal.matkul || {}
@@ -130,36 +202,24 @@ function AdminNilaiAkhirPage() {
                         const tipeUjian = jadwal.tipe
 
                         // Skip only if no matkul info at all
-                        if (!matkul.id) {
-                            console.log('[AdminNilaiAkhir] Skipping result #' + idx + ' - no matkul:', r.id)
-                            return
-                        }
+                        if (!matkul.id) return
 
-                        // Filter by prodi if admin_prodi (skip filter if matkul has no prodi_id)
-                        if (user?.role === 'admin_prodi' && user.prodi_id && matkul.prodi_id && String(matkul.prodi_id) !== String(user.prodi_id)) {
-                            console.log('[AdminNilaiAkhir] Skipping result #' + idx + ' - prodi mismatch:', matkul.prodi_id, '!=', user.prodi_id)
-                            return
-                        }
-
-                        // Use dosen info - check multiple sources since jadwal.dosen_id may be null
                         const dosenId = dosen.id || jadwal.dosen_id || 'unknown'
-                        const dosenNama = dosen.nama || (dosenId !== 'unknown' ? 'Dosen' : 'Belum Ditentukan')
-                        const dosenNip = dosen.nim_nip || ''
-
-                        // Track dosen and matkul for filters
-                        if (dosenId !== 'unknown' && !dosenMap.has(dosenId)) {
-                            dosenMap.set(dosenId, { id: dosenId, nama: dosenNama, nim_nip: dosenNip })
-                        }
-                        if (!matkulMap.has(matkul.id)) matkulMap.set(matkul.id, matkul)
-
-                        // Track classes for filters
-                        if (kelas.id) {
-                            kelasMap.set(kelas.id, kelas.nama)
-                        }
-
                         const groupKey = `${matkul.id}_${dosenId}`
 
+                        // Fallback group creation if not in schedules
                         if (!groups[groupKey]) {
+                            const dosenNama = dosen.nama || (dosenId !== 'unknown' ? 'Dosen' : 'Belum Ditentukan')
+                            const dosenNip = dosen.nim_nip || ''
+                            
+                            if (dosenId !== 'unknown' && !dosenMap.has(dosenId)) {
+                                dosenMap.set(dosenId, { id: dosenId, nama: dosenNama, nim_nip: dosenNip })
+                            }
+                            if (!matkulMap.has(matkul.id)) matkulMap.set(matkul.id, matkul)
+                            if (kelas.id) {
+                                kelasMap.set(kelas.id, kelas.nama)
+                            }
+
                             groups[groupKey] = {
                                 matkulId: matkul.id,
                                 matkulNama: matkul.nama || 'N/A',
@@ -189,29 +249,31 @@ function AdminNilaiAkhirPage() {
                             }
                         }
 
+                        const studentEntry = groups[groupKey].students[mahasiswaId]
+
                         // Update UTS or UAS score from exam results (nilai_total)
                         const dbScore = r.nilai_total != null ? Number(r.nilai_total) : null
                         if (dbScore != null) {
                             if (tipeUjian === 'UTS') {
-                                groups[groupKey].students[mahasiswaId].nuts = dbScore
+                                studentEntry.nuts = dbScore
                             } else if (tipeUjian === 'UAS') {
-                                groups[groupKey].students[mahasiswaId].uas = dbScore
+                                studentEntry.uas = dbScore
                             }
                         }
 
                         // Update NT/NP from DB if available
                         if (r.nilai_tugas != null) {
-                            groups[groupKey].students[mahasiswaId].nt = r.nilai_tugas
+                            studentEntry.nt = r.nilai_tugas
                         }
                         if (r.nilai_praktek != null) {
-                            groups[groupKey].students[mahasiswaId].np = r.nilai_praktek
+                            studentEntry.np = r.nilai_praktek
                         }
                     } catch (itemError) {
-                        console.error('[AdminNilaiAkhir] Error processing result #' + idx + ':', itemError)
+                        console.error('[AdminNilaiAkhir] Error processing result:', itemError)
                     }
                 })
 
-                console.log('[AdminNilaiAkhir] Groups formed:', Object.keys(groups).length, 'user.prodi_id:', user?.prodi_id, 'user.role:', user?.role)
+                console.log('[AdminNilaiAkhir] Groups formed:', Object.keys(groups).length)
 
                 // Convert students objects to arrays
                 const groupArray = Object.values(groups).map(g => ({
@@ -233,7 +295,7 @@ function AdminNilaiAkhirPage() {
         }
 
         loadData()
-    }, [user])
+    }, [user, settings])
 
     // Get Ka.Prodi info
     const getKaprodiInfo = () => {
