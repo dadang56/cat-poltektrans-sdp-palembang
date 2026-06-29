@@ -832,15 +832,15 @@ export const hasilUjianService = {
         let filteredJadwalDirect = jadwalDirect || []
         let filteredJadwalFromSoal = jadwalFromSoal || []
 
+        // Note: Direct assignments (filteredJadwalDirect) bypass profile filters because
+        // the lecturer is directly assigned to these schedules as dosen_id in jadwal_ujian.
         if (allowedKelasIds && allowedKelasIds.length > 0) {
             const cleanAllowedKelasIds = allowedKelasIds.map(String)
-            filteredJadwalDirect = filteredJadwalDirect.filter(j => j.kelas_id && cleanAllowedKelasIds.includes(String(j.kelas_id)))
             filteredJadwalFromSoal = filteredJadwalFromSoal.filter(j => j.kelas_id && cleanAllowedKelasIds.includes(String(j.kelas_id)))
         }
 
         if (allowedMatkulIds && allowedMatkulIds.length > 0) {
             const cleanAllowedMatkulIds = allowedMatkulIds.map(String)
-            filteredJadwalDirect = filteredJadwalDirect.filter(j => j.matkul_id && cleanAllowedMatkulIds.includes(String(j.matkul_id)))
             filteredJadwalFromSoal = filteredJadwalFromSoal.filter(j => j.matkul_id && cleanAllowedMatkulIds.includes(String(j.matkul_id)))
         }
 
