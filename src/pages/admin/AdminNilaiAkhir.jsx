@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
-import { hasilUjianService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, prodiService, isSupabaseConfigured, jadwalService, userService } from '../../services/supabaseService'
 import {
     Award,
     Search,
