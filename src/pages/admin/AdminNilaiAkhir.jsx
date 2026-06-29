@@ -261,12 +261,18 @@ function AdminNilaiAkhirPage() {
                             }
                         }
 
-                        // Update NT/NP from DB if available
+                        // Update from manual overrides if available (matching lecturer page)
+                        if (r.nilai_uts != null) {
+                            studentEntry.nuts = Number(r.nilai_uts)
+                        }
+                        if (r.nilai_uas != null) {
+                            studentEntry.uas = Number(r.nilai_uas)
+                        }
                         if (r.nilai_tugas != null) {
-                            studentEntry.nt = r.nilai_tugas
+                            studentEntry.nt = Number(r.nilai_tugas)
                         }
                         if (r.nilai_praktek != null) {
-                            studentEntry.np = r.nilai_praktek
+                            studentEntry.np = Number(r.nilai_praktek)
                         }
                     } catch (itemError) {
                         console.error('[AdminNilaiAkhir] Error processing result:', itemError)
