@@ -426,12 +426,16 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
                                             ...formData,
                                             prodiIds: ids,
                                             kelasIds: formData.kelasIds?.filter(kid => {
-                                                const kelas = kelasList.find(k => k.id === kid)
-                                                return kelas && ids.includes(kelas.prodiId)
+                                                const kelas = kelasList.find(k => String(k.id) === String(kid))
+                                                if (!kelas) return false
+                                                const kProdiId = String(kelas.prodi_id || kelas.prodi?.id || kelas.prodiId)
+                                                return ids.map(String).includes(kProdiId)
                                             }) || [],
                                             matkulIds: formData.matkulIds?.filter(mid => {
-                                                const matkul = matkulList.find(m => m.id === mid)
-                                                return matkul && ids.includes(matkul.prodiId)
+                                                const matkul = matkulList.find(m => String(m.id) === String(mid))
+                                                if (!matkul) return false
+                                                const mProdiId = String(matkul.prodi_id || matkul.prodi?.id || matkul.prodiId)
+                                                return ids.map(String).includes(mProdiId)
                                             }) || []
                                         })}
                                         placeholder="Pilih Prodi..."
