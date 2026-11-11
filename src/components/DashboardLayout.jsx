@@ -1,6 +1,7 @@
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { useSettings } from '../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../utils/academicYear'
 import {
     Home,
     Users,
@@ -116,7 +117,9 @@ const ROLE_LABELS = {
 function DashboardLayout({ children }) {
     const { user, logout, theme, toggleTheme } = useAuth()
     const { settings } = useSettings()
+    const activeAcademicYear = getActiveAcademicYear(settings, user)
     const navigate = useNavigate()
+    const location = useLocation()
     const [sidebarOpen, setSidebarOpen] = useState(false)
 
     const handleLogout = () => {
@@ -125,6 +128,9 @@ function DashboardLayout({ children }) {
     }
 
     const navItems = NAV_ITEMS[user?.role] || []
+    const activeItem = navItems
+        .filter(item => location.pathname === item.path || (!item.end && location.pathname.startsWith(`${item.path}/`)))
+        .sort((a, b) => b.path.length - a.path.length)[0]
 
     return (
         <div className="dashboard-layout">
@@ -137,7 +143,7 @@ function DashboardLayout({ children }) {
             )}
 
             {/* Sidebar */}
-            <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`}>
+            <aside className={`sidebar ${sidebarOpen ? 'open' : ''}`} aria-label="Navigasi utama">
                 <div className="sidebar-header">
                     <div className="logo">
                         {settings?.logoUrl ? (
@@ -206,6 +212,11 @@ function DashboardLayout({ children }) {
                                 <span className="header-logo-subtitle">{settings?.appName?.split(' ').slice(1).join(' ') || ''}</span>
                             </div>
                         </div>
+                        <div className="header-page-context" aria-live="polite">
+                            <span className="header-page-eyebrow">{ROLE_LABELS[user?.role] || 'Portal Akademik'}</span>
+                            <span className="header-page-title">{activeItem?.label || 'Portal Akademik'}</span>
+                            <span className="header-page-year">Tahun Akademik · {activeAcademicYear || 'belum dipilih'}</span>
+                        </div>
                     </div>
                     <div className="header-right">
                         {/* User Info */}
@@ -224,6 +235,7 @@ function DashboardLayout({ children }) {
                             className="btn btn-icon btn-ghost"
                             onClick={toggleTheme}
                             title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
+                            aria-label={theme === 'light' ? 'Aktifkan mode gelap' : 'Aktifkan mode terang'}
                         >
                             {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
                         </button>

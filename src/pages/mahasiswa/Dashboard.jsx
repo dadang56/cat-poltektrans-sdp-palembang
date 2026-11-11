@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
   ClipboardList,
@@ -19,6 +21,8 @@ import '../admin/Dashboard.css'
 
 function MahasiswaDashboard() {
   const { user } = useAuth()
+  const { settings } = useSettings()
+  const tahunAkademik = getActiveAcademicYear(settings, user)
   const navigate = useNavigate()
 
   const [jadwalList, setJadwalList] = useState([])
@@ -28,7 +32,7 @@ function MahasiswaDashboard() {
     const loadData = async () => {
       try {
         const [jadwalData, matkulData] = await Promise.all([
-          jadwalService.getAll(),
+          jadwalService.getAll({ tahun_akademik: tahunAkademik }),
           matkulService.getAll()
         ])
         setJadwalList(jadwalData || [])
@@ -38,7 +42,7 @@ function MahasiswaDashboard() {
       }
     }
     loadData()
-  }, [])
+  }, [tahunAkademik])
 
   const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 

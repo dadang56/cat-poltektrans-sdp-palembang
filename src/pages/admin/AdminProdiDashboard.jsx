@@ -25,20 +25,10 @@ import {
     Percent
 } from 'lucide-react'
 import './Dashboard.css'
+import { generateAcademicYearOptions } from '../../utils/academicYear'
 
 
-// Generate Tahun Akademik options
-const generateTahunAjaranOptions = () => {
-    const options = []
-    const currentYear = new Date().getFullYear()
-    for (let year = currentYear + 1; year >= currentYear - 2; year--) {
-        options.push(`${year}/${year + 1} Ganjil`)
-        options.push(`${year}/${year + 1} Genap`)
-    }
-    return options
-}
-
-const TAHUN_AJARAN_OPTIONS = generateTahunAjaranOptions()
+const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
 
 function AdminProdiDashboard() {
     const { user } = useAuth()
@@ -99,7 +89,7 @@ function AdminProdiDashboard() {
                         userService.getAll(),
                         jadwalService.getAll(jadwalFilters),
                         matkulService.getAll(),
-                        soalService.getAll()
+                        soalService.getAll(jadwalFilters)
                     ])
                     usersList = usersData
                     jadwalList = jadwalData

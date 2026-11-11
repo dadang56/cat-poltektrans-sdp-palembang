@@ -4,6 +4,8 @@ import { useAuth } from '../../App'
 import { SEBService, AntiCheat } from '../../services/SEBService'
 import { jadwalService, matkulService, soalService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import { useSettings } from '../../contexts/SettingsContext'
+import { toPercentScore } from '../../utils/gradeUtils'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import {
     Clock,
     ChevronLeft,
@@ -112,48 +114,16 @@ function TakeExamPage() {
                             }
                         }
 
-                        console.log('[TakeExam] Loading soal for matkulId:', matkulId, 'examType:', examType, 'jadwal.dosen_id:', jadwal.dosen_id)
+                        const tahunAkademik = jadwal.tahun_akademik || getActiveAcademicYear(settings, user)
+                        console.log('[TakeExam] Loading soal:', { matkulId, examType, tahunAkademik })
 
-                        // Step 1: Load soal by matkul_id
-                        let soalByMatkul = await soalService.getAll({ matkul_id: matkulId })
-                        console.log('[TakeExam] Step 1 - soal by matkul_id:', soalByMatkul.length)
-
-                        // Step 2: If no soal found by matkul_id, try loading ALL soal by dosen
-                        // This handles cases where matkul_id might be stored differently
-                        if (soalByMatkul.length === 0 && jadwal.dosen_id) {
-                            console.log('[TakeExam] Step 2 - Fallback: loading soal by dosen_id:', jadwal.dosen_id)
-                            const soalByDosen = await soalService.getAll({ dosen_id: jadwal.dosen_id })
-                            // Filter by matkul name match (fuzzy) if jadwal has matkul info
-                            const matkulName = jadwal.matkul?.nama || ''
-                            if (matkulName) {
-                                soalByMatkul = soalByDosen.filter(s => 
-                                    s.matkul?.nama?.toLowerCase() === matkulName.toLowerCase()
-                                )
-                                console.log('[TakeExam] Step 2b - filtered by matkul name:', soalByMatkul.length)
-                            }
-                            // If still empty, use all dosen's soal as last resort
-                            if (soalByMatkul.length === 0) {
-                                soalByMatkul = soalByDosen
-                                console.log('[TakeExam] Step 2c - using all dosen soal:', soalByMatkul.length)
-                            }
-                        }
-
-                        // Step 3: Filter by tipe_ujian
-                        allSoal = soalByMatkul.filter(s => {
-                            if (!s.tipe_ujian) return true
-                            return s.tipe_ujian.toUpperCase() === examType
+                        const soalByMatkul = await soalService.getAll({
+                            matkul_id: matkulId,
+                            tahun_akademik: tahunAkademik
                         })
+                        allSoal = soalByMatkul.filter(s => s.tipe_ujian?.toUpperCase() === examType)
 
-                        console.log('[TakeExam] Step 3 - after tipe_ujian filter:', allSoal.length, '(examType:', examType, ')')
-
-                        // Step 4: If tipe_ujian filter eliminated everything, use unfiltered
-                        if (allSoal.length === 0 && soalByMatkul.length > 0) {
-                            console.warn('[TakeExam] Step 4 - tipe_ujian filter returned 0. Using unfiltered soal. Available tipe_ujian values:', 
-                                [...new Set(soalByMatkul.map(s => s.tipe_ujian))].join(', '))
-                            allSoal = soalByMatkul
-                        }
-
-                        console.log('[TakeExam] Final soal count:', allSoal.length, 'for matkulId:', matkulId, 'examType:', examType)
+                        console.log('[TakeExam] Questions scoped to academic year and exam type:', allSoal.length)
                     }
                 }
 
@@ -163,6 +133,13 @@ function TakeExamPage() {
                 if (jadwal && jadwal.status !== 'ongoing') {
                     console.log('[TakeExam] Exam not activated. Status:', jadwal.status)
                     alert('Ujian belum diaktifkan oleh pengawas/admin prodi. Silakan tunggu hingga ujian dibuka.')
+                    setLoading(false)
+                    navigate('/mahasiswa/ujian')
+                    return
+                }
+
+                if (jadwal && allSoal.length === 0) {
+                    alert(`Soal untuk ${jadwal.tipe || 'ujian'} ${jadwal.tahun_akademik || getActiveAcademicYear(settings, user)} belum tersedia.`)
                     setLoading(false)
                     navigate('/mahasiswa/ujian')
                     return
@@ -816,19 +793,22 @@ function TakeExamPage() {
             const jumlahKosong = answerDetails.filter(a => a.answer === null).length
 
             try {
-                // Determine if this is an ULANG exam and apply score capping
+                // Normalize raw points to 0-100 (bobot soal bisa tidak berjumlah 100)
+                const nilaiTotal = toPercentScore(totalScore, maxScore)
+
+                // Determine if this is an ULANG exam and apply score capping (on 0-100 scale)
                 const isUlang = examData.tipeUjian === 'ULANG'
-                let nilaiFinal = totalScore
-                if (isUlang && totalScore >= 70) {
+                let nilaiFinal = nilaiTotal
+                if (isUlang && nilaiFinal >= 70) {
                     nilaiFinal = 70 // Cap at 70 for remedial exams
-                    console.log('[TakeExam] ULANG exam: score capped from', totalScore, 'to', nilaiFinal)
+                    console.log('[TakeExam] ULANG exam: score capped from', nilaiTotal, 'to', nilaiFinal)
                 }
 
                 // Save to hasil_ujian table
                 const hasilData = {
                     jadwal_id: examData.id,
                     mahasiswa_id: user?.id,
-                    nilai_total: totalScore,
+                    nilai_total: nilaiTotal,
                     nilai_final: nilaiFinal,
                     is_ulang: isUlang,
                     jumlah_benar: jumlahBenar,

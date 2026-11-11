@@ -1,5 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
+import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
 import {
@@ -31,7 +33,7 @@ import { isSupabaseConfigured } from '../../lib/supabase'
 
 
 // Bank Soal Modal for selecting existing questions
-function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
+function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId, tahunAkademik }) {
     const [selectedQuestions, setSelectedQuestions] = useState([])
     const [examTypeFilter, setExamTypeFilter] = useState('all')
     const [bankSoalData, setBankSoalData] = useState([])
@@ -44,7 +46,10 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
             setLoading(true)
             try {
                 if (isSupabaseConfigured()) {
-                    const filters = dosenId ? { dosen_id: dosenId } : {}
+                    const filters = {
+                        ...(dosenId ? { dosen_id: dosenId } : {}),
+                        ...(tahunAkademik ? { tahun_akademik: tahunAkademik } : {})
+                    }
                     const soalData = await soalService.getAll(filters)
                     const mapped = (soalData || []).map(s => ({
                         id: s.id,
@@ -71,7 +76,7 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId }) {
         }
         loadBankSoal()
         setSelectedQuestions([])
-    }, [isOpen, dosenId])
+    }, [isOpen, dosenId, tahunAkademik])
 
     const filteredQuestions = bankSoalData.filter(q =>
         examTypeFilter === 'all' || q.examType === examTypeFilter.toUpperCase()
@@ -677,6 +682,8 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
 
 function BuatSoalPage() {
     const { user } = useAuth()
+    const { settings } = useSettings()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const { showConfirm } = useConfirm()
     const [questions, setQuestions] = useState([])
     const [matkulList, setMatkulList] = useState([])
@@ -713,7 +720,10 @@ function BuatSoalPage() {
                 const dosenKelasIds = user?.kelasIds || []
 
                 // Load ALL data in parallel for maximum speed
-                const soalFilter = dosenId ? { dosen_id: dosenId } : {}
+                const soalFilter = {
+                    ...(dosenId ? { dosen_id: dosenId } : {}),
+                    ...(tahunAkademik ? { tahun_akademik: tahunAkademik } : {})
+                }
                 const [allMatkul, allKelas, allSoal] = await Promise.all([
                     matkulService.getAll(),
                     kelasService.getAll(),
@@ -783,7 +793,7 @@ function BuatSoalPage() {
         if (user) {
             loadData()
         }
-    }, [user])
+    }, [user, tahunAkademik])
 
     // Note: We no longer auto-save all questions because we need to preserve
     // in handleSaveQuestion and handleDeleteQuestion.
@@ -952,7 +962,8 @@ function BuatSoalPage() {
                 bobot: questionData.points || 10,
                 pilihan: questionData.options || [],
                 jawaban_benar: questionData.correctAnswer,
-                dosen_id: user?.id
+                dosen_id: user?.id,
+                tahun_akademik: tahunAkademik
             }
 
             // These columns may not exist if migrations haven't been run
@@ -1143,7 +1154,8 @@ function BuatSoalPage() {
                     bobot: q.points || 10,
                     pilihan: pilihan,
                     jawaban_benar: q.correctAnswer ?? orig.jawaban_benar,
-                    dosen_id: user?.id
+                    dosen_id: user?.id,
+                    tahun_akademik: tahunAkademik
                 }
 
                 // Optional columns (may not exist if migration not run)
@@ -1245,6 +1257,7 @@ function BuatSoalPage() {
             [''],
             ['CATATAN:'],
             ['- Mata kuliah dan jenis ujian (UTS/UAS) mengikuti paket soal yang sedang aktif'],
+            [`- File ini dibuat untuk Tahun Akademik ${tahunAkademik || 'belum dipilih'}`],
             ['- Pastikan format file .xlsx'],
         ]
         const wsInstruksi = XLSX.utils.aoa_to_sheet(instruksi)
@@ -1256,7 +1269,8 @@ function BuatSoalPage() {
 
         const matkulName = selectedPackage ? getMatkulName(selectedPackage.matkulId) : 'Soal'
         const examType = selectedPackage?.examType || 'UTS'
-        XLSX.writeFile(wb, `Template_${matkulName}_${examType}.xlsx`)
+        const tahunFile = (tahunAkademik || 'tanpa-tahun').replace(/[^a-zA-Z0-9-]/g, '-')
+        XLSX.writeFile(wb, `Template_${matkulName}_${examType}_${tahunFile}.xlsx`)
     }
 
     // Import questions from Excel file
@@ -1266,6 +1280,14 @@ function BuatSoalPage() {
 
         // Reset input so same file can be re-uploaded
         e.target.value = ''
+
+        const sourceYearMatch = file.name.match(/(20\d{2})-(20\d{2})-(Ganjil|Genap)/i)
+        if (sourceYearMatch) {
+            const sourceTahunAkademik = `${sourceYearMatch[1]}/${sourceYearMatch[2]} ${sourceYearMatch[3][0].toUpperCase()}${sourceYearMatch[3].slice(1).toLowerCase()}`
+            if (tahunAkademik && sourceTahunAkademik !== tahunAkademik && !confirm(
+                `File ini dibuat untuk ${sourceTahunAkademik}, sedangkan periode aktif adalah ${tahunAkademik}. Soal akan disimpan ke periode aktif. Lanjutkan?`
+            )) return
+        }
 
         try {
             const data = await file.arrayBuffer()
@@ -1344,7 +1366,8 @@ function BuatSoalPage() {
                         bobot: bobot,
                         pilihan: pilihan,
                         jawaban_benar: jawabanBenar,
-                        dosen_id: user?.id
+                        dosen_id: user?.id,
+                        tahun_akademik: tahunAkademik
                     }
 
                     const result = await soalService.create(supabaseData)
@@ -1397,7 +1420,7 @@ function BuatSoalPage() {
                         {viewMode === 'packages' ? (
                             <>
                                 <h1 className="page-title">Buat Soal</h1>
-                                <p className="page-subtitle">Kelola paket soal untuk ujian mata kuliah Anda</p>
+                                <p className="page-subtitle">Kelola paket soal untuk ujian mata kuliah Anda · Tahun Akademik {tahunAkademik || 'belum dipilih'}</p>
                             </>
                         ) : (
                             <>
@@ -1885,6 +1908,7 @@ function BuatSoalPage() {
                     onClose={() => setBankSoalModalOpen(false)}
                     onSelectQuestions={handleImportFromBank}
                     dosenId={user?.id}
+                    tahunAkademik={tahunAkademik}
                 />
 
                 {/* Edit Kelas Modal */}

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { jadwalService, matkulService, kelasService, userService, soalService, ruangService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardList,
@@ -187,6 +188,7 @@ function ConfirmExamModal({ isOpen, onClose, exam, onStart }) {
 function UjianPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const navigate = useNavigate()
 
     const [jadwalList, setJadwalList] = useState([])
@@ -207,7 +209,7 @@ function UjianPage() {
                     // OPTIMIZED: Only load what's needed (removed soalService.getAll and userService.getAll)
                     // jadwal already includes nested matkul, kelas, ruangan, dosen from joins
                     const [jadwal, matkul, kelas, ruang] = await Promise.all([
-                        jadwalService.getAll({ tahun_akademik: settings?.tahunAkademik }),
+                        jadwalService.getAll({ tahun_akademik: tahunAkademik }),
                         matkulService.getAll(),
                         kelasService.getAll(),
                         ruangService.getAll()
@@ -222,7 +224,7 @@ function UjianPage() {
                     // Load completed exams from Supabase
                     if (user?.id) {
                         try {
-                            const results = await hasilUjianService.getByMahasiswa(user.id)
+                            const results = await hasilUjianService.getByMahasiswa(user.id, tahunAkademik)
                             const doneIds = (results || [])
                                 .filter(r => r.status === 'submitted' || r.status === 'graded' || r.status === 'cheating_submitted' || r.status === 'kicked')
                                 .map(r => String(r.jadwal_id))
@@ -266,7 +268,7 @@ function UjianPage() {
             setLoading(false)
         }
         loadData()
-    }, [user, settings?.tahunAkademik])
+    }, [user, tahunAkademik])
 
     // Get mahasiswa's kelas
     const mahasiswaKelasId = user?.kelasId || user?.kelas_id

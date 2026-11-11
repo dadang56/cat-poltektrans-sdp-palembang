@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { useAuth } from '../../App'
 import { jadwalService, matkulService, prodiService, userService, hasilUjianService, kehadiranService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
@@ -29,6 +30,7 @@ const ABSENCE_REASONS = [
 function AttendancePage() {
     const { settings } = useSettings()
     const { user } = useAuth()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const [searchQuery, setSearchQuery] = useState('')
     const [attendanceData, setAttendanceData] = useState({})
     const [rooms, setRooms] = useState([]) // Room list (grouped by ruangan)
@@ -49,7 +51,7 @@ function AttendancePage() {
                 if (isSupabaseConfigured()) {
                     const { ruangService } = await import('../../services/supabaseService')
                     const [jadwal, matkul, prodi, users, allRuang] = await Promise.all([
-                        jadwalService.getAll(),
+                        jadwalService.getAll({ tahun_akademik: tahunAkademik }),
                         matkulService.getAll(),
                         prodiService.getAll(),
                         userService.getAll(),
@@ -102,7 +104,7 @@ function AttendancePage() {
             }
         }
         loadData()
-    }, [])
+    }, [tahunAkademik])
 
     // Load students when room is selected
     const handleRoomSelect = async (roomId) => {

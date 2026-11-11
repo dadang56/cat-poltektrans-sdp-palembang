@@ -22,7 +22,6 @@ function RekapNilaiPage() {
     const { settings } = useSettings()
     const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [examTypeFilter, setExamTypeFilter] = useState('all')
-    const [tahunAkademik, setTahunAkademik] = useState(settings?.tahunAkademik || '')
     const [expandedRow, setExpandedRow] = useState(null)
     const [viewMode, setViewMode] = useState('matkul') // 'matkul', 'kelas', 'mahasiswa'
     const printRef = useRef()
@@ -56,7 +55,7 @@ function RekapNilaiPage() {
                 setProdiList(prodiData || [])
 
                 // Load jadwal first (same approach as EksporData which works)
-                let jadwalData = await jadwalService.getAll()
+                let jadwalData = await jadwalService.getAll({ tahun_akademik: settings?.tahunAkademik })
                 console.log('[RekapNilai] Loaded jadwal:', jadwalData?.length)
 
                 // Filter by prodi for admin_prodi
@@ -128,7 +127,7 @@ function RekapNilaiPage() {
         }
 
         loadData()
-    }, [user])
+    }, [user, settings?.tahunAkademik])
 
     // Filter based on admin prodi or show all for superadmin
     const filteredData = nilaiData.filter(item => {

@@ -26,7 +26,6 @@ function RekapKehadiranPage() {
     const [search, setSearch] = useState('')
     const [prodiFilter, setProdiFilter] = useState(user?.prodi_id || 'all')
     const [dateFilter, setDateFilter] = useState('')
-    const [tahunAkademik, setTahunAkademik] = useState(settings?.tahunAkademik || '')
     const [kehadiranData, setKehadiranData] = useState([])
     const [kehadiranPerMahasiswa, setKehadiranPerMahasiswa] = useState([])
     const [prodiList, setProdiList] = useState([])
@@ -50,7 +49,7 @@ function RekapKehadiranPage() {
                 setProdiList(prodiData || [])
 
                 // Get all jadwal with related data
-                let jadwalData = await jadwalService.getAll()
+                let jadwalData = await jadwalService.getAll({ tahun_akademik: settings?.tahunAkademik })
                 console.log('[RekapKehadiran] Jadwal loaded:', jadwalData?.length)
 
                 // Filter by prodi for admin_prodi
@@ -203,7 +202,7 @@ function RekapKehadiranPage() {
         }
 
         loadData()
-    }, [user])
+    }, [user, settings?.tahunAkademik])
 
     // Filter based on admin prodi or show all for superadmin
     const filteredData = kehadiranData.filter(item => {
@@ -868,4 +867,3 @@ function RekapKehadiranPage() {
 }
 
 export default RekapKehadiranPage
-

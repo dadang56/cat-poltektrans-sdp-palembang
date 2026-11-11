@@ -15,19 +15,9 @@ import {
     Calendar
 } from 'lucide-react'
 import './Login.css'
+import { generateAcademicYearOptions } from '../utils/academicYear'
 
-// Generate Tahun Akademik options
-const generateTahunAjaranOptions = () => {
-    const options = []
-    const currentYear = new Date().getFullYear()
-    for (let year = currentYear + 1; year >= currentYear - 2; year--) {
-        options.push(`${year}/${year + 1} Ganjil`)
-        options.push(`${year}/${year + 1} Genap`)
-    }
-    return options
-}
-
-const TAHUN_AJARAN_OPTIONS = generateTahunAjaranOptions()
+const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
 
 
 function Login() {
@@ -68,19 +58,13 @@ function Login() {
         const { username, password, tahunAkademik } = formData
         const cleanUsername = username.trim()
 
-        // Save tahunAkademik to settings (non-blocking, only saves this field)
-        try {
-            if (saveSettings) {
-                saveSettings({ tahunAkademik })
-            }
-        } catch (e) {
-            console.error('Error saving settings:', e)
-        }
-
         try {
             // Use authService via the login function from AuthContext
             // The login function now handles both Supabase Auth and demo mode
-            await login(cleanUsername, password)
+            const result = await login(cleanUsername, password, tahunAkademik)
+            if (result?.success && ['superadmin', 'admin', 'admin_prodi'].includes(result.user?.role)) {
+                await saveSettings({ tahunAkademik })
+            }
             // On success, App.jsx will handle navigation via user state change
         } catch (err) {
             console.error('Login error:', err)

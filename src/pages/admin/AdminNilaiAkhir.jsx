@@ -120,7 +120,10 @@ function AdminNilaiAkhirPage() {
                 console.log('[AdminNilaiAkhir] Loaded active students:', activeStudents?.length)
 
                 // 3. Load hasil ujian filtered by matkul_prodi_id if admin_prodi
-                const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}
+                const filter = {
+                    ...(user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}),
+                    ...(currentTA ? { tahun_akademik: currentTA } : {})
+                }
                 const results = await hasilUjianService.getAll(filter)
                 console.log('[AdminNilaiAkhir] Loaded results:', results?.length)
 

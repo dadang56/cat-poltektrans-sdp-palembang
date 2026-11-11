@@ -125,7 +125,10 @@ function KHSPage() {
                 }
 
                     // Load nilai akhir from hasil_ujian table (filtered by mahasiswa_prodi_id if admin_prodi)
-                    const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { mahasiswa_prodi_id: user.prodi_id } : {}
+                    const filter = {
+                        ...(user?.role === 'admin_prodi' && user?.prodi_id ? { mahasiswa_prodi_id: user.prodi_id } : {}),
+                        ...(settings?.tahunAkademik ? { tahun_akademik: settings.tahunAkademik } : {})
+                    }
                     const hasilData = await hasilUjianService.getAll(filter)
                     console.log('[KHS] Hasil ujian loaded:', hasilData?.length)
 
@@ -192,7 +195,7 @@ function KHSPage() {
         }
 
         loadData()
-    }, [user])
+    }, [user, settings?.tahunAkademik])
 
     // Filter mahasiswa
     const filteredMahasiswa = mahasiswaList.filter(m => {

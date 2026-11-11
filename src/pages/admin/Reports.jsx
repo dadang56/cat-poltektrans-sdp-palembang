@@ -53,7 +53,7 @@ function ReportsPage() {
     // Load data
     useEffect(() => {
         loadData()
-    }, [])
+    }, [settings?.tahunAkademik])
 
     const loadData = async () => {
         setIsLoading(true)
@@ -73,7 +73,7 @@ function ReportsPage() {
     const loadFromSupabase = async () => {
         // Load all required data in parallel
         const [hasilData, prodiData, kelasData, matkulData, usersData] = await Promise.all([
-            hasilUjianService.getAll(),
+            hasilUjianService.getAll({ tahun_akademik: settings?.tahunAkademik }),
             prodiService.getAll(),
             kelasService.getAll(),
             matkulService.getAll(),

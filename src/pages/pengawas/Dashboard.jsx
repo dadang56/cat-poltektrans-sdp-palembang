@@ -2,6 +2,8 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import {
   Eye,
   Users,
@@ -21,6 +23,8 @@ import { jadwalService, matkulService, ruangService, hasilUjianService } from '.
 
 function PengawasDashboard() {
   const { user } = useAuth()
+  const { settings } = useSettings()
+  const tahunAkademik = getActiveAcademicYear(settings, user)
   const navigate = useNavigate()
 
   const [jadwalList, setJadwalList] = useState([])
@@ -35,7 +39,7 @@ function PengawasDashboard() {
       setLoading(true)
       try {
         const [jadwalData, matkulData, ruanganData] = await Promise.all([
-          jadwalService.getAll(),
+          jadwalService.getAll({ tahun_akademik: tahunAkademik }),
           matkulService.getAll(),
           ruangService.getAll()
         ])
@@ -51,7 +55,7 @@ function PengawasDashboard() {
     }
 
     loadData()
-  }, [])
+  }, [tahunAkademik])
 
   // Check if there are unsaved report logs for today's exams supervised by this user
   useEffect(() => {
@@ -360,4 +364,3 @@ function PengawasDashboard() {
 }
 
 export default PengawasDashboard
-

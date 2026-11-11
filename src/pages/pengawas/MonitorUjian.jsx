@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { jadwalService, hasilUjianService, jawabanMahasiswaService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
   Eye,
@@ -37,6 +38,7 @@ function MonitorUjian() {
   const { user } = useAuth()
   const { showConfirm } = useConfirm()
   const { settings } = useSettings()
+  const tahunAkademik = getActiveAcademicYear(settings, user)
   const [rooms, setRooms] = useState([])
   const [matkulList, setMatkulList] = useState([])
   const [selectedRoom, setSelectedRoom] = useState(null)
@@ -120,7 +122,7 @@ function MonitorUjian() {
           // Load jadwal and ruang_ujian from Supabase
           const { ruangService } = await import('../../services/supabaseService')
           const [allJadwal, allRuang] = await Promise.all([
-            jadwalService.getAll({ tahun_akademik: settings?.tahunAkademik }),
+            jadwalService.getAll({ tahun_akademik: tahunAkademik }),
             ruangService.getAll()
           ])
           setJadwalList(allJadwal)
@@ -201,7 +203,7 @@ function MonitorUjian() {
     }
 
     loadActiveExams()
-  }, [settings?.tahunAkademik])
+  }, [tahunAkademik])
 
   // Check if user can access room (admin/superadmin can access any, pengawas only available rooms)
   const canAccessRoom = (room) => {

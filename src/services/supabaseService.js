@@ -506,6 +506,7 @@ export const soalService = {
             .select('*')
             .eq('matkul_id', jadwal.matkul_id)
             .eq('tipe_ujian', jadwal.tipe)
+            .eq('tahun_akademik', jadwal.tahun_akademik)
             .order('created_at')
 
         if (error) throw error
@@ -690,6 +691,10 @@ export const hasilUjianService = {
             `
         }
 
+        if (filters.tahun_akademik) {
+            selectStr = selectStr.replace(/jadwal:jadwal_id\(/g, 'jadwal:jadwal_id!inner(')
+        }
+
         let query = supabase
             .from('hasil_ujian')
             .select(selectStr)
@@ -701,6 +706,9 @@ export const hasilUjianService = {
         }
         if (mahasiswaProdiId) {
             query = query.eq('mahasiswa.prodi_id', mahasiswaProdiId)
+        }
+        if (filters.tahun_akademik) {
+            query = query.eq('jadwal.tahun_akademik', filters.tahun_akademik)
         }
 
         const { data, error } = await query
@@ -736,22 +744,26 @@ export const hasilUjianService = {
         return data
     },
 
-    async getByMahasiswa(mahasiswaId) {
-        const { data, error } = await supabase
+    async getByMahasiswa(mahasiswaId, tahunAkademik) {
+        let query = supabase
             .from('hasil_ujian')
             .select(`
         *,
-        jadwal:jadwal_id(*, matkul:matkul_id(nama, kode), dosen:dosen_id(id, nama))
+        jadwal:jadwal_id${tahunAkademik ? '!inner' : ''}(*, matkul:matkul_id(nama, kode), dosen:dosen_id(id, nama))
       `)
             .eq('mahasiswa_id', mahasiswaId)
             .order('created_at', { ascending: false })
+
+        if (tahunAkademik) query = query.eq('jadwal.tahun_akademik', tahunAkademik)
+
+        const { data, error } = await query
 
         if (error) throw error
         return data
     },
 
     // Get results for a specific Dosen's classes
-    async getByDosen(dosenId) {
+    async getByDosen(dosenId, tahunAkademik) {
         console.log('[getByDosen] Starting for dosenId:', dosenId)
         
         // Fetch Dosen's class and matkul configuration from users table first
@@ -789,21 +801,27 @@ export const hasilUjianService = {
         console.log('[getByDosen] allowedKelasIds:', allowedKelasIds, 'allowedMatkulIds:', allowedMatkulIds)
 
         // Method 1: Get jadwal where dosen_id is set directly
-        const { data: jadwalDirect, error: jadwalError1 } = await supabase
+        let directQuery = supabase
             .from('jadwal_ujian')
             .select('id, kelas_id, matkul_id')
             .eq('dosen_id', dosenId)
             .is('deleted_at', null)
+
+        if (tahunAkademik) directQuery = directQuery.eq('tahun_akademik', tahunAkademik)
+        const { data: jadwalDirect, error: jadwalError1 } = await directQuery
 
         if (jadwalError1) console.error('Error fetching jadwal by dosen_id:', jadwalError1)
         console.log('[getByDosen] Method 1 (direct dosen_id):', jadwalDirect?.length || 0, 'jadwal')
 
         // Method 2: Get jadwal via matkul_id from soal created by this dosen
         // Strict filter: only jadwal assigned to this dosen (no NULL)
-        const { data: soalData, error: soalError } = await supabase
+        let soalQuery = supabase
             .from('soal')
             .select('matkul_id')
             .eq('dosen_id', dosenId)
+
+        if (tahunAkademik) soalQuery = soalQuery.eq('tahun_akademik', tahunAkademik)
+        const { data: soalData, error: soalError } = await soalQuery
 
         if (soalError) console.error('Error fetching soal by dosen_id:', soalError)
         console.log('[getByDosen] Method 2 soal count:', soalData?.length || 0)
@@ -814,12 +832,15 @@ export const hasilUjianService = {
             console.log('[getByDosen] Unique matkul IDs from soal:', matkulIds.length)
             if (matkulIds.length > 0) {
                 // Only get jadwal where dosen_id matches this dosen
-                const { data: jadwalData2, error: jadwalError2 } = await supabase
+                let jadwalFromSoalQuery = supabase
                     .from('jadwal_ujian')
                     .select('id, kelas_id, matkul_id')
                     .in('matkul_id', matkulIds)
                     .eq('dosen_id', dosenId)
                     .is('deleted_at', null)
+
+                if (tahunAkademik) jadwalFromSoalQuery = jadwalFromSoalQuery.eq('tahun_akademik', tahunAkademik)
+                const { data: jadwalData2, error: jadwalError2 } = await jadwalFromSoalQuery
 
                 if (!jadwalError2 && jadwalData2) {
                     jadwalFromSoal = jadwalData2
@@ -877,6 +898,7 @@ export const hasilUjianService = {
                     id,
                     tanggal,
                     tipe,
+                    tahun_akademik,
                     matkul_id,
                     kelas_id,
                     matkul:matkul_id(id, nama, kode, sks_praktek, sks_teori),
@@ -1153,8 +1175,8 @@ export const beritaAcaraService = {
             .from('berita_acara')
             .select(`
                 *,
-                jadwal:jadwal_id(
-                    id, tanggal, waktu_mulai, waktu_selesai, tipe, prodi_id,
+                jadwal:jadwal_id${filters.tahun_akademik ? '!inner' : ''}(
+                    id, tanggal, waktu_mulai, waktu_selesai, tipe, prodi_id, tahun_akademik,
                     matkul:matkul_id(id, nama, kode, prodi_id),
                     kelas:kelas_id(id, nama, prodi_id),
                     ruangan:ruangan_id(id, nama)
@@ -1165,6 +1187,7 @@ export const beritaAcaraService = {
 
         if (filters.jadwal_id) query = query.eq('jadwal_id', filters.jadwal_id)
         if (filters.pengawas_id) query = query.eq('pengawas_id', filters.pengawas_id)
+        if (filters.tahun_akademik) query = query.eq('jadwal.tahun_akademik', filters.tahun_akademik)
 
         const { data, error } = await query
         if (error) throw error

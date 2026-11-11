@@ -474,7 +474,7 @@ function JadwalUjianPage() {
     // Load data on mount
     useEffect(() => {
         loadData()
-    }, [])
+    }, [settings?.tahunAkademik])
 
     const loadData = async () => {
         setIsLoading(true)
@@ -483,7 +483,7 @@ function JadwalUjianPage() {
         try {
             if (isSupabaseConfigured()) {
                 const [jadwalData, matkulData, prodiData, kelasData, ruangData, dosenData] = await Promise.all([
-                    jadwalService.getAll(),
+                    jadwalService.getAll({ tahun_akademik: settings?.tahunAkademik }),
                     matkulService.getAll(),
                     prodiService.getAll(),
                     kelasService.getAll(),
@@ -498,7 +498,10 @@ function JadwalUjianPage() {
                 setDosenList(dosenData || [])
                 setUseSupabase(true)
             } else {
-                setJadwalList(jadwal ? JSON.parse(jadwal) : [])
+                const localJadwal = jadwal ? JSON.parse(jadwal) : []
+                setJadwalList(settings?.tahunAkademik
+                    ? localJadwal.filter(item => (item.tahun_akademik || item.tahunAkademik) === settings.tahunAkademik)
+                    : localJadwal)
                 setMatkulList(matkul ? JSON.parse(matkul) : [])
                 setProdiList(prodi ? JSON.parse(prodi) : [])
                 setKelasList(kelas ? JSON.parse(kelas) : [])
@@ -507,7 +510,10 @@ function JadwalUjianPage() {
         } catch (err) {
             console.error('Error loading jadwal:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            setJadwalList(jadwal ? JSON.parse(jadwal) : [])
+            const localJadwal = jadwal ? JSON.parse(jadwal) : []
+            setJadwalList(settings?.tahunAkademik
+                ? localJadwal.filter(item => (item.tahun_akademik || item.tahunAkademik) === settings.tahunAkademik)
+                : localJadwal)
             setMatkulList(matkul ? JSON.parse(matkul) : [])
             setProdiList(prodi ? JSON.parse(prodi) : [])
             setKelasList(kelas ? JSON.parse(kelas) : [])

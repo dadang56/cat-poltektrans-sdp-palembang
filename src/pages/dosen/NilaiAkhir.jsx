@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
 import { hasilUjianService, kelasService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
@@ -74,6 +75,7 @@ const getGradeColor = (nh) => {
 function NilaiAkhirPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const [matkulList, setMatkulList] = useState([])
     const [selectedMatkul, setSelectedMatkul] = useState(null)
     const [grades, setGrades] = useState({})
@@ -98,7 +100,7 @@ function NilaiAkhirPage() {
                 setKelasList(kelasData || [])
 
                 // 1. Get all exam results for this lecturer
-                const results = await hasilUjianService.getByDosen(user.id)
+                const results = await hasilUjianService.getByDosen(user.id, tahunAkademik)
                 console.log('NilaiAkhir results:', results)
 
                 // 2. Extract unique matkuls from results
@@ -201,7 +203,7 @@ function NilaiAkhirPage() {
         }
 
         loadData()
-    }, [user])
+    }, [user, tahunAkademik])
 
     // Check if current matkul has praktek
     const hasPraktek = (selectedMatkul?.sks_praktek > 0) || (selectedMatkul?.sksPraktek > 0)
@@ -411,7 +413,7 @@ function NilaiAkhirPage() {
                 </div>
                 <div class="document-title">
                     <h3>DAFTAR NILAI AKHIR SEMESTER</h3>
-                    <p>Tahun Akademik ${settings?.tahunAkademik || ''}</p>
+                    <p>Tahun Akademik ${tahunAkademik || ''}</p>
                 </div>
                 <div class="exam-info">
                     <p><strong>Mata Kuliah:</strong> ${selectedMatkul.nama} (${selectedMatkul.kode || ''})</p>

@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { useAuth } from '../../App'
 import {
     jadwalService,
@@ -28,6 +29,7 @@ const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] ?? obj?.[camelC
 function BeritaAcaraPage() {
     const { settings } = useSettings()
     const { user } = useAuth()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const [rooms, setRooms] = useState([])
     const [selectedRoom, setSelectedRoom] = useState(null)
     const [usersList, setUsersList] = useState([])
@@ -47,7 +49,7 @@ function BeritaAcaraPage() {
                 if (isSupabaseConfigured()) {
                     const { ruangService } = await import('../../services/supabaseService')
                     const [jadwalData, usersData, allRuang] = await Promise.all([
-                        jadwalService.getAll(),
+                        jadwalService.getAll({ tahun_akademik: tahunAkademik }),
                         userService.getAll(),
                         ruangService.getAll()
                     ])
@@ -95,7 +97,7 @@ function BeritaAcaraPage() {
         }
 
         loadData()
-    }, [])
+    }, [tahunAkademik])
 
     // Load student counts when room is selected
     const handleRoomSelect = async (roomId) => {

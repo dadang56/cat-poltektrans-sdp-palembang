@@ -21,6 +21,8 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { useSettings } from '../../contexts/SettingsContext'
+import { toPercentScore } from '../../utils/gradeUtils'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 
 // Data kosong - akan diisi dari data nyata
 const EXAMS_TO_CORRECT = []
@@ -259,6 +261,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
 function KoreksiUjianPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const [examResults, setExamResults] = useState([])
     const [selectedExam, setSelectedExam] = useState(null)
     const [correctionModal, setCorrectionModal] = useState({ open: false, student: null })
@@ -275,14 +278,17 @@ function KoreksiUjianPage() {
                     // If user is Dosen, use specialized fetch to respect RLS and Logic
                     if (user.role === 'dosen') {
                         console.log('[KoreksiUjian] Fetching for Dosen:', user.id)
-                        hasilData = await hasilUjianService.getByDosen(user.id)
+                        hasilData = await hasilUjianService.getByDosen(user.id, tahunAkademik)
                     } else {
                         // Admin can see all (filtered by matkul_prodi_id if admin_prodi)
-                        const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}
+                        const filter = {
+                            ...(user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}),
+                            ...(tahunAkademik ? { tahun_akademik: tahunAkademik } : {})
+                        }
                         hasilData = await hasilUjianService.getAll(filter)
                     }
 
-                    const soalData = await soalService.getAll()
+                    const soalData = await soalService.getAll({ tahun_akademik: tahunAkademik })
 
                     setSoalList(soalData)
 
@@ -493,7 +499,7 @@ function KoreksiUjianPage() {
         }
 
         loadData()
-    }, [settings?.tahunAkademik])
+    }, [user, tahunAkademik])
 
     const handleSelectExam = (exam) => {
         setSelectedExam(exam)
@@ -598,8 +604,10 @@ function KoreksiUjianPage() {
                     mergedAnswers = updatedStudent.answers
                 }
 
-                // Calculate total score from ALL merged answers
-                const totalScore = mergedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
+                // Calculate total score from ALL merged answers, normalized to 0-100
+                const rawTotal = mergedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
+                const maxTotal = mergedAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0)
+                const totalScore = toPercentScore(rawTotal, maxTotal)
 
                 // Log essay answers specifically
                 const essayAnswers = mergedAnswers.filter(a => a.type === 'essay' || a.type === 'uraian')
@@ -703,7 +711,7 @@ function KoreksiUjianPage() {
         setRegrading(true)
         try {
             // Fetch ALL soal for correct answers
-            const allSoal = await soalService.getAll()
+            const allSoal = await soalService.getAll({ tahun_akademik: tahunAkademik })
             const soalMap = {}
             allSoal.forEach(s => {
                 soalMap[s.id] = s
@@ -712,9 +720,12 @@ function KoreksiUjianPage() {
             // Fetch ALL hasil ujian
             let allHasil = []
             if (user.role === 'dosen') {
-                allHasil = await hasilUjianService.getByDosen(user.id)
+                allHasil = await hasilUjianService.getByDosen(user.id, tahunAkademik)
             } else {
-                const filter = user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}
+                const filter = {
+                    ...(user?.role === 'admin_prodi' && user?.prodi_id ? { matkul_prodi_id: user.prodi_id } : {}),
+                    ...(tahunAkademik ? { tahun_akademik: tahunAkademik } : {})
+                }
                 allHasil = await hasilUjianService.getAll(filter)
             }
 
@@ -769,9 +780,10 @@ function KoreksiUjianPage() {
                 })
 
                 if (changed) {
+                    const maxTotal = newAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0)
                     await hasilUjianService.update(hasil.id, {
                         answers_detail: newAnswers,
-                        nilai_total: newTotal,
+                        nilai_total: toPercentScore(newTotal, maxTotal),
                         status: newAnswers.some(a => a.needsManualGrading) ? 'submitted' : 'graded'
                     })
                     changedCount++

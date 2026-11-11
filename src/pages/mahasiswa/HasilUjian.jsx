@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
@@ -24,6 +25,7 @@ const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelC
 function HasilUjianPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const [search, setSearch] = useState('')
     const [typeFilter, setTypeFilter] = useState('all')
     const [statusFilter, setStatusFilter] = useState('all')
@@ -31,8 +33,8 @@ function HasilUjianPage() {
     const [hasilUjian, setHasilUjian] = useState([])
 
     // Get semester and Ka.Prodi info from settings
-    const academicYear = settings?.academicYear || '2025/2026'
-    const semester = settings?.semester || 'Ganjil'
+    const academicYear = tahunAkademik.split(' ')[0] || '2025/2026'
+    const semester = tahunAkademik.split(' ').at(-1) || 'Ganjil'
 
     // Load exam results from Supabase
     useEffect(() => {
@@ -41,7 +43,7 @@ function HasilUjianPage() {
 
             try {
                 // Fetch this mahasiswa's results directly from Supabase
-                const results = await hasilUjianService.getByMahasiswa(user.id)
+                const results = await hasilUjianService.getByMahasiswa(user.id, tahunAkademik)
                 console.log('[HasilUjian] Loaded', results?.length || 0, 'results for', user.id)
 
                 if (results && results.length > 0) {
@@ -112,7 +114,7 @@ function HasilUjianPage() {
             }
         }
         loadData()
-    }, [user])
+    }, [user, tahunAkademik])
 
     const filteredResults = hasilUjian.filter(item => {
         const matchesSearch = item.name.toLowerCase().includes(search.toLowerCase()) ||

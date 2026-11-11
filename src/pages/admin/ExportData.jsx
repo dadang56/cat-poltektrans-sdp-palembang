@@ -104,7 +104,7 @@ function ExportData() {
     // Filter jadwal by TA
     const filteredJadwal = jadwalList.filter(j => {
         const ta = getField(j, 'tahun_akademik', 'tahunAkademik')
-        return !ta || ta === selectedTA
+        return !selectedTA || ta === selectedTA
     })
 
     // Export functions

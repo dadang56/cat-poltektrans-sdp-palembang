@@ -45,6 +45,22 @@ export function calculateNAK(nt, np, nuts, nuas, hasPraktek) {
 }
 
 /**
+ * Normalize a raw exam score to a 0-100 scale.
+ * nilai_total/nilai_final MUST be on a 0-100 scale because every downstream
+ * consumer (NAK formula, remedial cap of 70, KHS) treats it as a percentage.
+ * Without this, an exam whose question weights don't sum to 100
+ * (e.g. 20 soal x 10 = 200) produces wrong grades.
+ * @param {number} rawScore - Sum of earned points
+ * @param {number} maxScore - Sum of max points (total bobot)
+ * @returns {number} Score on 0-100 scale (2 decimals)
+ */
+export function toPercentScore(rawScore, maxScore) {
+    const max = Number(maxScore) || 0
+    if (max <= 0) return 0
+    return Math.round((Number(rawScore) || 0) / max * 100 * 100) / 100
+}
+
+/**
  * Get grade details from NAK value
  * @param {number} nak - Nilai Akhir (0-100)
  * @returns {Object} { huruf, bobot, predikat }

@@ -2,8 +2,10 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
 import { hasilUjianService } from '../../services/supabaseService'
+import { toPercentScore } from '../../utils/gradeUtils'
 import {
     Award,
     Search,
@@ -81,6 +83,7 @@ function EditScoreModal({ isOpen, onClose, student, onSave }) {
 function NilaiUASPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const [exams, setExams] = useState([])
     const [expandedExam, setExpandedExam] = useState(null)
     const [search, setSearch] = useState('')
@@ -99,7 +102,7 @@ function NilaiUASPage() {
             try {
                 // Fetch results for this Lecturer
                 // This service already joins mahasiswa, kelas, jadwal, matkul
-                const results = await hasilUjianService.getByDosen(user.id)
+                const results = await hasilUjianService.getByDosen(user.id, tahunAkademik)
                 console.log('Loaded results:', results)
 
                 // Group results by examId (Jadwal ID)
@@ -143,14 +146,43 @@ function NilaiUASPage() {
                     // But `TakeExam` logic saves `nilai_total` based on `calculateScore` which usually returns 0-100.
                     // Let's verify TakeExam logic later if needed.
 
+                    // Older correction saves may contain the graded answers in
+                    // answers_detail while nilai_total is still zero. Derive
+                    // the displayed grade from those answers in that case.
+                    const storedScore = Number(r.nilai_total)
+                    let score = Number.isFinite(storedScore) ? storedScore : 0
+                    if (score === 0 && r.answers_detail) {
+                        try {
+                            const gradedAnswers = typeof r.answers_detail === 'string'
+                                ? JSON.parse(r.answers_detail)
+                                : r.answers_detail
+                            if (Array.isArray(gradedAnswers) && gradedAnswers.length > 0) {
+                                // Older answer snapshots omit maxPoints even though
+                                // Koreksi Ujian fills it from the default 10-point weight.
+                                const maximum = gradedAnswers.reduce((sum, answer) =>
+                                    sum + (Number(answer.maxPoints ?? answer.max_points ?? answer.bobot ?? answer.points) || 10), 0)
+                                const earned = gradedAnswers.reduce((sum, answer) => {
+                                    const answerPoints = answer.earnedPoints ?? answer.earned_points ?? answer.score
+                                    const points = answerPoints == null && answer.isCorrect === true
+                                        ? Number(answer.maxPoints ?? answer.max_points ?? answer.bobot ?? answer.points) || 10
+                                        : Number(answerPoints) || 0
+                                    return sum + points
+                                }, 0)
+                                score = toPercentScore(earned, maximum)
+                            }
+                        } catch (error) {
+                            console.error('Failed to derive grade from corrected answers:', error)
+                        }
+                    }
+
                     examGroups[examId].students.push({
                         id: r.id,
                         resultId: r.id,
                         mahasiswaId: r.mahasiswa_id,
                         name: mahasiswa.nama || 'Unknown',
                         nim: mahasiswa.nim_nip || '-',
-                        score: Number(r.nilai_total || 0),
-                        nilaiFinal: r.nilai_final != null ? Number(r.nilai_final) : Number(r.nilai_total || 0),
+                        score,
+                        nilaiFinal: r.nilai_final != null && Number(r.nilai_final) !== 0 ? Number(r.nilai_final) : score,
                         isUlang: r.is_ulang || false,
                         rawScore: r.nilai_total,
                         maxScore: 100,
@@ -167,7 +199,7 @@ function NilaiUASPage() {
         }
 
         loadData()
-    }, [user])
+    }, [user, tahunAkademik])
 
     const toggleExpand = (examId) => {
         setExpandedExam(expandedExam === examId ? null : examId)
@@ -366,7 +398,7 @@ function NilaiUASPage() {
                 </div>
                 <div class="document-title">
                     <h3>DAFTAR NILAI ${exam.examType.toUpperCase()}</h3>
-                    <p>Tahun Akademik ${settings?.tahunAkademik || ''}</p>
+                    <p>Tahun Akademik ${tahunAkademik || ''}</p>
                 </div>
                 <div class="exam-info">
                     <p><strong>Mata Kuliah:</strong> ${exam.matkul}</p>

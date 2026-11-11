@@ -40,7 +40,7 @@ function RekapBeritaAcaraPage() {
                 if (isSupabaseConfigured()) {
                     // Load from Supabase
                     const [baData, prodi] = await Promise.all([
-                        beritaAcaraService.getAll(),
+                        beritaAcaraService.getAll({ tahun_akademik: settings?.tahunAkademik }),
                         prodiService.getAll()
                     ])
 
@@ -85,7 +85,7 @@ function RekapBeritaAcaraPage() {
         }
 
         loadData()
-    }, [])
+    }, [user, settings?.tahunAkademik])
 
     // Filter based on admin prodi or show all for superadmin
     const filteredData = beritaAcaraData.filter(item => {

@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { userService, nilaiPusbangkatarService, isSupabaseConfigured } from '../../services/supabaseService'
 import { exportToXLSX, downloadTemplate, importFromFile, isValidSpreadsheetFile } from '../../utils/excelUtils'
 import {
@@ -25,6 +26,7 @@ const TA_OPTIONS = generateTAOptions()
 function NilaiKondite() {
     const { user } = useAuth()
     const { settings } = useSettings()
+    const activeAcademicYear = getActiveAcademicYear(settings, user)
 
     const [mahasiswaList, setMahasiswaList] = useState([])
     const [nilaiMap, setNilaiMap] = useState({}) // mahasiswaId -> nilai_kondite
@@ -40,9 +42,9 @@ function NilaiKondite() {
 
     // Initialize TA
     useEffect(() => {
-        if (settings?.tahunAkademik) setTahunAkademik(settings.tahunAkademik)
+        if (activeAcademicYear) setTahunAkademik(activeAcademicYear)
         else if (TA_OPTIONS.length > 0) setTahunAkademik(TA_OPTIONS[0])
-    }, [settings])
+    }, [activeAcademicYear])
 
     // Load data when TA changes
     useEffect(() => {

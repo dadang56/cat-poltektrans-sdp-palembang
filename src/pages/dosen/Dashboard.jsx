@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
+import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { useNavigate } from 'react-router-dom'
 import { matkulService, jadwalService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
@@ -19,6 +21,8 @@ import '../admin/Dashboard.css'
 
 function DosenDashboard() {
     const { user } = useAuth()
+    const { settings } = useSettings()
+    const tahunAkademik = getActiveAcademicYear(settings, user)
     const navigate = useNavigate()
     const [matkulList, setMatkulList] = useState([])
     const [questionCount, setQuestionCount] = useState(0)
@@ -52,8 +56,8 @@ function DosenDashboard() {
                     // Load from Supabase
                     const [allMatkul, allSoal, allJadwal] = await Promise.all([
                         matkulService.getAll(),
-                        soalService.getAll({ dosen_id: catUser.id }),
-                        jadwalService.getAll()
+                        soalService.getAll({ dosen_id: catUser.id, tahun_akademik: tahunAkademik }),
+                        jadwalService.getAll({ tahun_akademik: tahunAkademik })
                     ])
 
                     // Filter mata kuliah by dosen's matkulIds
@@ -81,7 +85,7 @@ function DosenDashboard() {
                     let allHasil = []
                     try {
                         const { hasilUjianService } = await import('../../services/supabaseService')
-                        allHasil = await hasilUjianService.getByDosen(catUser.id)
+                        allHasil = await hasilUjianService.getByDosen(catUser.id, tahunAkademik)
                     } catch (e) {
                         console.error('[DosenDashboard] getByDosen error:', e)
                     }
@@ -188,7 +192,7 @@ function DosenDashboard() {
         }
 
         loadData()
-    }, [user])
+    }, [user, tahunAkademik])
 
     // Stats dinamis
     const STATS = [

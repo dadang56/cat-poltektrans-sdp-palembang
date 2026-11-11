@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getActiveAcademicYear } from '../../utils/academicYear'
 import { userService, nilaiPusbangkatarService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Users, ClipboardCheck, Award, TrendingUp, ChevronRight, BarChart3, Calendar
@@ -21,7 +22,8 @@ const TA_OPTIONS = generateTAOptions()
 
 function PusbangkatarDashboard() {
     const { user } = useAuth()
-    const { settings, saveSettings } = useSettings()
+    const { settings } = useSettings()
+    const activeAcademicYear = getActiveAcademicYear(settings, user)
     const [tahunAkademik, setTahunAkademik] = useState('')
     const [stats, setStats] = useState({
         totalMahasiswa: 0,
@@ -31,9 +33,9 @@ function PusbangkatarDashboard() {
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
-        if (settings?.tahunAkademik) setTahunAkademik(settings.tahunAkademik)
+        if (activeAcademicYear) setTahunAkademik(activeAcademicYear)
         else if (TA_OPTIONS.length > 0) setTahunAkademik(TA_OPTIONS[0])
-    }, [settings])
+    }, [activeAcademicYear])
 
     useEffect(() => {
         if (!tahunAkademik) return
@@ -42,7 +44,6 @@ function PusbangkatarDashboard() {
 
     const handleTAChange = (ta) => {
         setTahunAkademik(ta)
-        saveSettings({ tahunAkademik: ta })
     }
 
     const loadStats = async () => {
