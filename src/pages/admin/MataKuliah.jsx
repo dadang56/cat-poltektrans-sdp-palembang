@@ -23,7 +23,6 @@ import {
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 
-
 function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) {
     const getInitialData = (data) => ({
         kode: data?.kode || '',
@@ -174,7 +173,6 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
         </div>
     )
 }
-
 
 function MataKuliahPage() {
     const { user } = useAuth()
@@ -440,29 +438,27 @@ function MataKuliahPage() {
                         <h1 className="page-title">Manajemen Mata Kuliah</h1>
                         <p className="page-subtitle">
                             Kelola data mata kuliah per program studi
-                            {useSupabase ? (
-                                <span className="badge badge-success" style={{ marginLeft: '8px' }}>Database</span>
-                            ) : (
-                                <span className="badge badge-warning" style={{ marginLeft: '8px' }}>Local</span>
-                            )}
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
+                        <button className="btn btn-ghost btn-icon" onClick={loadData} disabled={isLoading} title="Muat ulang data" aria-label="Muat ulang data">
                             <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
                         </button>
-                        <button className="btn btn-outline" onClick={handleDownloadTemplate} title="Download Template">
+                        <button className="btn btn-outline" onClick={handleDownloadTemplate}>
                             <FileSpreadsheet size={18} />
+                            Template
                         </button>
-                        <button className="btn btn-outline" onClick={handleImportClick} title="Import Excel">
+                        <button className="btn btn-outline" onClick={handleImportClick}>
                             <Upload size={18} />
+                            Import
                         </button>
-                        <button className="btn btn-outline" onClick={handleExport} title="Export Excel">
+                        <button className="btn btn-outline" onClick={handleExport}>
                             <Download size={18} />
+                            Export
                         </button>
                         <button className="btn btn-primary" onClick={handleAddMatkul}>
                             <Plus size={18} />
-                            Tambah
+                            Tambah Mata Kuliah
                         </button>
                         <input
                             ref={fileInputRef}
@@ -645,11 +641,7 @@ function MataKuliahPage() {
           font-weight: var(--font-medium);
           color: var(--text-secondary);
         }
-        
-        .text-center {
-          text-align: center;
-        }
-        
+
         .sks-badge {
           display: inline-flex;
           align-items: center;
@@ -699,26 +691,7 @@ function MataKuliahPage() {
           font-family: monospace;
           color: var(--primary-600);
         }
-        
-        .text-error {
-          color: var(--error-500);
-        }
-        
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: var(--space-4);
-        }
 
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-        
-        @media (max-width: 640px) {
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-        }
       `}</style>
         </DashboardLayout>
     )

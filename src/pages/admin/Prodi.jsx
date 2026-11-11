@@ -16,7 +16,6 @@ import {
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 
-
 function ProdiModal({ isOpen, onClose, prodi, onSave, isLoading }) {
     const [formData, setFormData] = useState(prodi || {
         kode: '',
@@ -200,15 +199,10 @@ function ProdiPage() {
                         <h1 className="page-title">Manajemen Program Studi</h1>
                         <p className="page-subtitle">
                             Kelola data program studi
-                            {useSupabase ? (
-                                <span className="badge badge-success" style={{ marginLeft: '8px' }}>Database</span>
-                            ) : (
-                                <span className="badge badge-warning" style={{ marginLeft: '8px' }}>Local</span>
-                            )}
                         </p>
                     </div>
                     <div className="flex gap-2">
-                        <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
+                        <button className="btn btn-ghost btn-icon" onClick={loadData} disabled={isLoading} title="Muat ulang data" aria-label="Muat ulang data">
                             <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
                         </button>
                         <button className="btn btn-primary" onClick={handleAddProdi}>
@@ -324,14 +318,6 @@ function ProdiPage() {
         
         .prodi-icon {
           color: var(--primary-500);
-        }
-        
-        .text-error {
-          color: var(--error-500);
-        }
-
-        .spin {
-          animation: spin 1s linear infinite;
         }
 
         @keyframes spin {

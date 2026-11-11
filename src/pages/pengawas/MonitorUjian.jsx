@@ -35,7 +35,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-
 function MonitorUjian() {
   const { user } = useAuth()
   const { showConfirm } = useConfirm()
@@ -1201,11 +1200,7 @@ function MonitorUjian() {
           from { transform: rotate(0deg); }
           to { transform: rotate(360deg); }
         }
-        
-        .spin {
-          animation: spin 1s linear infinite;
-        }
-        
+
         .monitor-stats-row {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));

@@ -37,7 +37,6 @@ const generateTahunAjaranOptions = () => {
 
 const TAHUN_AJARAN_OPTIONS = generateTahunAjaranOptions()
 
-
 function EksporDataPage() {
     const { user } = useAuth()
     const { settings, saveSettings } = useSettings()
@@ -674,23 +673,7 @@ function EksporDataPage() {
             </div>
 
             <style>{`
-                .mb-4 {
-                    margin-bottom: var(--space-4);
-                }
-                .filters-row {
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: var(--space-4);
-                    align-items: center;
-                }
-                .filter-group {
-                    display: flex;
-                    align-items: center;
-                    gap: var(--space-2);
-                }
-                .filter-group select {
-                    min-width: 200px;
-                }
+
                 .export-sections {
                     display: flex;
                     flex-direction: column;
@@ -768,17 +751,7 @@ function EksporDataPage() {
                     to { transform: rotate(360deg); }
                 }
                 @media (max-width: 768px) {
-                    .filters-row {
-                        flex-direction: column;
-                        align-items: stretch;
-                    }
-                    .filter-group {
-                        width: 100%;
-                    }
-                    .filter-group select {
-                        width: 100%;
-                        min-width: auto;
-                    }
+
                     .export-header {
                         flex-direction: column;
                         gap: var(--space-3);

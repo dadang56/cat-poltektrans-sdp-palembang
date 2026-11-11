@@ -675,18 +675,7 @@ function NilaiUASPage() {
             </div>
 
             <style>{`
-                .page-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    flex-wrap: wrap;
-                    gap: var(--space-4);
-                    margin-bottom: var(--space-4);
-                }
-                .header-actions {
-                    display: flex;
-                    gap: var(--space-2);
-                }
+
                 .exam-type-tabs {
                     display: flex;
                     gap: var(--space-2);

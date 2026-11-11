@@ -16,7 +16,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-
 function StudentCardPage() {
     const { settings } = useSettings()
     const { user: currentUser } = useAuth()
@@ -522,50 +521,7 @@ function StudentCardPage() {
                 .student-card-page {
                     padding: 0;
                 }
-                .page-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    flex-wrap: wrap;
-                    gap: 1rem;
-                    margin-bottom: 1.5rem;
-                }
-                .page-actions {
-                    display: flex;
-                    gap: 0.75rem;
-                }
-                .filters-row {
-                    display: flex;
-                    gap: 1rem;
-                    flex-wrap: wrap;
-                }
-                .search-box {
-                    position: relative;
-                    flex: 1;
-                    min-width: 200px;
-                }
-                .search-box .search-icon {
-                    position: absolute;
-                    left: 1rem;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: var(--text-muted);
-                }
-                .search-box .form-input {
-                    padding-left: 2.75rem;
-                }
-                .filter-group {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    color: var(--text-muted);
-                }
-                .filter-group .form-input {
-                    min-width: 180px;
-                }
-                .mb-4 {
-                    margin-bottom: 1.5rem;
-                }
+
                 .selection-info {
                     display: flex;
                     align-items: center;
@@ -660,18 +616,7 @@ function StudentCardPage() {
                 .empty-state p {
                     margin-top: 1rem;
                 }
-                @media (max-width: 768px) {
-                    .page-header {
-                        flex-direction: column;
-                    }
-                    .page-actions {
-                        width: 100%;
-                    }
-                    .page-actions button {
-                        flex: 1;
-                    }
-                }
-                
+
                 /* Dark Mode - Student Cards */
                 [data-theme="dark"] .student-card-item {
                     background: #1e293b !important;

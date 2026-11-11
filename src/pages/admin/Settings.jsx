@@ -537,16 +537,7 @@ function SettingsPage() {
                 .color-input::-webkit-color-swatch {
                     border: none;
                 }
-                .form-row {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 1rem;
-                }
-                @media (max-width: 480px) {
-                    .form-row {
-                        grid-template-columns: 1fr;
-                    }
-                }
+
                 .settings-actions {
                     display: flex;
                     justify-content: flex-end;

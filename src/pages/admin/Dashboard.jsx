@@ -57,7 +57,7 @@ function AdminDashboard() {
 
     const getJadwalMatkul = (j) => j.matkul_id || j.matkulId
     const getJadwalProdi = (j) => j.prodi_id || j.prodiId
-    const getJadwalTipe = (j) => j.tipe_ujian || j.tipeUjian
+    const getJadwalTipe = (j) => j.tipe || j.tipe_ujian || j.tipeUjian || 'Ujian'
     const getJadwalWaktuMulai = (j) => j.waktu_mulai || j.waktuMulai
     const getJadwalWaktuSelesai = (j) => j.waktu_selesai || j.waktuSelesai
     const getJadwalRuang = (j) => j.ruangan?.nama || (typeof j.ruangan === 'string' ? j.ruangan : null) || j.ruang || 'Lab'
@@ -128,13 +128,14 @@ function AdminDashboard() {
                 .map(j => {
                     const mk = matkulList.find(m => String(m.id) === String(getJadwalMatkul(j)))
                     const examEnd = new Date(`${j.tanggal}T${getJadwalWaktuSelesai(j)}`)
-                    const isActive = now >= new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`) && now <= examEnd
+                    const examStart = new Date(`${j.tanggal}T${getJadwalWaktuMulai(j)}`)
+                    const status = now < examStart ? 'upcoming' : (now <= examEnd ? 'active' : 'completed')
                     return {
                         id: j.id,
                         name: `${getJadwalTipe(j)} ${mk?.nama || 'Ujian'}`,
-                        date: j.tanggal,
+                        date: j.tanggal ? new Date(`${j.tanggal}T00:00:00`).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' }) : '-',
                         participants: '-',
-                        status: isActive ? 'active' : 'completed'
+                        status
                     }
                 })
             setRecentExams(recent)
@@ -260,10 +261,10 @@ function AdminDashboard() {
                                             {recentExams.map(exam => (
                                                 <tr key={exam.id}>
                                                     <td className="font-medium">{exam.name}</td>
-                                                    <td className="text-muted">{exam.date}</td>
+                                                    <td className="text-muted text-nowrap">{exam.date}</td>
                                                     <td>
-                                                        <span className={`badge badge-${exam.status === 'active' ? 'success' : 'primary'}`}>
-                                                            {exam.status === 'active' ? 'Aktif' : 'Selesai'}
+                                                        <span className={`badge badge-${exam.status === 'active' ? 'success' : exam.status === 'upcoming' ? 'warning' : 'primary'}`}>
+                                                            {exam.status === 'active' ? 'Berlangsung' : exam.status === 'upcoming' ? 'Akan Datang' : 'Selesai'}
                                                         </span>
                                                     </td>
                                                 </tr>

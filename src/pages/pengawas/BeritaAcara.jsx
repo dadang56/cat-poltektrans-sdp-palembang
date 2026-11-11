@@ -23,7 +23,6 @@ import {
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 
-
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] ?? obj?.[camelCase]
 
@@ -518,9 +517,7 @@ function BeritaAcaraPage() {
 
             <style>{`
                 .berita-acara-page { padding: 0; }
-                .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
-                .page-actions { display: flex; gap: 0.75rem; }
-                .mb-4 { margin-bottom: 1.5rem; }
+
                 .room-selector { display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; }
                 .selector-item { display: flex; align-items: center; gap: 0.75rem; }
                 .selector-item label { font-weight: 500; color: var(--text-secondary); }
@@ -532,7 +529,7 @@ function BeritaAcaraPage() {
                 .card-header h3 { margin: 0; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem; }
                 .form-group { margin-bottom: 1rem; }
                 .form-label { display: block; margin-bottom: 0.5rem; font-weight: 500; color: var(--text-secondary); font-size: 0.875rem; }
-                .form-row { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; }
+                
                 .form-textarea { resize: vertical; min-height: 80px; }
                 .attendance-recap { display: flex; flex-direction: column; gap: 0.75rem; }
                 .recap-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: var(--bg-tertiary); border-radius: 0.5rem; border-left: 3px solid var(--border-color); }
@@ -545,7 +542,7 @@ function BeritaAcaraPage() {
                 .text-sm { font-size: 0.875rem; }
                 .text-muted { color: var(--text-muted); }
                 .mb-3 { margin-bottom: 0.75rem; }
-                @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .card-wide { grid-column: span 1; } .form-row { grid-template-columns: 1fr; } }
+                @media (max-width: 768px) { .form-grid { grid-template-columns: 1fr; } .card-wide { grid-column: span 1; }  }
             `}</style>
         </DashboardLayout>
     )

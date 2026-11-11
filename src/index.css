@@ -178,6 +178,17 @@ body {
 
 /* Dark Theme */
 [data-theme="dark"] {
+  /* Light tint tokens are only used as surface backgrounds/borders. In dark
+     mode they become subtle translucent tints instead of bright patches. */
+  --primary-50: rgba(89, 126, 174, 0.14);
+  --primary-100: rgba(89, 126, 174, 0.22);
+  --primary-200: rgba(119, 149, 189, 0.3);
+  --accent-50: rgba(0, 168, 168, 0.12);
+  --accent-100: rgba(0, 168, 168, 0.2);
+  --accent-200: rgba(0, 168, 168, 0.3);
+  --secondary-50: rgba(212, 175, 55, 0.1);
+  --secondary-100: rgba(212, 175, 55, 0.18);
+  --secondary-200: rgba(212, 175, 55, 0.28);
   --bg-primary: #060b13;
   --bg-secondary: #0d1424;
   --bg-tertiary: #131b2e;
@@ -305,17 +316,8 @@ body {
   color: var(--gray-100) !important;
 }
 
-/* Dark Mode - Buttons */
-[data-theme="dark"] .btn-outline {
-  border-color: var(--color-primary, var(--accent-400)) !important;
-  color: var(--color-primary, var(--accent-400)) !important;
-}
-
-[data-theme="dark"] .btn-outline:hover:not(:disabled) {
-  background: var(--color-primary-light, rgba(0, 168, 168, 0.12)) !important;
-  border-color: var(--color-primary, var(--accent-400)) !important;
-  color: var(--gray-50) !important;
-}
+/* Dark Mode - Buttons: outline is a neutral secondary action (styles in
+   styles/components.css); gold stays reserved for the primary action */
 
 [data-theme="dark"] .btn-ghost {
   color: var(--gray-300);

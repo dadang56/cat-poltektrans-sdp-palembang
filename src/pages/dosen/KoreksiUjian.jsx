@@ -336,7 +336,6 @@ function KoreksiUjianPage() {
                             }
                         }
 
-
                         // Parse answers_detail if exists
                         let answers = []
                         try {
@@ -463,7 +462,6 @@ function KoreksiUjianPage() {
         }
 
         const loadFromLocalStorage = () => {
-
 
             setSoalList(soal)
 
@@ -675,8 +673,6 @@ function KoreksiUjianPage() {
                     ? { ...exam, students: updatedStudents, corrected: updatedStudents.filter(s => s.totalScore !== null).length }
                     : exam
             ))
-
-
 
             toast.success(`Koreksi ${updatedStudent.studentName || 'mahasiswa'} tersimpan (nilai ${savedScore})`)
             return true
@@ -1057,9 +1053,7 @@ function KoreksiUjianPage() {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
                 }
-                .spin {
-                    animation: spin 1s linear infinite;
-                }
+                
                 .btn-warning {
                     background: var(--warning-500, #f59e0b);
                     color: white;
@@ -1076,14 +1070,7 @@ function KoreksiUjianPage() {
                     opacity: 0.6;
                     cursor: not-allowed;
                 }
-                .page-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    flex-wrap: wrap;
-                    gap: var(--space-4);
-                    margin-bottom: var(--space-6);
-                }
+                
                 .card-header {
                     padding: var(--space-4) var(--space-5);
                     border-bottom: 1px solid var(--border-color);
@@ -1171,9 +1158,7 @@ function KoreksiUjianPage() {
                 .chevron {
                     color: var(--text-muted);
                 }
-                .mb-4 {
-                    margin-bottom: var(--space-4);
-                }
+                
                 .exam-detail-header .card-body {
                     display: flex;
                     justify-content: space-between;

@@ -810,8 +810,7 @@ function AdminNilaiAkhirPage() {
             </div>
 
             <style>{`
-                .mb-4 { margin-bottom: 16px; }
-                .text-center { text-align: center; }
+
                 .btn-sm { padding: 4px 8px; font-size: 12px; }
                 .info-box {
                     background: var(--info-50);
@@ -829,13 +828,6 @@ function AdminNilaiAkhirPage() {
                 [data-theme="dark"] .info-box span { color: #93c5fd; }
                 [data-theme="dark"] .info-box .info-icon { color: #60a5fa; }
 
-                .filters-row {
-                    display: flex;
-                    gap: 16px;
-                    margin-bottom: 16px;
-                    flex-wrap: wrap;
-                    align-items: flex-end;
-                }
                 .filter-group {
                     display: flex;
                     flex-direction: column;

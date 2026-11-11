@@ -19,7 +19,6 @@ import {
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 
-
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
@@ -487,9 +486,7 @@ function HasilUjianPage() {
             </div>
 
             <style>{`
-                .mb-4 {
-                    margin-bottom: var(--space-4);
-                }
+                
                 .results-list {
                     display: flex;
                     flex-direction: column;

@@ -32,7 +32,6 @@ import { soalService, matkulService, kelasService } from '../../services/supabas
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { toast, errorMessage } from '../../components/Toast'
 
-
 // Bank Soal Modal for selecting existing questions
 function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId, tahunAkademik }) {
     const [selectedQuestions, setSelectedQuestions] = useState([])
@@ -376,7 +375,6 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                                 />
                             </div>
                         </div>
-
 
                         {/* Kelas Multi-Select Checkbox - Only show when creating new package (not inside existing) */}
                         {!selectedPackage && (() => {
@@ -2113,13 +2111,7 @@ function BuatSoalPage() {
             </div>
 
             <style>{`
-                .page-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    flex-wrap: wrap;
-                    gap: var(--space-4);
-                }
+                
                 .total-points-card {
                     display: flex;
                     align-items: center;
@@ -2157,27 +2149,7 @@ function BuatSoalPage() {
                     color: var(--warning-600);
                     font-size: var(--font-size-sm);
                 }
-                .filters-row {
-                    display: flex;
-                    gap: var(--space-4);
-                    margin-bottom: var(--space-5);
-                    flex-wrap: wrap;
-                }
-                .search-box {
-                    position: relative;
-                    flex: 1;
-                    min-width: 200px;
-                }
-                .search-icon {
-                    position: absolute;
-                    left: var(--space-4);
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: var(--text-muted);
-                }
-                .search-box .form-input {
-                    padding-left: calc(var(--space-4) + 24px);
-                }
+
                 .questions-list {
                     display: flex;
                     flex-direction: column;
@@ -2272,9 +2244,7 @@ function BuatSoalPage() {
                     gap: var(--space-2);
                     flex-wrap: wrap;
                 }
-                .text-error {
-                    color: var(--error-500) !important;
-                }
+                
                 .badge-outline {
                     background: transparent;
                     border: 1px solid var(--border-color);
@@ -2690,9 +2660,7 @@ function BuatSoalPage() {
                     .form-row-3 {
                         grid-template-columns: 1fr;
                     }
-                    .filters-row {
-                        flex-direction: column;
-                    }
+                    
                 }
             `}</style>
         </DashboardLayout>

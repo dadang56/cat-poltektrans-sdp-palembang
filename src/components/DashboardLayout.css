@@ -784,7 +784,10 @@
 }
 
 @media (max-width: 1024px) {
+    /* The sidebar is an overlay here: the content must not keep the
+       desktop 264px offset (it pushed pages off-screen on phones) */
     .main-content {
+        margin-left: 0;
         width: 100%;
         max-width: 100%;
     }

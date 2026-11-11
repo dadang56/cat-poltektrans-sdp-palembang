@@ -833,9 +833,7 @@ function ExamRoomPage() {
 
             <style>{`
                 .exam-room-page { padding: 0; }
-                .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
-                .page-actions { display: flex; gap: 0.75rem; }
-                .mb-4 { margin-bottom: 1.5rem; }
+
                 .config-row { display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; margin-bottom: 1rem; }
                 .config-item { display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); }
                 .config-item label { font-weight: 500; }
@@ -869,7 +867,7 @@ function ExamRoomPage() {
                 .seat-empty { color: var(--text-muted); font-size: 1.5rem; }
                 .prodi-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 600; }
                 .student-list { margin-top: 1.5rem; }
-                @media (max-width: 768px) { .page-header { flex-direction: column; } .page-actions { width: 100%; } .page-actions button { flex: 1; } .config-row { flex-direction: column; gap: 1rem; align-items: flex-start; } .seats-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+                @media (max-width: 768px) {    .config-row { flex-direction: column; gap: 1rem; align-items: flex-start; } .seats-grid { grid-template-columns: repeat(3, 1fr) !important; } }
             `}</style>
         </DashboardLayout>
     )

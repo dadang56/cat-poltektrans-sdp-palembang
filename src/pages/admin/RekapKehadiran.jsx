@@ -740,13 +740,7 @@ function RekapKehadiranPage() {
             </div>
 
             <style>{`
-                .mb-4 {
-                    margin-bottom: var(--space-4);
-                }
-                .header-actions {
-                    display: flex;
-                    gap: var(--space-3);
-                }
+
                 .view-tabs {
                     display: flex;
                     gap: var(--space-2);

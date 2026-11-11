@@ -32,7 +32,6 @@ import {
 import '../admin/Dashboard.css'
 import { toast } from '../../components/Toast'
 
-
 // Multi-Select Component
 function MultiSelect({ options, selected, onChange, placeholder, getLabel }) {
     const [isOpen, setIsOpen] = useState(false)
@@ -694,7 +693,6 @@ function UsersPage() {
                     kelas_ids: userData.role === 'dosen' ? JSON.stringify(userData.kelasIds || []) : null,
                     matkul_ids: userData.role === 'dosen' ? JSON.stringify(userData.matkulIds || []) : null
                 }
-
 
                 if (editingUser) {
                     // Update existing user - include password only if provided
@@ -1417,14 +1415,7 @@ function UsersPage() {
             </div>
 
             <style>{`
-        .page-header {
-          display: flex;
-          justify-content: space-between;
-          align-items: flex-start;
-          flex-wrap: wrap;
-          gap: var(--space-4);
-        }
-        
+
         .mini-stats {
           display: flex;
           gap: var(--space-4);
@@ -1452,44 +1443,7 @@ function UsersPage() {
           font-size: var(--font-size-xs);
           color: var(--text-muted);
         }
-        
-        .filters-row {
-          display: flex;
-          gap: var(--space-4);
-          margin-bottom: var(--space-5);
-          flex-wrap: wrap;
-        }
-        
-        .search-box {
-          position: relative;
-          flex: 1;
-          min-width: 250px;
-        }
-        
-        .search-icon {
-          position: absolute;
-          left: var(--space-4);
-          top: 50%;
-          transform: translateY(-50%);
-          color: var(--text-muted);
-        }
-        
-        .search-box .form-input {
-          padding-left: calc(var(--space-4) + 24px);
-        }
-        
-        .filter-group {
-          display: flex;
-          align-items: center;
-          gap: var(--space-2);
-          color: var(--text-muted);
-        }
-        
-        .filter-group .form-input {
-          width: auto;
-          min-width: 150px;
-        }
-        
+
         .user-cell {
           display: flex;
           align-items: center;
@@ -1537,11 +1491,7 @@ function UsersPage() {
         .status-toggle:hover {
           transform: scale(1.05);
         }
-        
-        .text-error {
-          color: var(--error-500);
-        }
-        
+
         .pagination {
           display: flex;
           justify-content: space-between;
@@ -1615,13 +1565,7 @@ function UsersPage() {
           border-top: 1px solid var(--border-color);
           background: var(--bg-tertiary);
         }
-        
-        .form-row {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: var(--space-4);
-        }
-        
+
         /* Photo Upload */
         .photo-upload-section {
           display: flex;
@@ -1822,13 +1766,7 @@ function UsersPage() {
           inset: 0;
           z-index: 99;
         }
-        
-        @media (max-width: 640px) {
-          .form-row {
-            grid-template-columns: 1fr;
-          }
-        }
-        
+
         [data-theme="dark"] .status-toggle.active {
           background: rgba(16, 185, 129, 0.15);
         }

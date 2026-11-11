@@ -1,0 +1,367 @@
+/* ==========================================================================
+   Shared page components — one definition for the whole app.
+
+   Before this file, each page carried its own copy of these classes inside a
+   <style> block. Those blocks are global while their page is mounted, so the
+   same element looked different from page to page (and pages that used a
+   class without defining it, e.g. .search-box on Kelas, had no layout at all).
+   Pages should use these classes and only add page-specific CSS.
+   ========================================================================== */
+
+/* ---------- Page header: title left, actions right ---------- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-end;
+    flex-wrap: wrap;
+    gap: var(--space-4);
+    margin-bottom: 1.75rem;
+}
+
+/* Title takes its natural width; when title + actions don't fit on one
+   line, the actions wrap below instead of squeezing the title */
+.page-header > div:first-child {
+    min-width: 0;
+    flex: 1 1 auto;
+}
+
+.page-header > div:not(:first-child) {
+    flex: 0 1 auto;
+}
+
+.page-title {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--space-3);
+    margin: 0;
+}
+
+.page-subtitle {
+    margin: var(--space-1) 0 0;
+    color: var(--text-secondary);
+}
+
+/* Actions group: the header's second child, whatever its class */
+.page-header > div:not(:first-child),
+.header-actions,
+.page-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+
+@media (max-width: 768px) {
+    .page-header {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .page-header > div:not(:first-child),
+    .header-actions,
+    .page-actions {
+        justify-content: flex-start;
+    }
+}
+
+/* ---------- Buttons: calm, consistent variants ---------- */
+.btn {
+    white-space: nowrap;
+}
+
+/* Primary keeps the brand color; no jumping on hover */
+.btn-primary:hover:not(:disabled),
+.btn-secondary:hover:not(:disabled),
+.btn-accent:hover:not(:disabled),
+.btn-outline:hover:not(:disabled) {
+    transform: none;
+}
+
+/* Secondary / outline: neutral surface so a header has one clear primary */
+.btn-secondary,
+.btn-outline,
+[data-theme="dark"] .btn-outline {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    box-shadow: none;
+}
+
+.btn-secondary:hover:not(:disabled),
+.btn-outline:hover:not(:disabled),
+[data-theme="dark"] .btn-outline:hover:not(:disabled) {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border-color: var(--text-muted);
+    filter: none;
+    box-shadow: none;
+}
+
+/* Semantic buttons (were used on pages but never defined) */
+.btn-success,
+.btn-warning,
+.btn-error,
+.btn-danger {
+    color: #fff;
+    border: none;
+}
+
+.btn-success { background: #16a34a; }
+.btn-warning { background: #d97706; }
+.btn-error,
+.btn-danger { background: #dc2626; }
+
+.btn-success:hover:not(:disabled),
+.btn-warning:hover:not(:disabled),
+.btn-error:hover:not(:disabled),
+.btn-danger:hover:not(:disabled) {
+    filter: brightness(1.08);
+}
+
+/* ---------- Filter bar: search + selects on one row ---------- */
+.filters-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-3);
+    margin-bottom: var(--space-5);
+}
+
+.search-box {
+    position: relative;
+    flex: 1 1 260px;
+    min-width: 220px;
+}
+
+.search-box .search-icon,
+.search-icon {
+    position: absolute;
+    left: 0.9rem;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-muted);
+    pointer-events: none;
+}
+
+.search-box .form-input,
+.search-box input {
+    width: 100%;
+    padding-left: 2.6rem;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    color: var(--text-muted);
+}
+
+.filter-group label {
+    font-size: var(--font-size-sm);
+    color: var(--text-secondary);
+    white-space: nowrap;
+}
+
+.filter-group .form-input,
+.filter-group .form-select,
+.filter-group select {
+    width: auto;
+    min-width: 170px;
+}
+
+@media (max-width: 768px) {
+    .filters-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    /* In a column, flex-basis would set the height, not the width */
+    .search-box {
+        flex: none;
+        width: 100%;
+        min-width: 0;
+    }
+
+    .filter-group {
+        width: 100%;
+    }
+
+    .filter-group .form-input,
+    .filter-group .form-select,
+    .filter-group select {
+        flex: 1;
+        width: 100%;
+        min-width: 0;
+    }
+}
+
+/* ---------- Forms ---------- */
+.form-row {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-4);
+}
+
+@media (max-width: 640px) {
+    .form-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+.form-hint {
+    display: block;
+    margin-top: var(--space-1);
+    font-size: var(--font-size-xs);
+    color: var(--text-muted);
+}
+
+/* ---------- Cards ---------- */
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    flex-wrap: wrap;
+}
+
+.card-title {
+    margin: 0;
+    font-size: var(--font-size-lg);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+}
+
+/* ---------- States ---------- */
+.empty-state {
+    text-align: center;
+    padding: var(--space-8) var(--space-4);
+    color: var(--text-muted);
+}
+
+.empty-state svg {
+    margin-bottom: var(--space-3);
+    opacity: 0.5;
+}
+
+.loading-container {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-3);
+    padding: var(--space-8);
+    color: var(--text-muted);
+}
+
+.alert,
+.error-banner {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--space-3);
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-color);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    margin-bottom: var(--space-4);
+}
+
+.alert-error,
+.alert-danger,
+.error-banner {
+    background: var(--error-50);
+    border-color: var(--error-500);
+    color: var(--error-600);
+}
+
+.alert-success {
+    background: var(--success-50);
+    border-color: var(--success-500);
+    color: var(--success-600);
+}
+
+.alert-warning {
+    background: var(--warning-50);
+    border-color: var(--warning-500);
+    color: var(--warning-600);
+}
+
+.alert-info {
+    background: var(--info-50);
+    border-color: var(--info-500);
+    color: var(--info-600);
+}
+
+/* ---------- Dropdown (header menus) ---------- */
+.dropdown-menu {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: var(--space-1);
+    z-index: 50;
+    min-width: 220px;
+}
+
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: var(--space-2);
+    width: 100%;
+    padding: var(--space-2) var(--space-3);
+    border: none;
+    background: transparent;
+    color: var(--text-primary);
+    border-radius: var(--radius-md);
+    text-align: left;
+    cursor: pointer;
+    font-size: var(--font-size-sm);
+}
+
+.dropdown-item:hover {
+    background: var(--bg-tertiary);
+}
+
+/* ---------- Text & spacing utilities used across pages ---------- */
+.text-center { text-align: center; }
+.text-error { color: var(--error-500); }
+.text-success { color: var(--success-500); }
+.text-warning { color: var(--warning-500); }
+.text-primary { color: var(--color-primary, var(--primary-600)); }
+
+.mt-2 { margin-top: var(--space-2); }
+.mt-3 { margin-top: var(--space-3); }
+.mt-4 { margin-top: var(--space-4); }
+.mb-2 { margin-bottom: var(--space-2); }
+.mb-3 { margin-bottom: var(--space-3); }
+.mb-4 { margin-bottom: var(--space-4); }
+.p-0 { padding: 0; }
+.p-4 { padding: var(--space-4); }
+.py-4 { padding-top: var(--space-4); padding-bottom: var(--space-4); }
+.flex-grow { flex-grow: 1; }
+
+@keyframes app-spin {
+    to { transform: rotate(360deg); }
+}
+
+.spin,
+.animate-spin {
+    animation: app-spin 1s linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .spin,
+    .animate-spin {
+        animation-duration: 2.5s;
+    }
+}
+
+/* Short labels never break mid-word ("AKAN / DATANG") */
+.badge {
+    white-space: nowrap;
+}
+
+.text-nowrap {
+    white-space: nowrap;
+}

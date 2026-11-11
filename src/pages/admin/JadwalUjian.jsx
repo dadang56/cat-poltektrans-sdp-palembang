@@ -25,7 +25,6 @@ import {
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 
-
 function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], ruangList = [], dosenList = [], jadwalList = [], isLoading }) {
     const getDefaultFormData = () => ({
         matkul_id: '',
@@ -848,9 +847,6 @@ function JadwalUjianPage() {
                     <div>
                         <h1 className="page-title">
                             Jadwal Ujian
-                            <span className={`badge badge-${useSupabase ? 'success' : 'warning'}`} style={{ marginLeft: '12px', fontSize: '12px' }}>
-                                {useSupabase ? 'Database' : 'Local'}
-                            </span>
                         </h1>
                         <p className="page-subtitle">
                             {isSuperAdmin
@@ -864,7 +860,7 @@ function JadwalUjianPage() {
                             {isLoading ? 'Memuat...' : 'Refresh'}
                         </button>
                         {useSupabase && (
-                            <button className="btn btn-outline" onClick={() => { setTrashOpen(true); loadTrash() }} style={{ color: 'var(--text-muted)' }}>
+                            <button className="btn btn-outline" onClick={() => { setTrashOpen(true); loadTrash() }}>
                                 <Archive size={18} />
                                 Trash
                             </button>
@@ -900,11 +896,11 @@ function JadwalUjianPage() {
                         <span className="mini-stat-label">Total Jadwal</span>
                     </div>
                     <div className="mini-stat">
-                        <span className="mini-stat-value">{prodiFilteredJadwal.filter(j => j.tipeUjian === 'UTS').length}</span>
+                        <span className="mini-stat-value">{prodiFilteredJadwal.filter(j => (j.tipe || j.tipeUjian) === 'UTS').length}</span>
                         <span className="mini-stat-label">UTS</span>
                     </div>
                     <div className="mini-stat">
-                        <span className="mini-stat-value">{prodiFilteredJadwal.filter(j => j.tipeUjian === 'UAS').length}</span>
+                        <span className="mini-stat-value">{prodiFilteredJadwal.filter(j => (j.tipe || j.tipeUjian) === 'UAS').length}</span>
                         <span className="mini-stat-label">UAS</span>
                     </div>
 
@@ -978,8 +974,8 @@ function JadwalUjianPage() {
                                                     <td>
                                                         <div className="time-cell">
                                                             <Clock size={14} />
-                                                            <span>{getJadwalWaktuMulai(j)} - {getJadwalWaktuSelesai(j)}</span>
-                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '4px' }}>({j.durasi || 90}m)</span>
+                                                            <span>{String(getJadwalWaktuMulai(j) || '').slice(0, 5)} - {String(getJadwalWaktuSelesai(j) || '').slice(0, 5)}</span>
+                                                            <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginLeft: '4px' }}>({j.durasi || 90} menit)</span>
                                                         </div>
                                                     </td>
                                                     <td className="font-medium">{getMatkulName(getJadwalMatkul(j))}</td>
@@ -1076,14 +1072,7 @@ function JadwalUjianPage() {
             </div>
 
             <style>{`
-                .mb-4 {
-                    margin-bottom: var(--space-4);
-                }
-                .filter-group {
-                    display: flex;
-                    align-items: center;
-                    gap: var(--space-3);
-                }
+
                 .date-header {
                     display: flex;
                     align-items: center;
@@ -1118,14 +1107,7 @@ function JadwalUjianPage() {
                 .empty-state p {
                     margin-bottom: var(--space-4);
                 }
-                .text-error {
-                    color: var(--error-500);
-                }
-                .form-row {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: var(--space-4);
-                }
+
                 /* Trash Modal */
                 .trash-overlay {
                     position: fixed;

@@ -470,13 +470,7 @@ function RekapNilaiPage() {
             </div>
 
             <style>{`
-                .mb-4 {
-                    margin-bottom: var(--space-4);
-                }
-                .header-actions {
-                    display: flex;
-                    gap: var(--space-3);
-                }
+
                 .rekap-list {
                     display: flex;
                     flex-direction: column;
@@ -525,9 +519,7 @@ function RekapNilaiPage() {
                     background: var(--bg-secondary);
                     overflow-x: auto;
                 }
-                .text-center {
-                    text-align: center;
-                }
+                
                 .nh-badge {
                     display: inline-flex;
                     align-items: center;

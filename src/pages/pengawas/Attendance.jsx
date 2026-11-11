@@ -18,7 +18,6 @@ import {
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 
-
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
 const ABSENCE_REASONS = [
@@ -629,9 +628,7 @@ function AttendancePage() {
 
             <style>{`
                 .attendance-page { padding: 0; }
-                .page-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem; }
-                .page-actions { display: flex; gap: 0.75rem; }
-                .mb-4 { margin-bottom: 1.5rem; }
+
                 .room-selector { display: flex; flex-wrap: wrap; gap: 2rem; align-items: center; }
                 .selector-item { display: flex; align-items: center; gap: 0.75rem; }
                 .selector-item label { font-weight: 500; color: var(--text-secondary); }
@@ -645,9 +642,7 @@ function AttendancePage() {
                 .att-stat.warning .att-stat-value { color: var(--warning-500); }
                 .att-stat.info .att-stat-value { color: var(--info-500); }
                 .att-stat.error .att-stat-value { color: var(--error-500); }
-                .search-box { position: relative; }
-                .search-box .search-icon { position: absolute; left: 1rem; top: 50%; transform: translateY(-50%); color: var(--text-muted); }
-                .search-box .form-input { padding-left: 2.75rem; }
+
                 .card-header { padding: 1rem 1.5rem; border-bottom: 1px solid var(--border-color); }
                 .card-header h3 { margin: 0; font-size: 1rem; }
                 .status-toggle { display: flex; gap: 0.25rem; }

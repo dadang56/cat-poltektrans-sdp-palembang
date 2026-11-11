@@ -17,7 +17,6 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 
-
 function RekapBeritaAcaraPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
@@ -500,13 +499,7 @@ function RekapBeritaAcaraPage() {
             </div>
 
             <style>{`
-                .mb-4 {
-                    margin-bottom: var(--space-4);
-                }
-                .header-actions {
-                    display: flex;
-                    gap: var(--space-3);
-                }
+
                 .action-buttons {
                     display: flex;
                     gap: var(--space-1);

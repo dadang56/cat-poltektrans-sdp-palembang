@@ -123,7 +123,6 @@ function NilaiAkhirPage() {
                     setSelectedMatkul(uniqueMatkuls[0])
                 }
 
-
                 // 4. Process grades
                 const gradesByMatkul = {}
 
@@ -745,8 +744,7 @@ function NilaiAkhirPage() {
             </div>
 
             <style>{`
-                .mb-4 { margin-bottom: 16px; }
-                .text-center { text-align: center; }
+
                 .btn-sm { padding: 4px 8px; font-size: 12px; }
                 
                 /* Info Box Styling */

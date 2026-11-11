@@ -18,8 +18,6 @@ import {
 } from 'lucide-react'
 import { isSupabaseConfigured, hasilUjianService, prodiService, kelasService, matkulService, userService } from '../../services/supabaseService'
 
-
-
 function getGradeLabel(nilai) {
     if (nilai >= 85) return { label: 'A', color: 'success' }
     if (nilai >= 75) return { label: 'B', color: 'primary' }
@@ -112,8 +110,6 @@ function ReportsPage() {
         setGrades(enrichedResults)
     }
 
-
-
     // Filter data
     const filteredGrades = grades.filter(grade => {
         const matchSearch = grade.nama.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -165,21 +161,7 @@ function ReportsPage() {
                         <p className="page-subtitle">Rekap nilai akumulatif dari ujian yang telah dinilai</p>
                     </div>
                     <div className="page-actions">
-                        {/* Data Source Indicator */}
-                        <div className={`data-source-badge ${dataSource}`}>
-                            {dataSource === 'supabase' ? (
-                                <>
-                                    <Database size={14} />
-                                    <span>Database</span>
-                                </>
-                            ) : (
-                                <>
-                                    <HardDrive size={14} />
-                                    <span>Local</span>
-                                </>
-                            )}
-                        </div>
-                        <button className="btn btn-ghost" onClick={loadData} disabled={isLoading}>
+                        <button className="btn btn-ghost btn-icon" onClick={loadData} disabled={isLoading} title="Muat ulang data" aria-label="Muat ulang data">
                             <RefreshCw size={18} className={isLoading ? 'spin' : ''} />
                         </button>
                         <button className="btn btn-outline" onClick={() => setShowFilters(!showFilters)}>
@@ -436,20 +418,7 @@ function ReportsPage() {
                 .reports-page {
                     padding: 0;
                 }
-                .page-header {
-                    display: flex;
-                    justify-content: space-between;
-                    align-items: flex-start;
-                    flex-wrap: wrap;
-                    gap: 1rem;
-                    margin-bottom: 1.5rem;
-                }
-                .page-actions {
-                    display: flex;
-                    gap: 0.75rem;
-                    flex-wrap: wrap;
-                    align-items: center;
-                }
+
                 .data-source-badge {
                     display: inline-flex;
                     align-items: center;
@@ -473,9 +442,7 @@ function ReportsPage() {
                     transform: rotate(180deg);
                     transition: transform 0.2s ease;
                 }
-                .spin {
-                    animation: spin 1s linear infinite;
-                }
+                
                 @keyframes spin {
                     from { transform: rotate(0deg); }
                     to { transform: rotate(360deg); }
@@ -521,20 +488,7 @@ function ReportsPage() {
                     font-size: 0.875rem;
                     color: var(--color-text-muted);
                 }
-                .search-box {
-                    position: relative;
-                    margin-bottom: 1.5rem;
-                }
-                .search-box .search-icon {
-                    position: absolute;
-                    left: 1rem;
-                    top: 50%;
-                    transform: translateY(-50%);
-                    color: var(--color-text-muted);
-                }
-                .search-box .form-input {
-                    padding-left: 3rem;
-                }
+
                 .badge-outline {
                     background: transparent;
                     border: 1px solid var(--color-border);
@@ -566,17 +520,7 @@ function ReportsPage() {
                     border: 1px solid rgba(245, 158, 11, 0.3);
                     color: #f59e0b;
                 }
-                @media (max-width: 768px) {
-                    .page-header {
-                        flex-direction: column;
-                    }
-                    .page-actions {
-                        width: 100%;
-                    }
-                    .page-actions button {
-                        flex: 1;
-                    }
-                }
+                
             `}</style>
         </DashboardLayout>
     )
