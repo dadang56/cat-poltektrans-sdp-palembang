@@ -5,6 +5,7 @@ import { useConfirm } from '../../components/ConfirmDialog'
 import { useSettings } from '../../contexts/SettingsContext'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { jadwalService, hasilUjianService, jawabanMahasiswaService, isSupabaseConfigured } from '../../services/supabaseService'
+import { syncServerClock, serverNow } from '../../utils/serverTime'
 import {
   Eye,
   Users,
@@ -546,7 +547,7 @@ function MonitorUjian() {
           await hasilUjianService.update(studentId, {
             status: 'in_progress',
             waktu_selesai: null,
-            waktu_mulai: new Date().toISOString()
+            waktu_mulai: (await syncServerClock(), serverNow()).toISOString()
           })
           console.log('[MonitorUjian] Exam reactivated for:', studentId)
         } catch (error) {
@@ -632,7 +633,7 @@ function MonitorUjian() {
             status: 'in_progress',
             nilai_total: null,
             waktu_selesai: null,
-            waktu_mulai: new Date().toISOString(),
+            waktu_mulai: (await syncServerClock(), serverNow()).toISOString(),
             jumlah_benar: 0,
             jumlah_salah: 0,
             jumlah_kosong: 0,

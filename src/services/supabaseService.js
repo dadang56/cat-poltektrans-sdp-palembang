@@ -951,6 +951,45 @@ export const hasilUjianService = {
         return data
     },
 
+    // Save the graded result when a student finishes. Retries network
+    // failures, and if the database lacks an optional column (e.g. a migration
+    // not yet applied) it drops that column and saves the rest instead of
+    // losing the whole result.
+    async saveFinalResult(hasilData) {
+        const REQUIRED = new Set(['jadwal_id', 'mahasiswa_id', 'status', 'nilai_total', 'answers_detail'])
+        let payload = { ...hasilData }
+        let lastError = null
+        for (let attempt = 1; attempt <= 5; attempt++) {
+            try {
+                return await this.upsert(payload)
+            } catch (err) {
+                lastError = err
+                const msg = `${err?.message || ''} ${err?.details || ''}`
+                const missing = msg.match(/'(\w+)' column/)?.[1] || msg.match(/column\s+(?:\w+\.)?"?(\w+)"?\s+does not exist/)?.[1]
+                if (missing && missing in payload && !REQUIRED.has(missing)) {
+                    console.warn(`[hasilUjianService] Column ${missing} missing in DB, saving without it`)
+                    const { [missing]: _dropped, ...rest } = payload
+                    payload = rest
+                    continue
+                }
+                await new Promise(r => setTimeout(r, 1500 * attempt))
+            }
+        }
+        throw lastError
+    },
+
+    // Periodic auto-save during an exam. Only updates a row that is still
+    // in_progress so a late auto-save can't undo a finished result.
+    async autosaveAnswers(jadwalId, mahasiswaId, answersDetail) {
+        const { error } = await supabase
+            .from('hasil_ujian')
+            .update({ answers_detail: answersDetail })
+            .eq('jadwal_id', jadwalId)
+            .eq('mahasiswa_id', mahasiswaId)
+            .eq('status', 'in_progress')
+        if (error) throw error
+    },
+
     async getByJadwalAndMahasiswa(jadwalId, mahasiswaId) {
         const { data, error } = await supabase
             .from('hasil_ujian')

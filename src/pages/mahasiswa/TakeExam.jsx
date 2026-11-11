@@ -6,6 +6,7 @@ import { jadwalService, matkulService, soalService, hasilUjianService, isSupabas
 import { useSettings } from '../../contexts/SettingsContext'
 import { toPercentScore } from '../../utils/gradeUtils'
 import { getActiveAcademicYear } from '../../utils/academicYear'
+import { syncServerClock, serverNow } from '../../utils/serverTime'
 import {
     Clock,
     ChevronLeft,
@@ -51,6 +52,8 @@ function TakeExamPage() {
     const [flagged, setFlagged] = useState(new Set())
     const [timeLeft, setTimeLeft] = useState(null) // null = not initialized yet, 0 = time's up
     const timeLeftRef = useRef(null)
+    const handleSubmitRef = useRef(null) // always the latest handleSubmit (timers keep stale closures)
+    const submittingRef = useRef(false) // blocks double submit (timer + button)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [showWarning, setShowWarning] = useState(false)
     const [warningCount, setWarningCount] = useState(0)
@@ -221,10 +224,12 @@ function TakeExamPage() {
                     let resumedAnswers = {}
                     let personalStartTime = null
                     let hasilId = null
+                    let existingHasilRow = null
 
                     if (isSupabaseConfigured() && user?.id) {
                         try {
                             const existingHasil = await hasilUjianService.getByJadwalAndMahasiswa(jadwal.id, user.id)
+                            existingHasilRow = existingHasil
 
                             if (existingHasil) {
                                 hasilId = existingHasil.id
@@ -335,15 +340,39 @@ function TakeExamPage() {
                     // ===========================
                     // TIMER: Personal duration
                     // ===========================
-                    const now = new Date()
+                    // Use the database clock, not the device clock: a wrong
+                    // device clock made the countdown start at 00:00.
+                    await syncServerClock()
+                    const now = serverNow()
                     const windowStart = new Date(`${jadwal.tanggal}T${waktuMulai}`)
                     let windowEnd = new Date(`${jadwal.tanggal}T${waktuSelesai}`)
                     // Handle cross-midnight exams (e.g. 20:18 - 00:18)
                     if (windowEnd <= windowStart) windowEnd = new Date(windowEnd.getTime() + 24 * 60 * 60 * 1000)
 
+                    // A start time from long before this exam's window means the
+                    // exam was opened earlier and then rescheduled (or the start
+                    // was never recorded). Restart the personal timer instead of
+                    // resuming with zero time left. The 12h margin absorbs device
+                    // timezone mistakes in windowStart.
+                    const STALE_START_MS = 12 * 60 * 60 * 1000
+                    if (personalStartTime && (
+                        Number.isNaN(personalStartTime.getTime()) ||
+                        (!Number.isNaN(windowStart.getTime()) && personalStartTime.getTime() < windowStart.getTime() - STALE_START_MS)
+                    )) {
+                        console.log('[TakeExam] Stale start time', existingHasilRow?.waktu_mulai, '— restarting personal timer')
+                        personalStartTime = now
+                        if (hasilId) {
+                            try {
+                                await hasilUjianService.update(hasilId, { waktu_mulai: now.toISOString() })
+                            } catch (err) {
+                                console.error('[TakeExam] Error resetting stale start time:', err)
+                            }
+                        }
+                    }
+
                     if (personalStartTime) {
                         // RESUME: calculate remaining from personal start
-                        const extraMinutes = existingHasil?.tambahan_waktu || 0
+                        const extraMinutes = existingHasilRow?.tambahan_waktu || 0
                         setAppliedExtraTime(extraMinutes)
                         const elapsedSeconds = Math.floor((now - personalStartTime) / 1000)
                         const totalDurationSeconds = (durasiMenit + extraMinutes) * 60
@@ -354,14 +383,15 @@ function TakeExamPage() {
                         if (remainingSeconds <= 0) {
                             // Duration expired while away — auto-submit with score calculation
                             console.log('[TakeExam] Duration expired during absence, auto-submitting with scores')
-                            // We need to submit after state is set, so use a flag
+                            // Submit after state is set. Go through the ref: this closure
+                            // still sees the empty questions/answers of the first render.
                             setTimeout(() => {
-                                handleSubmit(true) // true = isAutoSubmit
+                                handleSubmitRef.current?.(true) // true = isAutoSubmit
                             }, 100)
                         }
                     } else {
-                        // NEW session: record start time
-                        const startNow = new Date()
+                        // NEW session: record start time (server clock)
+                        const startNow = now
                         setExamStartTime(startNow)
                         setTimeLeft(durasiMenit * 60)
 
@@ -488,7 +518,7 @@ function TakeExamPage() {
                 const next = prev - 1
                 timeLeftRef.current = next
                 if (prev <= 1) {
-                    handleSubmit(true) // true = isAutoSubmit (time's up)
+                    handleSubmitRef.current?.(true) // true = isAutoSubmit (time's up)
                     return 0
                 }
                 return prev - 1
@@ -503,7 +533,8 @@ function TakeExamPage() {
         if (submitted || loading || !examData?.id || !user?.id || questions.length === 0) return
         if (!isSupabaseConfigured()) return
 
-        const autoSaveInterval = setInterval(async () => { // Optimized: 60s (was 30s)
+        const autoSaveInterval = setInterval(async () => {
+            if (submittingRef.current) return
             try {
                 const answerSnapshot = questions.map(q => ({
                     questionId: q.id,
@@ -511,12 +542,9 @@ function TakeExamPage() {
                     answer: answers[q.id] ?? null
                 }))
 
-                await hasilUjianService.upsert({
-                    jadwal_id: examData.id,
-                    mahasiswa_id: user.id,
-                    status: 'in_progress',
-                    answers_detail: JSON.stringify(answerSnapshot)
-                })
+                // Only touches a row that is still in_progress, so a late
+                // auto-save can never overwrite a graded/submitted result.
+                await hasilUjianService.autosaveAnswers(examData.id, user.id, JSON.stringify(answerSnapshot))
                 console.log('[TakeExam] Auto-saved', Object.keys(answers).length, 'answers')
             } catch (err) {
                 console.error('[TakeExam] Auto-save failed:', err)
@@ -708,6 +736,13 @@ function TakeExamPage() {
     }
 
     const handleSubmit = (isAutoSubmit = false) => {
+        if (submittingRef.current) return
+        if (!examData?.id || questions.length === 0) {
+            // Never store an empty result over the student's saved answers
+            console.warn('[TakeExam] Submit skipped: exam not loaded yet')
+            return
+        }
+        submittingRef.current = true
         const autoSubmitVal = isAutoSubmit === true
         if (autoSubmitVal) setIsAutoSubmitted(true)
         setSubmitted(true)
@@ -814,23 +849,25 @@ function TakeExamPage() {
                     jumlah_benar: jumlahBenar,
                     jumlah_salah: jumlahSalah,
                     jumlah_kosong: jumlahKosong,
-                    waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(Date.now() - (examData.duration * 60 * 1000)).toISOString(),
-                    waktu_selesai: new Date().toISOString(),
+                    waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(serverNow().getTime() - (examData.duration * 60 * 1000)).toISOString(),
+                    waktu_selesai: serverNow().toISOString(),
                     status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
                     submit_type: autoSubmitVal ? 'auto' : 'manual',
                     // Store detailed answers as JSON
                     answers_detail: JSON.stringify(answerDetails)
                 }
 
-                await hasilUjianService.upsert(hasilData)
+                await hasilUjianService.saveFinalResult(hasilData)
                 console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
             } catch (error) {
                 console.error('[TakeExam] Error saving to Supabase:', error)
+                alert('Jawaban ujian GAGAL tersimpan ke server. Jangan tutup halaman ini dan segera lapor ke pengawas.')
             }
         }
 
         saveExamResult()
     }
+    handleSubmitRef.current = handleSubmit
 
     // Cheating auto-submit: same as handleSubmit but marks status as 'cheating_submitted'
     const handleCheatingAutoSubmit = () => {
