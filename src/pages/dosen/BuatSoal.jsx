@@ -30,6 +30,7 @@ import '../admin/Dashboard.css'
 // Supabase services
 import { soalService, matkulService, kelasService } from '../../services/supabaseService'
 import { isSupabaseConfigured } from '../../lib/supabase'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 // Bank Soal Modal for selecting existing questions
@@ -195,6 +196,7 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
     })
 
     const [formData, setFormData] = useState(question || getDefaultFormData())
+    const [saving, setSaving] = useState(false)
     const questionImageRef = useRef(null)
 
     // Reset form when question changes or modal opens
@@ -311,10 +313,17 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
         setFormData({ ...formData, pairs: newPairs })
     }
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault()
-        onSave(formData)
-        onClose()
+        if (saving) return // block double-click duplicates
+        setSaving(true)
+        try {
+            // Keep the form open when saving fails so the typed question isn't lost
+            const ok = await onSave(formData)
+            if (ok !== false) onClose()
+        } finally {
+            setSaving(false)
+        }
     }
 
     if (!isOpen) return null
@@ -669,9 +678,9 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
-                        <button type="submit" className="btn btn-primary">
+                        <button type="submit" className="btn btn-primary" disabled={saving}>
                             <Save size={16} />
-                            Simpan Soal
+                            {saving ? 'Menyimpan...' : 'Simpan Soal'}
                         </button>
                     </div>
                 </form>
@@ -905,8 +914,8 @@ function BuatSoalPage() {
             const newTotal = calcEffectivePoints(simulatedQuestions)
             if (newTotal > 100) {
                 const currentEffective = calcEffectivePoints(pkgQuestions)
-                alert(`Total poin efektif akan menjadi ${newTotal}/100. Maksimal total poin adalah 100. Sisa poin yang tersedia: ${100 - currentEffective + (editingQuestion ? (editingQuestion.points || 0) : 0)}`)
-                return
+                toast.warning(`Total poin efektif akan menjadi ${newTotal}/100. Maksimal total poin adalah 100. Sisa poin yang tersedia: ${100 - currentEffective + (editingQuestion ? (editingQuestion.points || 0) : 0)}`)
+                return false
             }
         }
         try {
@@ -1001,11 +1010,13 @@ function BuatSoalPage() {
                         correctAnswer: questionData.correctAnswer,
                         image: questionData.image,
                         clusterId: resolvedClusterId,
-                        clusterLabel: questionData.clusterLabel
+                        clusterLabel: questionData.clusterLabel,
+                        kelasIds: supabaseData.kelas_ids || []
                     } : q
                 )
                 setQuestions(updatedQuestions)
                 console.log('[BuatSoal] Question updated:', updated)
+                toast.success('Soal berhasil diperbarui')
             } else {
                 // Create new question in Supabase
                 const created = await soalService.create(supabaseData)
@@ -1027,12 +1038,15 @@ function BuatSoalPage() {
                     clusterId: resolvedClusterId,
                     clusterLabel: questionData.clusterLabel || ''
                 }
-                setQuestions([...questions, newQuestion])
+                setQuestions(prev => [...prev, newQuestion])
                 console.log('[BuatSoal] Question created:', created)
+                toast.success('Soal berhasil ditambahkan')
             }
+            return true
         } catch (error) {
             console.error('[BuatSoal] Error saving question:', error)
-            alert('Gagal menyimpan soal: ' + error.message)
+            toast.error('Gagal menyimpan soal: ' + errorMessage(error))
+            return false
         }
     }
 
@@ -1043,11 +1057,12 @@ function BuatSoalPage() {
             onConfirm: async () => {
                 try {
                     await soalService.delete(id)
-                    setQuestions(questions.filter(q => q.id !== id))
+                    setQuestions(prev => prev.filter(q => q.id !== id))
                     console.log('[BuatSoal] Question deleted:', id)
+                    toast.success('Soal berhasil dihapus')
                 } catch (error) {
                     console.error('[BuatSoal] Error deleting question:', error)
-                    alert('Gagal menghapus soal: ' + error.message)
+                    toast.error('Gagal menghapus soal: ' + errorMessage(error))
                 }
             }
         })
@@ -1067,9 +1082,10 @@ function BuatSoalPage() {
                     const deletedIds = new Set(pkg.questions.map(q => q.id))
                     setQuestions(prev => prev.filter(q => !deletedIds.has(q.id)))
                     console.log('[BuatSoal] Package deleted:', matkulName, pkg.examType, pkg.questions.length, 'questions')
+                    toast.success(`Paket soal "${matkulName} - ${pkg.examType}" berhasil dihapus`)
                 } catch (error) {
                     console.error('[BuatSoal] Error deleting package:', error)
-                    alert('Gagal menghapus paket soal: ' + error.message)
+                    toast.error('Gagal menghapus paket soal: ' + errorMessage(error))
                 }
             }
         })
@@ -1104,9 +1120,10 @@ function BuatSoalPage() {
             console.log('[BuatSoal] Kelas updated for package:', editKelasPackage.matkulId, editKelasPackage.examType, 'new kelas:', editKelasIds)
             setEditKelasModal(false)
             setEditKelasPackage(null)
+            toast.success('Kelas paket soal berhasil diperbarui')
         } catch (error) {
             console.error('[BuatSoal] Error updating kelas:', error)
-            alert('Gagal mengubah kelas: ' + error.message)
+            toast.error('Gagal mengubah kelas: ' + errorMessage(error))
         } finally {
             setEditKelasLoading(false)
         }
@@ -1183,11 +1200,12 @@ function BuatSoalPage() {
                     kelasIds: created.kelas_ids || []
                 })
             }
-            setQuestions([...questions, ...newQuestions])
+            setQuestions(prev => [...prev, ...newQuestions])
             console.log('[BuatSoal] Imported', newQuestions.length, 'questions')
+            toast.success(`${newQuestions.length} soal berhasil diimpor dari bank soal`)
         } catch (error) {
             console.error('[BuatSoal] Error importing questions:', error)
-            alert('Gagal mengimpor soal: ' + error.message)
+            toast.error('Gagal mengimpor soal: ' + errorMessage(error))
         }
     }
 
@@ -1297,7 +1315,11 @@ function BuatSoalPage() {
             const rows = XLSX.utils.sheet_to_json(sheet)
 
             if (rows.length === 0) {
-                alert('File Excel kosong. Pastikan ada data di sheet pertama.')
+                toast.error('File Excel kosong. Pastikan ada data di sheet pertama.')
+                return
+            }
+            if (!selectedPackage) {
+                toast.error('Buka paket soal (mata kuliah & jenis ujian) dulu sebelum upload Excel.')
                 return
             }
 
@@ -1326,9 +1348,12 @@ function BuatSoalPage() {
 
             let created = 0
             let errors = 0
+            const errorRows = [] // Excel row numbers rejected because the answer key is unclear
             const newQuestions = []
+            let rowNumber = 1 // header is row 1
 
             for (const row of rows) {
+                rowNumber++
                 const pertanyaan = row['Pertanyaan'] || row['pertanyaan']
                 if (!pertanyaan || pertanyaan.toString().trim() === '') continue
 
@@ -1340,18 +1365,27 @@ function BuatSoalPage() {
                 let jawabanBenar = null
 
                 if (tipeSoal === 'pilihan_ganda') {
-                    const optA = row['Pilihan A'] || row['pilihan_a'] || ''
-                    const optB = row['Pilihan B'] || row['pilihan_b'] || ''
-                    const optC = row['Pilihan C'] || row['pilihan_c'] || ''
-                    const optD = row['Pilihan D'] || row['pilihan_d'] || ''
-                    const optE = row['Pilihan E'] || row['pilihan_e'] || ''
+                    const letters = ['A', 'B', 'C', 'D', 'E']
+                    const rawOptions = letters.map(l => {
+                        const v = row[`Pilihan ${l}`] ?? row[`pilihan_${l.toLowerCase()}`] ?? ''
+                        return v.toString().trim()
+                    })
 
-                    pilihan = [optA, optB, optC, optD, optE]
-                        .filter(o => o && o.toString().trim() !== '')
-                        .map(o => ({ text: o.toString().trim(), image: null }))
+                    // The answer must be a single letter that points at a filled
+                    // option. Never guess: a wrong key silently fails every student.
+                    const jawabanRaw = (row['Jawaban Benar (A/B/C/D/E)'] ?? row['jawaban_benar'] ?? '').toString().trim().toUpperCase().replace(/[^A-E]/g, '')
+                    const answerIdx = jawabanRaw.length === 1 ? answerMap[jawabanRaw] : undefined
+                    if (answerIdx === undefined || !rawOptions[answerIdx]) {
+                        errors++
+                        errorRows.push(rowNumber)
+                        continue
+                    }
 
-                    const jawaban = (row['Jawaban Benar (A/B/C/D/E)'] || row['jawaban_benar'] || 'A').toString().trim().toUpperCase()
-                    jawabanBenar = answerMap[jawaban] ?? 0
+                    // Drop empty options, then point the key at the same option
+                    // in the compacted list (empty C would otherwise shift D to C)
+                    const kept = rawOptions.map((text, i) => ({ text, i })).filter(o => o.text !== '')
+                    pilihan = kept.map(o => ({ text: o.text, image: null }))
+                    jawabanBenar = kept.findIndex(o => o.i === answerIdx)
                 } else if (tipeSoal === 'benar_salah') {
                     const jawaban = (row['Jawaban Benar (A/B/C/D/E)'] || row['jawaban_benar'] || '').toString().trim().toLowerCase()
                     jawabanBenar = jawaban === 'benar' || jawaban === 'true' || jawaban === 'b'
@@ -1399,13 +1433,16 @@ function BuatSoalPage() {
             setQuestions(prev => [...prev, ...newQuestions])
 
             if (errors > 0) {
-                alert(`Import selesai: ${created} soal berhasil, ${errors} soal gagal.`)
+                const detail = errorRows.length
+                    ? `\nBaris Excel dengan kunci jawaban kosong/tidak valid (harus satu huruf A-E yang pilihannya terisi): ${errorRows.slice(0, 15).join(', ')}${errorRows.length > 15 ? ', ...' : ''}`
+                    : ''
+                toast.warning(`Import selesai: ${created} soal berhasil, ${errors} soal gagal.${detail}`, 12000)
             } else {
-                alert(`✓ ${created} soal berhasil diimport dari Excel!`)
+                toast.success(`${created} soal berhasil diimport dari Excel`)
             }
         } catch (error) {
             console.error('[BuatSoal] Excel import error:', error)
-            alert('Gagal membaca file Excel: ' + error.message)
+            toast.error('Gagal membaca file Excel: ' + errorMessage(error))
         }
     }
 

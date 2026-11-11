@@ -21,6 +21,7 @@ import {
     Printer
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 // Grade calculation helper functions
 const calculateNAK = (student, hasPraktek) => {
@@ -255,9 +256,13 @@ function NilaiAkhirPage() {
                     await hasilUjianService.update(rid, updateData)
                 }
                 console.log('[NilaiAkhir] Saved to Supabase, records:', idsToUpdate)
+                toast.success(`Nilai ${student.nama || student.name || 'mahasiswa'} berhasil disimpan`)
             } catch (error) {
                 console.error('[NilaiAkhir] Save to Supabase failed:', error)
-                alert('Gagal menyimpan ke database: ' + error.message)
+                toast.error('Gagal menyimpan ke database: ' + errorMessage(error))
+                // Keep the editor open so the typed values aren't lost
+                setSaving(false)
+                return
             }
         }
 

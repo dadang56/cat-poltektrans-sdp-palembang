@@ -25,6 +25,7 @@ import {
     Percent
 } from 'lucide-react'
 import './Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 import { generateAcademicYearOptions } from '../../utils/academicYear'
 
 
@@ -175,9 +176,9 @@ function AdminProdiDashboard() {
                     })
                     setSoalReadiness(readiness)
                 } else {
-                    usersList = users ? JSON.parse(users) : []
-                    jadwalList = jadwal ? JSON.parse(jadwal) : []
-                    matkulList = matkul ? JSON.parse(matkul) : []
+                    usersList = []
+                    jadwalList = []
+                    matkulList = []
                 }
 
                 // Filter by prodi for admin_prodi
@@ -335,7 +336,8 @@ function AdminProdiDashboard() {
                 setUjianBerlangsung(berlangsung)
             } catch (err) {
                 console.error('Error loading dashboard data:', err)
-                const usersList = users ? JSON.parse(users) : []
+                toast.error('Gagal memuat data dashboard: ' + errorMessage(err))
+                const usersList = []
                 // Same filter as above - exclude superadmin and admin_prodi
                 const prodiUsers = usersList.filter(u =>
                     u.role !== 'superadmin' && u.role !== 'admin_prodi'
@@ -521,8 +523,11 @@ function AdminProdiDashboard() {
                                                             if (e.id === exam.id) return { ...e, isActivated: !e.isActivated, jadwalStatus: newStatus }
                                                             return e
                                                         }))
+                                                        toast.success(newStatus === 'ongoing'
+                                                            ? `Ujian "${exam.name}" diaktifkan. Mahasiswa sudah bisa masuk.`
+                                                            : `Ujian "${exam.name}" dinonaktifkan.`)
                                                     } catch (err) {
-                                                        alert('Gagal mengubah status: ' + err.message)
+                                                        toast.error('Gagal mengubah status: ' + errorMessage(err))
                                                     }
                                                 }}
                                                 style={{

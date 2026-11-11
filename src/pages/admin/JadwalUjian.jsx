@@ -4,6 +4,7 @@ import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { jadwalService, matkulService, prodiService, kelasService, ruangService, userService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import { useSettings } from '../../contexts/SettingsContext'
+import { getCurrentAcademicYear } from '../../utils/academicYear'
 import {
     Calendar,
     Plus,
@@ -22,6 +23,7 @@ import {
     Archive
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasList = [], ruangList = [], dosenList = [], jadwalList = [], isLoading }) {
@@ -117,25 +119,25 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
         e.preventDefault()
         if (formData.tipe_ujian === 'ULANG') {
             if (!formData.parent_jadwal_id) {
-                alert('Silakan pilih Jadwal Ujian Asli untuk ujian ulang')
+                toast.warning('Silakan pilih Jadwal Ujian Asli untuk ujian ulang')
                 return
             }
             if (maxUlangReached) {
-                alert('Batas ujian ulang (2 kali) sudah tercapai untuk jadwal ini')
+                toast.warning('Batas ujian ulang (2 kali) sudah tercapai untuk jadwal ini')
                 return
             }
             if (mengulangStudents.length === 0) {
-                alert('Tidak ada mahasiswa yang mengulang pada ujian asli')
+                toast.warning('Tidak ada mahasiswa yang mengulang pada ujian asli')
                 return
             }
         } else {
             if (!formData.matkul_id) {
-                alert('Silakan pilih Mata Kuliah')
+                toast.warning('Silakan pilih Mata Kuliah')
                 return
             }
         }
         if (!formData.durasi || parseInt(formData.durasi) < 1) {
-            alert('Silakan isi durasi ujian (minimal 1 menit)')
+            toast.warning('Silakan isi durasi ujian (minimal 1 menit)')
             return
         }
         onSave({ ...formData, durasi: parseInt(formData.durasi) })
@@ -498,26 +500,21 @@ function JadwalUjianPage() {
                 setDosenList(dosenData || [])
                 setUseSupabase(true)
             } else {
-                const localJadwal = jadwal ? JSON.parse(jadwal) : []
+                const localJadwal = []
                 setJadwalList(settings?.tahunAkademik
                     ? localJadwal.filter(item => (item.tahun_akademik || item.tahunAkademik) === settings.tahunAkademik)
                     : localJadwal)
-                setMatkulList(matkul ? JSON.parse(matkul) : [])
-                setProdiList(prodi ? JSON.parse(prodi) : [])
-                setKelasList(kelas ? JSON.parse(kelas) : [])
+                setMatkulList([])
+                setProdiList([])
+                setKelasList([])
                 setUseSupabase(false)
             }
         } catch (err) {
             console.error('Error loading jadwal:', err)
-            setError('Gagal memuat data. Menggunakan data lokal.')
-            const localJadwal = jadwal ? JSON.parse(jadwal) : []
-            setJadwalList(settings?.tahunAkademik
-                ? localJadwal.filter(item => (item.tahun_akademik || item.tahunAkademik) === settings.tahunAkademik)
-                : localJadwal)
-            setMatkulList(matkul ? JSON.parse(matkul) : [])
-            setProdiList(prodi ? JSON.parse(prodi) : [])
-            setKelasList(kelas ? JSON.parse(kelas) : [])
-            setUseSupabase(false)
+            // Don't fall back to "local mode": saves would then only go to the
+            // browser and never reach the database. Show the error instead.
+            setError('Gagal memuat data jadwal: ' + errorMessage(err) + '. Muat ulang halaman.')
+            toast.error('Gagal memuat data jadwal: ' + errorMessage(err))
         } finally {
             setIsLoading(false)
         }
@@ -571,6 +568,17 @@ function JadwalUjianPage() {
     }
 
     const handleSave = async (data) => {
+        // New exams are filed under the active academic year. Catch the case
+        // that created duplicate UAS jadwal: the active year was stale for the
+        // exam date (e.g. Genap still active for a November exam).
+        if (!editingJadwal && data.tanggal && settings?.tahunAkademik) {
+            const dateYear = getCurrentAcademicYear(new Date(`${data.tanggal}T12:00:00`))
+            if (dateYear !== settings.tahunAkademik && !window.confirm(
+                `Tanggal ujian ${data.tanggal} termasuk ${dateYear}, tetapi Tahun Akademik aktif adalah ${settings.tahunAkademik}.\n\n` +
+                `Jadwal akan disimpan ke ${settings.tahunAkademik}. Soal dosen dan peserta harus di tahun yang sama.\n\n` +
+                `Lanjutkan? (Batal untuk mengganti Tahun Akademik aktif dulu di Pengaturan)`
+            )) return
+        }
         setIsSaving(true)
         try {
             const jadwalData = {
@@ -583,7 +591,10 @@ function JadwalUjianPage() {
                 durasi: parseInt(data.durasi) || 90,
                 ruangan_id: data.ruangan_id || null,
                 dosen_id: data.dosen_id || null,
-                tahun_akademik: settings?.tahunAkademik || null,
+                // Editing keeps the exam's own year; only new exams take the active year
+                tahun_akademik: editingJadwal
+                    ? (editingJadwal.tahun_akademik || editingJadwal.tahunAkademik || settings?.tahunAkademik || null)
+                    : (settings?.tahunAkademik || null),
                 parent_jadwal_id: data.parent_jadwal_id || null,
                 ulang_ke: data.ulang_ke || 0
             }
@@ -612,9 +623,11 @@ function JadwalUjianPage() {
                 }
             }
             setModalOpen(false)
+            toast.success(editingJadwal ? 'Jadwal ujian berhasil diperbarui' : 'Jadwal ujian berhasil ditambahkan')
         } catch (err) {
             console.error('Error saving jadwal:', err)
             setError('Gagal menyimpan jadwal.')
+            toast.error('Gagal menyimpan jadwal: ' + errorMessage(err))
         } finally {
             setIsSaving(false)
         }
@@ -647,9 +660,11 @@ function JadwalUjianPage() {
                         } else {
                             setJadwalList(jadwalList.filter(j => j.id !== id))
                         }
+                        toast.success('Jadwal ujian dipindahkan ke Trash')
                     } catch (err) {
                         console.error('Error deleting:', err)
                         setError('Gagal menghapus jadwal.')
+                        toast.error('Gagal menghapus jadwal: ' + errorMessage(err))
                     }
                 }
             })
@@ -667,9 +682,11 @@ function JadwalUjianPage() {
                         } else {
                             setJadwalList(jadwalList.filter(j => j.id !== id))
                         }
+                        toast.success('Jadwal ujian dipindahkan ke Trash')
                     } catch (err2) {
                         console.error('Error deleting:', err2)
                         setError('Gagal menghapus jadwal.')
+                        toast.error('Gagal menghapus jadwal: ' + errorMessage(err2))
                     }
                 }
             })
@@ -689,6 +706,7 @@ function JadwalUjianPage() {
             setDeletedJadwal(deleted)
         } catch (err) {
             console.error('Error loading trash:', err)
+            toast.error('Gagal memuat Trash: ' + errorMessage(err))
         } finally {
             setLoadingTrash(false)
         }
@@ -699,9 +717,11 @@ function JadwalUjianPage() {
             await jadwalService.restore(id)
             await loadTrash()
             await loadData()
+            toast.success('Jadwal ujian berhasil dipulihkan')
         } catch (err) {
             console.error('Error restoring:', err)
             setError('Gagal memulihkan jadwal.')
+            toast.error('Gagal memulihkan jadwal: ' + errorMessage(err))
         }
     }
 
@@ -713,9 +733,11 @@ function JadwalUjianPage() {
                 try {
                     await jadwalService.permanentDelete(id)
                     await loadTrash()
+                    toast.success('Jadwal ujian dihapus permanen')
                 } catch (err) {
                     console.error('Error permanent delete:', err)
                     setError('Gagal menghapus permanen.')
+                    toast.error('Gagal menghapus permanen: ' + errorMessage(err))
                 }
             }
         })

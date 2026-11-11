@@ -17,6 +17,7 @@ import {
     AlertCircle
 } from 'lucide-react'
 import './Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 import { generateAcademicYearOptions } from '../../utils/academicYear'
 
 const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
@@ -95,13 +96,15 @@ function AdminProdiSettings() {
             }
 
             // Save tahun akademik to SettingsContext (syncs across app)
-            saveSettings({ tahunAkademik: selectedTahunAkademik })
+            await saveSettings({ tahunAkademik: selectedTahunAkademik })
 
             setSaveStatus('success')
+            toast.success('Pengaturan prodi berhasil disimpan')
             setTimeout(() => setSaveStatus(null), 3000)
         } catch (error) {
             console.error('Error saving prodi settings:', error)
             setSaveStatus('error')
+            toast.error('Gagal menyimpan pengaturan: ' + errorMessage(error))
             setTimeout(() => setSaveStatus(null), 3000)
         }
     }

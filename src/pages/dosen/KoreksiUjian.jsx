@@ -23,6 +23,7 @@ import '../admin/Dashboard.css'
 import { useSettings } from '../../contexts/SettingsContext'
 import { toPercentScore } from '../../utils/gradeUtils'
 import { getActiveAcademicYear } from '../../utils/academicYear'
+import { toast, errorMessage } from '../../components/Toast'
 
 // Data kosong - akan diisi dari data nyata
 const EXAMS_TO_CORRECT = []
@@ -31,6 +32,7 @@ const QUESTIONS = []
 
 function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
     const [answers, setAnswers] = useState(student?.answers || [])
+    const [saving, setSaving] = useState(false)
 
     // Reset answers when student changes
     useEffect(() => {
@@ -54,8 +56,12 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
             return a
         })
         const totalScore = gradedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
-        onSave({ ...student, answers: gradedAnswers, totalScore })
-        onClose()
+        if (saving) return
+        setSaving(true)
+        // Close only after the save succeeded, so typed scores aren't lost
+        Promise.resolve(onSave({ ...student, answers: gradedAnswers, totalScore }))
+            .then(ok => { if (ok !== false) onClose() })
+            .finally(() => setSaving(false))
     }
 
     if (!isOpen || !student) return null
@@ -189,9 +195,9 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                     </div>
                     <div className="modal-actions">
                         <button className="btn btn-ghost" onClick={onClose}>Batal</button>
-                        <button className="btn btn-primary" onClick={handleSave}>
+                        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
                             <Save size={16} />
-                            Simpan Koreksi
+                            {saving ? 'Menyimpan...' : 'Simpan Koreksi'}
                         </button>
                     </div>
                 </div>
@@ -449,7 +455,9 @@ function KoreksiUjianPage() {
                 }
             } catch (error) {
                 console.error('[KoreksiUjian] Error loading from Supabase:', error)
-                loadFromLocalStorage()
+                // (the local-storage fallback referenced undefined data and crashed)
+                toast.error('Gagal memuat data koreksi: ' + errorMessage(error) + '. Muat ulang halaman.')
+                setExamResults([])
             }
             setLoading(false)
         }
@@ -517,7 +525,7 @@ function KoreksiUjianPage() {
         
         if (confirmName !== exam.name) {
             if (confirmName !== null) { // null = user cancelled
-                alert('Nama ujian tidak cocok. Penghapusan dibatalkan.')
+                toast.warning('Nama ujian tidak cocok. Penghapusan dibatalkan.')
             }
             return
         }
@@ -535,11 +543,11 @@ function KoreksiUjianPage() {
                 setSelectedExam(null)
             }
             
-            alert(`✅ Berhasil menghapus semua hasil ujian "${exam.name}". Mahasiswa dapat mengerjakan ujian kembali.`)
+            toast.success(`Semua hasil ujian "${exam.name}" berhasil dihapus. Mahasiswa dapat mengerjakan ujian kembali.`)
             console.log('[KoreksiUjian] Deleted all results for jadwal:', exam.id)
         } catch (error) {
             console.error('[KoreksiUjian] Error deleting results:', error)
-            alert('Gagal menghapus hasil ujian: ' + error.message)
+            toast.error('Gagal menghapus hasil ujian: ' + errorMessage(error))
         }
     }
 
@@ -549,6 +557,7 @@ function KoreksiUjianPage() {
 
     const handleSaveCorrection = async (updatedStudent) => {
         try {
+            let savedScore = updatedStudent.totalScore
             // 1. Update in Supabase — MERGE corrected answers into full answers_detail
             if (isSupabaseConfigured()) {
                 // Fetch current full answers_detail from DB
@@ -608,6 +617,7 @@ function KoreksiUjianPage() {
                 const rawTotal = mergedAnswers.reduce((sum, a) => sum + (a.earnedPoints || 0), 0)
                 const maxTotal = mergedAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0)
                 const totalScore = toPercentScore(rawTotal, maxTotal)
+                savedScore = totalScore
 
                 // Log essay answers specifically
                 const essayAnswers = mergedAnswers.filter(a => a.type === 'essay' || a.type === 'uraian')
@@ -653,7 +663,7 @@ function KoreksiUjianPage() {
                 }
             }
 
-            // 2. Update student in state
+            // 2. Update student in state (list shows raw points / max points)
             const updatedStudents = selectedExam.students.map(s =>
                 s.id === updatedStudent.id ? updatedStudent : s
             )
@@ -668,9 +678,12 @@ function KoreksiUjianPage() {
 
 
 
+            toast.success(`Koreksi ${updatedStudent.studentName || 'mahasiswa'} tersimpan (nilai ${savedScore})`)
+            return true
         } catch (error) {
             console.error('Failed to save correction:', error)
-            alert('Gagal menyimpan nilai ke database. Periksa koneksi internet Anda.')
+            toast.error('Gagal menyimpan nilai: ' + errorMessage(error))
+            return false
         }
     }
 
@@ -730,8 +743,17 @@ function KoreksiUjianPage() {
             }
 
             let changedCount = 0
+            let skippedRunning = 0
+            const RUNNING_WINDOW_MS = 6 * 60 * 60 * 1000
             for (const hasil of allHasil) {
                 if (!hasil.answers_detail) continue
+                // A student who is still working has status in_progress and a
+                // recent start. Grading that row would lock them out on refresh.
+                if (hasil.status === 'in_progress' && hasil.waktu_mulai &&
+                    Date.now() - new Date(hasil.waktu_mulai).getTime() < RUNNING_WINDOW_MS) {
+                    skippedRunning++
+                    continue
+                }
                 let answers = typeof hasil.answers_detail === 'string'
                     ? JSON.parse(hasil.answers_detail)
                     : hasil.answers_detail
@@ -781,21 +803,24 @@ function KoreksiUjianPage() {
 
                 if (changed) {
                     const maxTotal = newAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0)
+                    const regradedScore = toPercentScore(newTotal, maxTotal)
                     await hasilUjianService.update(hasil.id, {
                         answers_detail: newAnswers,
-                        nilai_total: toPercentScore(newTotal, maxTotal),
+                        nilai_total: regradedScore,
+                        nilai_final: hasil.is_ulang ? Math.min(regradedScore, 70) : regradedScore,
                         status: newAnswers.some(a => a.needsManualGrading) ? 'submitted' : 'graded'
                     })
                     changedCount++
                 }
             }
 
-            alert(`Regrade selesai! ${changedCount} hasil ujian diperbarui.`)
-            // Reload page to see changes
+            const skippedNote = skippedRunning ? ` ${skippedRunning} peserta yang masih mengerjakan ujian dilewati.` : ''
+            alert(`Regrade selesai! ${changedCount} hasil ujian diperbarui.${skippedNote}`)
+            // Reload page to see changes (alert kept: a toast would vanish with the reload)
             window.location.reload()
         } catch (error) {
             console.error('Regrade error:', error)
-            alert('Gagal regrade: ' + error.message)
+            toast.error('Gagal regrade: ' + errorMessage(error))
         }
         setRegrading(false)
     }

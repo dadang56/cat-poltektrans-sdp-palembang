@@ -1,5 +1,20 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
 
+// The Supabase API returns at most 1000 rows per request. List queries that
+// can grow past that (hasil_ujian already has ~1700 rows) must page through
+// with range(), or reports silently miss data. Awaiting a postgrest builder
+// re-runs the request, so the same query is reused with a new range.
+async function selectAll(query, pageSize = 1000) {
+    query = query.order('id', { ascending: true }) // stable tiebreak for paging
+    const rows = []
+    for (let from = 0; ; from += pageSize) {
+        const { data, error } = await query.range(from, from + pageSize - 1)
+        if (error) throw error
+        rows.push(...(data || []))
+        if (!data || data.length < pageSize) return rows
+    }
+}
+
 // ============================================
 // User Service
 // ============================================
@@ -19,9 +34,7 @@ export const userService = {
         if (filters.prodi_id) query = query.eq('prodi_id', filters.prodi_id)
         if (filters.status) query = query.eq('status', filters.status)
 
-        const { data, error } = await query
-        if (error) throw error
-        return data
+        return selectAll(query)
     },
 
     // Get user by ID
@@ -321,9 +334,7 @@ export const jadwalService = {
         if (filters.tanggal) query = query.eq('tanggal', filters.tanggal)
         if (filters.tahun_akademik) query = query.eq('tahun_akademik', filters.tahun_akademik)
 
-        const { data, error } = await query
-        if (error) throw error
-        return data
+        return selectAll(query)
     },
 
     async getById(id) {
@@ -491,9 +502,7 @@ export const soalService = {
         if (filters.dosen_id) query = query.eq('dosen_id', filters.dosen_id)
         if (filters.tahun_akademik) query = query.eq('tahun_akademik', filters.tahun_akademik)
 
-        const { data, error } = await query
-        if (error) throw error
-        return data
+        return selectAll(query)
     },
 
     async getByJadwal(jadwalId) {
@@ -711,9 +720,7 @@ export const hasilUjianService = {
             query = query.eq('jadwal.tahun_akademik', filters.tahun_akademik)
         }
 
-        const { data, error } = await query
-        if (error) throw error
-        return data
+        return selectAll(query)
     },
 
     async getByJadwal(jadwalId) {

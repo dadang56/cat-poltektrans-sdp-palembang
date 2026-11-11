@@ -2,6 +2,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, createContext, useContext } from 'react'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { ConfirmProvider } from './components/ConfirmDialog'
+import { ToastContainer } from './components/Toast'
 import authService from './services/authService'
 
 // Pages
@@ -585,6 +586,7 @@ function App() {
             </div>
           )}
         </AuthContext.Provider>
+        <ToastContainer />
       </ConfirmProvider>
     </SettingsProvider>
   )

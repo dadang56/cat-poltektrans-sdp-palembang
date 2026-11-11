@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
@@ -6,6 +6,7 @@ import { useSettings } from '../../contexts/SettingsContext'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { jadwalService, hasilUjianService, jawabanMahasiswaService, isSupabaseConfigured } from '../../services/supabaseService'
 import { syncServerClock, serverNow } from '../../utils/serverTime'
+import { toast, errorMessage } from '../../components/Toast'
 import {
   Eye,
   Users,
@@ -44,6 +45,8 @@ function MonitorUjian() {
   const [matkulList, setMatkulList] = useState([])
   const [selectedRoom, setSelectedRoom] = useState(null)
   const [participants, setParticipants] = useState([])
+  const participantsRef = useRef([]) // latest list for the 30s poll (its closure is stale)
+  participantsRef.current = participants
   const [alerts, setAlerts] = useState(() => {
     try {
       const saved = localStorage.getItem('pengawas_activity_log')
@@ -123,7 +126,9 @@ function MonitorUjian() {
           // Load jadwal and ruang_ujian from Supabase
           const { ruangService } = await import('../../services/supabaseService')
           const [allJadwal, allRuang] = await Promise.all([
-            jadwalService.getAll({ tahun_akademik: tahunAkademik }),
+            // Today's exams regardless of the year chosen at login: a pengawas
+            // who picked another year must still see (and activate) them.
+            jadwalService.getAll(),
             ruangService.getAll()
           ])
           setJadwalList(allJadwal)
@@ -216,7 +221,7 @@ function MonitorUjian() {
 
   const handleSelectRoom = async (room) => {
     if (!canAccessRoom(room)) {
-      alert(`Ruangan ini sudah diawasi oleh ${room.pengawasName}. Pengawas lain tidak dapat mengakses.`)
+      toast.warning(`Ruangan ini sudah diawasi oleh ${room.pengawasName}. Pengawas lain tidak dapat mengakses.`)
       return
     }
 
@@ -272,7 +277,7 @@ function MonitorUjian() {
         setParticipants(roomParticipants)
       } catch (error) {
         console.error('[MonitorUjian] Error loading participants:', error)
-        alert('Gagal memuat data peserta. Pastikan koneksi internet stabil.')
+        toast.error('Gagal memuat data peserta. Pastikan koneksi internet stabil.')
         setParticipants([])
       }
     } else if (room.students && room.students.length > 0) {
@@ -359,7 +364,7 @@ function MonitorUjian() {
 
         // Detect new violations by comparing with old participants
         roomParticipants.forEach((newP, idx) => {
-          const oldP = participants.find(p => p.id === newP.id)
+          const oldP = participantsRef.current.find(p => p.id === newP.id)
           const hasil = combinedResults[idx]
           
           if (oldP && newP.warnings > oldP.warnings) {
@@ -444,8 +449,10 @@ function MonitorUjian() {
         try {
           await hasilUjianService.update(studentId, { status: 'kicked' })
           console.log('[MonitorUjian] Student kicked and saved to DB:', studentId)
+          toast.success('Peserta berhasil dikeluarkan dari ujian')
         } catch (error) {
           console.error('[MonitorUjian] Error saving kick status:', error)
+          toast.error('Gagal mengeluarkan peserta: ' + errorMessage(error))
           // Revert local state on error
           setParticipants(prev => prev.map(p =>
             p.id === studentId ? { ...p, status: 'active' } : p
@@ -490,7 +497,9 @@ function MonitorUjian() {
     try {
       await hasilUjianService.update(studentId, { status: 'in_progress' })
       console.log('[MonitorUjian] Re-entry approved:', studentId)
+      toast.success(`${student?.name || 'Peserta'} diizinkan masuk kembali`)
     } catch (error) {
+      toast.error('Gagal menyetujui: ' + errorMessage(error))
       console.error('[MonitorUjian] Error approving re-entry:', error)
       setParticipants(prev => prev.map(p =>
         p.id === studentId ? { ...p, status: 'needs_approval' } : p
@@ -518,8 +527,10 @@ function MonitorUjian() {
         ))
         try {
           await hasilUjianService.update(studentId, { status: 'kicked' })
+          toast.success(`${student?.name || 'Peserta'} ditolak masuk kembali`)
         } catch (error) {
           console.error('[MonitorUjian] Error rejecting re-entry:', error)
+          toast.error('Gagal menolak: ' + errorMessage(error))
         }
         setAlerts(prev => [{
           id: Date.now(),
@@ -550,8 +561,10 @@ function MonitorUjian() {
             waktu_mulai: (await syncServerClock(), serverNow()).toISOString()
           })
           console.log('[MonitorUjian] Exam reactivated for:', studentId)
+          toast.success(`Ujian ${student?.name || 'peserta'} berhasil diaktifkan ulang`)
         } catch (error) {
           console.error('[MonitorUjian] Error reactivating exam:', error)
+          toast.error('Gagal mengaktifkan ulang: ' + errorMessage(error))
           setParticipants(prev => prev.map(p =>
             p.id === studentId ? { ...p, status: 'cheating_submitted' } : p
           ))
@@ -586,12 +599,13 @@ function MonitorUjian() {
             waktu_selesai: null
           })
           console.log('[MonitorUjian] Exam resumed for:', participantId)
+          toast.success(`${student?.name || 'Peserta'} bisa melanjutkan ujian`)
         } catch (error) {
           console.error('[MonitorUjian] Error resuming exam:', error)
           setParticipants(prev => prev.map(p =>
             p.id === participantId ? { ...p, status: student?.status || 'submitted' } : p
           ))
-          alert('Gagal melanjutkan ujian: ' + error.message)
+          toast.error('Gagal melanjutkan ujian: ' + errorMessage(error))
         }
         setAlerts(prev => [{
           id: Date.now(),
@@ -611,7 +625,7 @@ function MonitorUjian() {
     const jadwalId = selectedRoom?.jadwalId || selectedRoom?.jadwalIds?.[0]
     
     if (!jadwalId) {
-      alert('Tidak dapat menemukan jadwal ujian.')
+      toast.error('Tidak dapat menemukan jadwal ujian.')
       return
     }
 
@@ -652,9 +666,10 @@ function MonitorUjian() {
           }
           
           console.log('[MonitorUjian] Exam reset for:', participantId, 'jadwal:', jadwalId)
+          toast.success(`Ujian ${student?.name || 'peserta'} berhasil direset`)
         } catch (error) {
           console.error('[MonitorUjian] Error resetting exam:', error)
-          alert('Gagal mereset ujian: ' + error.message)
+          toast.error('Gagal mereset ujian: ' + errorMessage(error))
         }
         setAlerts(prev => [{
           id: Date.now(),
@@ -674,7 +689,7 @@ function MonitorUjian() {
     const { participantId, studentName } = extraTimeModal
     const minutes = parseInt(extraTimeMinutes)
     if (!minutes || minutes <= 0) {
-      alert('Masukkan jumlah menit yang valid')
+      toast.warning('Masukkan jumlah menit yang valid')
       return
     }
 
@@ -710,9 +725,10 @@ function MonitorUjian() {
       
       setExtraTimeModal(null)
       setExtraTimeMinutes(15)
+      toast.success(`Waktu ${studentName || 'peserta'} ditambah ${minutes} menit`)
     } catch (error) {
       console.error('[MonitorUjian] Error adding extra time:', error)
-      alert('Gagal menambah waktu: ' + error.message)
+      toast.error('Gagal menambah waktu: ' + errorMessage(error))
     }
   }
 
@@ -741,9 +757,12 @@ function MonitorUjian() {
             return r
           }))
           console.log(`[MonitorUjian] Exam ${newStatus}:`, room.jadwalIds)
+          toast.success(newStatus === 'ongoing'
+            ? `Ujian "${room.exam}" diaktifkan. Mahasiswa sudah bisa masuk.`
+            : `Ujian "${room.exam}" dinonaktifkan.`)
         } catch (err) {
           console.error('[MonitorUjian] Error toggling activation:', err)
-          alert('Gagal mengubah status ujian: ' + err.message)
+          toast.error('Gagal mengubah status ujian: ' + errorMessage(err))
         }
       }
     })

@@ -18,6 +18,7 @@ import {
     X
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
@@ -114,9 +115,10 @@ function ExamRoomPage() {
             setNewRuangKapasitas(30)
             setNewRuangKelasIds([])
             setShowAddRuang(false)
+            toast.success(`Ruangan "${created?.nama || newRuangName.trim()}" berhasil ditambahkan`)
         } catch (err) {
             console.error('Error adding ruang:', err)
-            alert('Gagal menambah ruangan: ' + err.message)
+            toast.error('Gagal menambah ruangan: ' + errorMessage(err))
         }
     }
 
@@ -128,9 +130,10 @@ function ExamRoomPage() {
             await ruangService.update(id, { nama, kapasitas, kelas_ids: kelas_ids || [] })
             setRuangList(ruangList.map(r => r.id === id ? { ...r, nama, kapasitas, kelas_ids } : r))
             setEditingRuangFull(null)
+            toast.success(`Ruangan "${nama}" berhasil disimpan`)
         } catch (err) {
             console.error('Error saving ruang:', err)
-            alert('Gagal menyimpan ruangan: ' + err.message)
+            toast.error('Gagal menyimpan ruangan: ' + errorMessage(err))
         }
     }
 
@@ -158,8 +161,10 @@ function ExamRoomPage() {
             }
             setRuangList(ruangList.map(r => r.id === ruangId ? { ...r, kapasitas: kap } : r))
             setEditingRuang(null)
+            toast.success('Kapasitas ruangan disimpan')
         } catch (err) {
             console.error('Error updating ruang:', err)
+            toast.error('Gagal menyimpan kapasitas: ' + errorMessage(err))
         }
     }
 
@@ -172,8 +177,10 @@ function ExamRoomPage() {
             }
             setRuangList(ruangList.map(r => r.id === ruangId ? { ...r, nama: trimmed } : r))
             setEditingRuangName(null)
+            toast.success('Nama ruangan disimpan')
         } catch (err) {
             console.error('Error updating ruang name:', err)
+            toast.error('Gagal menyimpan nama ruangan: ' + errorMessage(err))
         }
     }
 
@@ -196,9 +203,10 @@ function ExamRoomPage() {
                     setSelectedRoom(Math.max(0, updatedRooms.length - 1))
                 }
             }
+            toast.success('Ruangan berhasil dihapus')
         } catch (err) {
             console.error('Error deleting ruang:', err)
-            alert('Gagal menghapus ruangan: ' + err.message)
+            toast.error('Gagal menghapus ruangan: ' + errorMessage(err))
         }
     }
 
@@ -208,7 +216,7 @@ function ExamRoomPage() {
     // Allocate students to rooms with interleaved prodi
     const allocateRooms = () => {
         if (mahasiswaData.length === 0 || ruangList.length === 0) {
-            alert('Tidak ada ruangan atau mahasiswa untuk dialokasikan')
+            toast.warning('Tidak ada ruangan atau mahasiswa untuk dialokasikan')
             return
         }
 

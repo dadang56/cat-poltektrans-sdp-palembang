@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { getActiveAcademicYear } from '../../utils/academicYear'
-import { exportArrayToXLSX } from '../../utils/excelUtils'
+import { exportArrayToXLSX, downloadTemplate } from '../../utils/excelUtils'
 import { hasilUjianService } from '../../services/supabaseService'
 import { toPercentScore } from '../../utils/gradeUtils'
 import {
@@ -24,6 +24,7 @@ import {
     Eye
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 // Modal for editing student scores
 function EditScoreModal({ isOpen, onClose, student, onSave }) {
@@ -252,8 +253,14 @@ function NilaiUASPage() {
 
     const handleSaveScore = async (studentId, newScore) => {
         try {
+            // nilai_final is what students see (and is capped at 70 for ULANG),
+            // so keep it in step with the edited score
+            const editedStudent = exams.find(e => e.id === editModal.examId)?.students.find(s => s.id === studentId)
+            const isUlang = !!editedStudent?.isUlang
+            const nilaiFinal = isUlang ? Math.min(Number(newScore), 70) : Number(newScore)
             await hasilUjianService.update(studentId, {
-                nilai_total: newScore // Update score in db
+                nilai_total: newScore,
+                nilai_final: nilaiFinal
             })
 
             // Update local state
@@ -262,15 +269,16 @@ function NilaiUASPage() {
                     return {
                         ...exam,
                         students: exam.students.map(s =>
-                            s.id === studentId ? { ...s, score: newScore } : s
+                            s.id === studentId ? { ...s, score: newScore, nilaiFinal } : s
                         )
                     }
                 }
                 return exam
             }))
+            toast.success(`Nilai ${editedStudent?.name || 'mahasiswa'} disimpan: ${newScore}`)
         } catch (error) {
             console.error('Failed to update score:', error)
-            alert('Gagal menyimpan nilai. Silakan coba lagi.')
+            toast.error('Gagal menyimpan nilai. Silakan coba lagi.')
         }
     }
 

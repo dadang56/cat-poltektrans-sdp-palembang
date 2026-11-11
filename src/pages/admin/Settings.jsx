@@ -14,6 +14,7 @@ import {
     Shield,
     AlertTriangle
 } from 'lucide-react'
+import { toast, errorMessage } from '../../components/Toast'
 
 function SettingsPage() {
     const { settings, updateSettings, resetSettings, isLoaded } = useSettings()
@@ -38,7 +39,7 @@ function SettingsPage() {
         const file = e.target.files[0]
         if (file) {
             if (file.size > 2 * 1024 * 1024) {
-                alert('Ukuran file maksimal 2MB')
+                toast.warning('Ukuran file maksimal 2MB')
                 return
             }
             const reader = new FileReader()
@@ -72,10 +73,11 @@ function SettingsPage() {
             await updateSettings(localSettings)
             console.log('[Settings] Save successful!')
             setSaveStatus('success')
+            toast.success('Pengaturan berhasil disimpan')
         } catch (err) {
             console.error('[Settings] Save failed:', err)
             setSaveStatus('error')
-            alert('Gagal menyimpan pengaturan: ' + (err.message || 'Periksa koneksi database'))
+            toast.error('Gagal menyimpan pengaturan: ' + (err.message || 'Periksa koneksi database'))
         }
         setTimeout(() => setSaveStatus(null), 3000)
     }

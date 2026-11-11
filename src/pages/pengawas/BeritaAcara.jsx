@@ -21,6 +21,7 @@ import {
     Save
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 // Helper for field compatibility
@@ -49,7 +50,8 @@ function BeritaAcaraPage() {
                 if (isSupabaseConfigured()) {
                     const { ruangService } = await import('../../services/supabaseService')
                     const [jadwalData, usersData, allRuang] = await Promise.all([
-                        jadwalService.getAll({ tahun_akademik: tahunAkademik }),
+                        // Today's exams regardless of the year picked at login
+                        jadwalService.getAll(),
                         userService.getAll(),
                         ruangService.getAll()
                     ])
@@ -83,6 +85,7 @@ function BeritaAcaraPage() {
                             name: roomName,
                             exams: [examLabel],
                             jadwalIds: [j.id],
+                            kelasId: getField(j, 'kelas_id', 'kelasId'),
                             tanggal: j.tanggal,
                             waktuMulai,
                             waktuSelesai
@@ -120,15 +123,29 @@ function BeritaAcaraPage() {
                         const mhsId = hasil.mahasiswa_id
                         if (!seenStudents.has(mhsId)) {
                             seenStudents.add(mhsId)
-                            const isHadir = hasil.status === 'submitted' || hasil.status === 'graded' || !!hasil.waktu_selesai
-                            if (isHadir) hadirCount++
+                            // Opened the exam = present (also still in progress / kicked)
+                            hadirCount++
                             const kelas = hasil.mahasiswa?.kelas?.nama
                             if (kelas) kelasSet.add(kelas)
                         }
                     })
                 })
 
-                setRoomStudentCount({ total: seenStudents.size, hadir: hadirCount })
+                // Total = every active student of the class, including those
+                // who never opened the exam (they are the absent ones)
+                let total = seenStudents.size
+                if (room.kelasId) {
+                    usersList.forEach(u => {
+                        if (u.role === 'mahasiswa'
+                            && String(u.kelas_id || u.kelasId || u.kelas?.id) === String(room.kelasId)
+                            && u.status !== 'inactive' && u.is_active !== false
+                            && !seenStudents.has(u.id)) {
+                            total++
+                            if (u.kelas?.nama) kelasSet.add(u.kelas.nama)
+                        }
+                    })
+                }
+                setRoomStudentCount({ total, hadir: hadirCount })
                 setKelasNames([...kelasSet].join(', ') || '-')
 
                 // Try to load existing saved berita acara from database
@@ -148,6 +165,7 @@ function BeritaAcaraPage() {
                 }
             } catch (error) {
                 console.error('[BeritaAcara] Error loading room students:', error)
+                toast.error('Gagal memuat data peserta: ' + errorMessage(error))
             }
         }
     }
@@ -170,10 +188,10 @@ function BeritaAcaraPage() {
                 jumlah_tidak_hadir: roomStudentCount.total - roomStudentCount.hadir,
                 catatan: `${formData.incidents}\n\n${formData.notes}`.trim()
             })
-            alert('Berita acara berhasil disimpan!')
+            toast.success('Berita acara berhasil disimpan')
         } catch (error) {
             console.error('[BeritaAcara] Save error:', error)
-            alert('Gagal menyimpan berita acara. Silakan coba lagi.')
+            toast.error('Gagal menyimpan berita acara: ' + errorMessage(error))
         }
         setSaving(false)
     }

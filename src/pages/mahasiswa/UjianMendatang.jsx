@@ -208,8 +208,12 @@ function UjianPage() {
                 if (isSupabaseConfigured()) {
                     // OPTIMIZED: Only load what's needed (removed soalService.getAll and userService.getAll)
                     // jadwal already includes nested matkul, kelas, ruangan, dosen from joins
+                    // Not filtered by the year chosen at login: the list is already
+                    // limited to the student's class and to exams that haven't
+                    // ended more than a day ago, and a wrong pick at login must
+                    // never hide an exam.
                     const [jadwal, matkul, kelas, ruang] = await Promise.all([
-                        jadwalService.getAll({ tahun_akademik: tahunAkademik }),
+                        jadwalService.getAll(),
                         matkulService.getAll(),
                         kelasService.getAll(),
                         ruangService.getAll()
@@ -224,7 +228,7 @@ function UjianPage() {
                     // Load completed exams from Supabase
                     if (user?.id) {
                         try {
-                            const results = await hasilUjianService.getByMahasiswa(user.id, tahunAkademik)
+                            const results = await hasilUjianService.getByMahasiswa(user.id)
                             const doneIds = (results || [])
                                 .filter(r => r.status === 'submitted' || r.status === 'graded' || r.status === 'cheating_submitted' || r.status === 'kicked')
                                 .map(r => String(r.jadwal_id))
@@ -281,7 +285,7 @@ function UjianPage() {
         .filter(j => {
             // Must match kelas
             const jKelasId = getField(j, 'kelas_id', 'kelasId')
-            if (jKelasId !== mahasiswaKelasId) return false
+            if (!mahasiswaKelasId || String(jKelasId) !== String(mahasiswaKelasId)) return false
             // For ULANG exams, check eligibility
             if (j.tipe === 'ULANG') {
                 if (!ulangEligibility[j.id]) return false

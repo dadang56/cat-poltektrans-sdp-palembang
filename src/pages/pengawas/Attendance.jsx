@@ -16,6 +16,7 @@ import {
     Save
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
@@ -51,7 +52,8 @@ function AttendancePage() {
                 if (isSupabaseConfigured()) {
                     const { ruangService } = await import('../../services/supabaseService')
                     const [jadwal, matkul, prodi, users, allRuang] = await Promise.all([
-                        jadwalService.getAll({ tahun_akademik: tahunAkademik }),
+                        // Today's exams regardless of the year picked at login
+                        jadwalService.getAll(),
                         matkulService.getAll(),
                         prodiService.getAll(),
                         userService.getAll(),
@@ -92,6 +94,7 @@ function AttendancePage() {
                             name: roomName,
                             exams: [examLabel],
                             jadwalIds: [j.id],
+                            kelasId: getField(j, 'kelas_id', 'kelasId'),
                             tanggal: j.tanggal,
                             waktuMulai: waktuMulai,
                             waktuSelesai: waktuSelesai
@@ -134,11 +137,33 @@ function AttendancePage() {
                                 nama: hasil.mahasiswa?.nama || 'Unknown',
                                 nim: hasil.mahasiswa?.nim_nip || '-',
                                 kelas: hasil.mahasiswa?.kelas?.nama || '-',
-                                submitted: hasil.status === 'submitted' || hasil.status === 'graded' || !!hasil.waktu_selesai
+                                // Opened the exam = physically present (also when still
+                                // in progress, kicked or auto-submitted)
+                                submitted: true
                             })
                         }
                     })
                 })
+
+                // Students of this class who never opened the exam must still be
+                // on the attendance list (as absent), not silently missing.
+                if (room.kelasId) {
+                    usersList
+                        .filter(u => u.role === 'mahasiswa'
+                            && String(u.kelas_id || u.kelasId || u.kelas?.id) === String(room.kelasId)
+                            && u.status !== 'inactive' && u.is_active !== false
+                            && !seenStudents.has(u.id))
+                        .forEach(u => {
+                            seenStudents.add(u.id)
+                            students.push({
+                                id: u.id,
+                                nama: u.nama || u.name || 'Unknown',
+                                nim: u.nim_nip || u.nim || '-',
+                                kelas: u.kelas?.nama || '-',
+                                submitted: false
+                            })
+                        })
+                }
 
                 // Sort by NIM ascending
                 students.sort((a, b) => (a.nim || '').localeCompare(b.nim || '', 'id', { numeric: true }))
@@ -194,6 +219,7 @@ function AttendancePage() {
                 }
             } catch (error) {
                 console.error('[Attendance] Error loading room students:', error)
+                toast.error('Gagal memuat daftar peserta: ' + errorMessage(error))
             }
         }
     }
@@ -242,10 +268,10 @@ function AttendancePage() {
                 records.map(record => kehadiranService.upsert(record))
             )
 
-            alert('Daftar hadir berhasil disimpan!')
+            toast.success(`Daftar hadir berhasil disimpan (${records.length} mahasiswa)`)
         } catch (error) {
             console.error('[Attendance] Save error:', error)
-            alert('Gagal menyimpan daftar hadir. Silakan coba lagi.')
+            toast.error('Gagal menyimpan daftar hadir: ' + errorMessage(error))
         } finally {
             setSaving(false)
         }

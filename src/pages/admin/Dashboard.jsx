@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import './Dashboard.css'
 import { generateAcademicYearOptions } from '../../utils/academicYear'
+import { toast } from '../../components/Toast'
 
 const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
 
@@ -83,10 +84,10 @@ function AdminDashboard() {
                 prodiList = prodiData
                 setUseSupabase(true)
             } else {
-                usersList = users ? JSON.parse(users) : []
-                jadwalList = jadwal ? JSON.parse(jadwal) : []
-                matkulList = matkul ? JSON.parse(matkul) : []
-                prodiList = prodi ? JSON.parse(prodi) : []
+                usersList = []
+                jadwalList = []
+                matkulList = []
+                prodiList = []
                 setUseSupabase(false)
             }
 
@@ -170,14 +171,16 @@ function AdminDashboard() {
             setUjianBerlangsung(berlangsung)
         } catch (err) {
             console.error('Error loading dashboard data:', err)
-            const usersList = users ? JSON.parse(users) : []
+            const usersList = []
             setStats([
                 { label: 'Total User', value: String(usersList.length), icon: Users, color: 'primary', trend: '-' },
                 { label: 'Ujian Aktif', value: '0', icon: FileText, color: 'accent', trend: '-' },
                 { label: 'Selesai Hari Ini', value: '0', icon: CheckCircle, color: 'success', trend: '-' },
                 { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
             ])
-            setUseSupabase(false)
+            // Stay on the database: switching to local mode here made later saves
+            // look successful while never reaching the database
+            toast.error('Gagal memuat data dari server: ' + (err?.message || err) + '. Muat ulang halaman.')
         } finally {
             setIsLoading(false)
         }

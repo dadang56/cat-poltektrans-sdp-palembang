@@ -16,6 +16,7 @@ import {
     AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 // Angkatan options
@@ -177,16 +178,18 @@ function KelasPage() {
                 setProdiList(prodiData)
                 setUseSupabase(true)
             } else {
-                setKelasList(savedKelas ? JSON.parse(savedKelas) : [])
-                setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
+                setKelasList([])
+                setProdiList([])
                 setUseSupabase(false)
             }
         } catch (err) {
             console.error('Error loading data:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            setKelasList(savedKelas ? JSON.parse(savedKelas) : [])
-            setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
-            setUseSupabase(false)
+            setKelasList([])
+            setProdiList([])
+            // Stay on the database: switching to local mode here made later saves
+            // look successful while never reaching the database
+            toast.error('Gagal memuat data dari server: ' + (err?.message || err) + '. Muat ulang halaman.')
         } finally {
             setIsLoading(false)
         }
@@ -239,9 +242,11 @@ function KelasPage() {
                 }
             }
             setModalOpen(false)
+            toast.success(editingKelas ? `Kelas "${data.nama}" berhasil diperbarui` : `Kelas "${data.nama}" berhasil ditambahkan`)
         } catch (err) {
             console.error('Error saving kelas:', err)
             setError('Gagal menyimpan: ' + err.message)
+            toast.error('Gagal menyimpan kelas: ' + errorMessage(err))
             // Don't close modal so user can see error
         } finally {
             setIsSaving(false)
@@ -260,9 +265,10 @@ function KelasPage() {
                     } else {
                         setKelasList(kelasList.filter(k => k.id !== id))
                     }
+                    toast.success('Kelas berhasil dihapus')
                 } catch (err) {
                     console.error('Error deleting:', err)
-                    alert('Gagal menghapus: ' + err.message)
+                    toast.error('Gagal menghapus: ' + errorMessage(err))
                 }
             }
         })

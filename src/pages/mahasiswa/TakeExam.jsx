@@ -54,6 +54,10 @@ function TakeExamPage() {
     const timeLeftRef = useRef(null)
     const handleSubmitRef = useRef(null) // always the latest handleSubmit (timers keep stale closures)
     const submittingRef = useRef(false) // blocks double submit (timer + button)
+    // Latest values for callbacks registered once (anti-cheat, timers)
+    const existingHasilIdRef = useRef(null)
+    const violationsRef = useRef([])
+    const handleCheatingAutoSubmitRef = useRef(null)
     const [isFullscreen, setIsFullscreen] = useState(false)
     const [showWarning, setShowWarning] = useState(false)
     const [warningCount, setWarningCount] = useState(0)
@@ -76,6 +80,7 @@ function TakeExamPage() {
     const [antiCheatSettings, setAntiCheatSettings] = useState(DEFAULT_ANTICHEAT_SETTINGS)
     const [zoomImage, setZoomImage] = useState(null) // For image lightbox zoom
     const [appliedExtraTime, setAppliedExtraTime] = useState(0) // Track already-applied extra minutes
+    const appliedExtraTimeRef = useRef(0) // same value for the 15s poll, which keeps a stale closure
 
     // Load exam from Supabase
     useEffect(() => {
@@ -374,6 +379,7 @@ function TakeExamPage() {
                         // RESUME: calculate remaining from personal start
                         const extraMinutes = existingHasilRow?.tambahan_waktu || 0
                         setAppliedExtraTime(extraMinutes)
+                        appliedExtraTimeRef.current = extraMinutes
                         const elapsedSeconds = Math.floor((now - personalStartTime) / 1000)
                         const totalDurationSeconds = (durasiMenit + extraMinutes) * 60
                         const remainingSeconds = Math.max(0, totalDurationSeconds - elapsedSeconds)
@@ -435,20 +441,19 @@ function TakeExamPage() {
 
         console.log('[TakeExam] SEB Detection:', { isSEB, platform })
 
-        // Load anti-cheat settings from SettingsContext or defaults
-        if (settings) {
-            const acSettings = {
-                requireSEB: settings.requireSEB || false,
-                maxWarnings: settings.maxWarnings || 2,
-                antiCheatLevel: settings.antiCheatLevel || 'medium'
-            }
-            setAntiCheatSettings(acSettings)
-            setSebRequired(acSettings.requireSEB)
+        // Anti-cheat settings come from SettingsContext (admin Pengaturan).
+        // Computed locally: the state setter below only takes effect next render.
+        const acSettings = {
+            requireSEB: settings?.requireSEB || false,
+            maxWarnings: settings?.maxWarnings || DEFAULT_ANTICHEAT_SETTINGS.maxWarnings,
+            antiCheatLevel: settings?.antiCheatLevel || DEFAULT_ANTICHEAT_SETTINGS.antiCheatLevel
+        }
+        setAntiCheatSettings(acSettings)
+        setSebRequired(acSettings.requireSEB)
 
-            // Show SEB warning if required but not detected
-            if (acSettings.requireSEB && !isSEB) {
-                setShowSEBWarning(true)
-            }
+        // Show SEB warning if required but not detected
+        if (acSettings.requireSEB && !isSEB) {
+            setShowSEBWarning(true)
         }
 
         // ANTI-CHEAT: Only initialize if NOT using SEB.
@@ -456,36 +461,34 @@ function TakeExamPage() {
         // Running anti-cheat on top of SEB causes false positives and kicks students out.
         if (!submitted && !isSEB) {
             AntiCheat.init({
-                maxWarnings: antiCheatSettings.maxWarnings,
-                level: antiCheatSettings.antiCheatLevel || 'medium',
+                maxWarnings: acSettings.maxWarnings,
+                level: acSettings.antiCheatLevel,
                 onViolation: (violation, count) => {
-                    setViolations(prev => [...prev, violation])
+                    const violationEntry = {
+                        type: violation?.type || 'unknown',
+                        message: violation?.message || 'Pelanggaran terdeteksi',
+                        timestamp: new Date().toISOString(),
+                        count
+                    }
+                    violationsRef.current = [...violationsRef.current, violationEntry]
+                    setViolations(violationsRef.current)
                     setWarningCount(count)
                     setShowWarning(true)
 
-                    // Save violation count to Supabase so pengawas can see it
-                    if (isSupabaseConfigured() && existingHasilId) {
-                        const violationEntry = {
-                            type: violation.type || 'unknown',
-                            message: violation.message || 'Pelanggaran terdeteksi',
-                            timestamp: new Date().toISOString(),
-                            count: count
-                        }
-                        hasilUjianService.update(existingHasilId, {
+                    // Save violation count so pengawas can see it (read through
+                    // refs: this callback is registered once, before the exam loads)
+                    const hasilId = existingHasilIdRef.current
+                    if (isSupabaseConfigured() && hasilId) {
+                        hasilUjianService.update(hasilId, {
                             jumlah_pelanggaran: count,
-                            violation_log: JSON.stringify([...violations, violationEntry].map(v => ({
-                                type: v.type || 'unknown',
-                                message: v.message || 'Pelanggaran',
-                                timestamp: v.timestamp || new Date().toISOString(),
-                                count: v.count || count
-                            })))
+                            violation_log: JSON.stringify(violationsRef.current)
                         }).catch(err => console.error('[TakeExam] Failed to save violation:', err))
                     }
 
                     // Auto-submit if max warnings reached
-                    if (count >= antiCheatSettings.maxWarnings) {
+                    if (count >= acSettings.maxWarnings) {
                         console.warn('[TakeExam] Max warnings reached, auto-submitting due to cheating')
-                        handleCheatingAutoSubmit()
+                        handleCheatingAutoSubmitRef.current?.()
                     }
                 },
                 onLockdownChange: (locked) => {
@@ -494,7 +497,7 @@ function TakeExamPage() {
             })
 
             // Try to enter fullscreen on exam start (only non-SEB)
-            if (antiCheatSettings.antiCheatLevel === 'high' || antiCheatSettings.antiCheatLevel === 'medium') {
+            if (acSettings.antiCheatLevel === 'high' || acSettings.antiCheatLevel === 'medium') {
                 setTimeout(() => {
                     AntiCheat.requestFullscreen()
                 }, 500)
@@ -507,7 +510,7 @@ function TakeExamPage() {
         return () => {
             AntiCheat.destroy()
         }
-    }, [submitted])
+    }, [submitted, settings?.requireSEB, settings?.maxWarnings, settings?.antiCheatLevel])
 
     // Timer effect
     useEffect(() => {
@@ -607,8 +610,9 @@ function TakeExamPage() {
 
                 // Check for extra time added by pengawas
                 const serverExtraTime = currentResult?.tambahan_waktu || 0
-                if (serverExtraTime > appliedExtraTime) {
-                    const newMinutes = serverExtraTime - appliedExtraTime
+                if (serverExtraTime > appliedExtraTimeRef.current) {
+                    const newMinutes = serverExtraTime - appliedExtraTimeRef.current
+                    appliedExtraTimeRef.current = serverExtraTime
                     console.log(`[TakeExam] Extra time detected: +${newMinutes} minutes (total: ${serverExtraTime})`)
                     setTimeLeft(prev => prev + (newMinutes * 60))
                     timeLeftRef.current += (newMinutes * 60)
@@ -735,7 +739,9 @@ function TakeExamPage() {
         setShowNavigator(false)
     }
 
-    const handleSubmit = (isAutoSubmit = false) => {
+    // options.cheating: forced submit after too many anti-cheat violations
+    const handleSubmit = (isAutoSubmit = false, options = {}) => {
+        const isCheating = options.cheating === true
         if (submittingRef.current) return
         if (!examData?.id || questions.length === 0) {
             // Never store an empty result over the student's saved answers
@@ -851,8 +857,11 @@ function TakeExamPage() {
                     jumlah_kosong: jumlahKosong,
                     waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(serverNow().getTime() - (examData.duration * 60 * 1000)).toISOString(),
                     waktu_selesai: serverNow().toISOString(),
-                    status: answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded',
+                    status: isCheating
+                        ? 'cheating_submitted'
+                        : (answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded'),
                     submit_type: autoSubmitVal ? 'auto' : 'manual',
+                    ...(isCheating ? { jumlah_pelanggaran: options.violationCount ?? warningCount } : {}),
                     // Store detailed answers as JSON
                     answers_detail: JSON.stringify(answerDetails)
                 }
@@ -869,38 +878,14 @@ function TakeExamPage() {
     }
     handleSubmitRef.current = handleSubmit
 
-    // Cheating auto-submit: same as handleSubmit but marks status as 'cheating_submitted'
+    // Cheating auto-submit: graded like a normal submit, but stored as
+    // 'cheating_submitted' so the student can't re-enter until the pengawas
+    // reactivates the exam.
     const handleCheatingAutoSubmit = () => {
-        setSubmitted(true)
-        setShowConfirmSubmit(false)
-
-        // Save to Supabase with cheating_submitted status
-        const saveCheatingResult = async () => {
-            if (!isSupabaseConfigured() || !examData?.id || !user?.id) return
-
-            try {
-                const answerSnapshot = questions.map(q => ({
-                    questionId: q.id,
-                    type: q.type,
-                    answer: answers[q.id] ?? null
-                }))
-
-                await hasilUjianService.upsert({
-                    jadwal_id: examData.id,
-                    mahasiswa_id: user.id,
-                    waktu_selesai: new Date().toISOString(),
-                    status: 'cheating_submitted',
-                    answers_detail: JSON.stringify(answerSnapshot),
-                    jumlah_pelanggaran: warningCount
-                })
-                console.log('[TakeExam] Cheating auto-submit saved')
-            } catch (err) {
-                console.error('[TakeExam] Error saving cheating auto-submit:', err)
-            }
-        }
-
-        saveCheatingResult()
+        handleSubmit(true, { cheating: true, violationCount: violationsRef.current.length })
     }
+    handleCheatingAutoSubmitRef.current = handleCheatingAutoSubmit
+    existingHasilIdRef.current = existingHasilId
 
     // Calculate score for display
     const calculateScore = () => {

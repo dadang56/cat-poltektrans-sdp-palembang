@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { getActiveAcademicYear } from '../../utils/academicYear'
-import { hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, prodiService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     Award,
     Search,
@@ -17,6 +17,7 @@ import {
     Calendar
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 // Helper for field compatibility
@@ -24,6 +25,16 @@ const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelC
 
 function HasilUjianPage() {
     const { user } = useAuth()
+    // Ka. Prodi signature for the printed transcript (was an undefined
+    // variable, so "Cetak" crashed)
+    const [kaprodiInfo, setKaprodiInfo] = useState({ nama: '', nip: '' })
+    useEffect(() => {
+        const prodiId = user?.prodi_id || user?.prodiId
+        if (!prodiId || !isSupabaseConfigured()) return
+        prodiService.getById(prodiId)
+            .then(p => setKaprodiInfo({ nama: p?.ketua_prodi_nama || '', nip: p?.ketua_prodi_nip || '' }))
+            .catch(err => console.warn('[HasilUjian] Could not load Ka. Prodi:', err?.message))
+    }, [user?.prodi_id, user?.prodiId])
     const { settings } = useSettings()
     const tahunAkademik = getActiveAcademicYear(settings, user)
     const [search, setSearch] = useState('')
@@ -230,7 +241,7 @@ function HasilUjianPage() {
     const handlePrintAll = () => {
         const gradedResults = hasilUjian.filter(r => r.status === 'graded')
         if (gradedResults.length === 0) {
-            alert('Tidak ada hasil ujian yang sudah dinilai.')
+            toast.warning('Tidak ada hasil ujian yang sudah dinilai.')
             return
         }
 

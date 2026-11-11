@@ -70,15 +70,15 @@ function RekapBeritaAcaraPage() {
                     setProdiList(prodi)
                 } else {
 
-                    if (prodiData) setProdiList(JSON.parse(prodiData))
-                    if (baData) setBeritaAcaraData(JSON.parse(baData))
+                    /* local-storage fallback removed (variable no longer exists) */
+                    /* local-storage fallback removed (variable no longer exists) */
                 }
             } catch (err) {
                 console.error('Error loading data:', err)
                 setError('Gagal memuat data dari Supabase. Menggunakan data lokal.')
 
-                if (prodiData) setProdiList(JSON.parse(prodiData))
-                if (baData) setBeritaAcaraData(JSON.parse(baData))
+                /* local-storage fallback removed (variable no longer exists) */
+                /* local-storage fallback removed (variable no longer exists) */
             } finally {
                 setLoading(false)
             }

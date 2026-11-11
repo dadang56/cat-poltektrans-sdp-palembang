@@ -21,6 +21,7 @@ import {
     FileSpreadsheet
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) {
@@ -209,16 +210,18 @@ function MataKuliahPage() {
                 setProdiList(prodiData)
                 setUseSupabase(true)
             } else {
-                setMatkulList(savedMatkul ? JSON.parse(savedMatkul) : [])
-                setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
+                setMatkulList([])
+                setProdiList([])
                 setUseSupabase(false)
             }
         } catch (err) {
             console.error('Error loading data:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            setMatkulList(savedMatkul ? JSON.parse(savedMatkul) : [])
-            setProdiList(savedProdi ? JSON.parse(savedProdi) : [])
-            setUseSupabase(false)
+            setMatkulList([])
+            setProdiList([])
+            // Stay on the database: switching to local mode here made later saves
+            // look successful while never reaching the database
+            toast.error('Gagal memuat data dari server: ' + (err?.message || err) + '. Muat ulang halaman.')
         } finally {
             setIsLoading(false)
         }
@@ -272,9 +275,10 @@ function MataKuliahPage() {
                 }
             }
             setModalOpen(false)
+            toast.success(editingMatkul ? `Mata kuliah "${data.nama}" berhasil diperbarui` : `Mata kuliah "${data.nama}" berhasil ditambahkan`)
         } catch (err) {
             console.error('Error saving matkul:', err)
-            alert('Gagal menyimpan: ' + err.message)
+            toast.error('Gagal menyimpan: ' + errorMessage(err))
         } finally {
             setIsSaving(false)
         }
@@ -292,9 +296,10 @@ function MataKuliahPage() {
                     } else {
                         setMatkulList(matkulList.filter(m => m.id !== id))
                     }
+                    toast.success('Mata kuliah berhasil dihapus')
                 } catch (err) {
                     console.error('Error deleting:', err)
-                    alert('Gagal menghapus: ' + err.message)
+                    toast.error('Gagal menghapus: ' + errorMessage(err))
                 }
             }
         })
@@ -356,20 +361,20 @@ function MataKuliahPage() {
         if (!file) return
 
         if (!isValidSpreadsheetFile(file.name)) {
-            alert('Format file tidak didukung. Gunakan file .xlsx, .xls, atau .csv')
+            toast.warning('Format file tidak didukung. Gunakan file .xlsx, .xls, atau .csv')
             e.target.value = ''
             return
         }
 
         importFromFile(file, async ({ headers, rows, error }) => {
             if (error) {
-                alert(error)
+                toast.warning(error)
                 e.target.value = ''
                 return
             }
 
             if (rows.length === 0) {
-                alert('File kosong atau format salah')
+                toast.warning('File kosong atau format salah')
                 e.target.value = ''
                 return
             }
@@ -418,9 +423,9 @@ function MataKuliahPage() {
             await loadData()
 
             if (errors.length > 0) {
-                alert(`Berhasil import ${savedCount} dari ${rows.length} mata kuliah.\n\nGagal:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`)
+                toast.warning(`Berhasil import ${savedCount} dari ${rows.length} mata kuliah.\n\nGagal:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`, 15000)
             } else {
-                alert(`Berhasil import ${savedCount} mata kuliah!`)
+                toast.success(`Berhasil import ${savedCount} mata kuliah!`)
             }
 
             e.target.value = ''

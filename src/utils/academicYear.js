@@ -13,7 +13,10 @@ export function getCurrentAcademicYear(now = new Date()) {
     const year = now.getFullYear()
     const month = now.getMonth() + 1
 
-    if (month >= 8 || month === 1) return `${year}/${year + 1} Ganjil`
+    // Ganjil runs August-January: January still belongs to the year that
+    // started the previous August (Jan 2027 -> 2026/2027 Ganjil)
+    if (month >= 8) return `${year}/${year + 1} Ganjil`
+    if (month === 1) return `${year - 1}/${year} Ganjil`
     return `${year - 1}/${year} Genap`
 }
 

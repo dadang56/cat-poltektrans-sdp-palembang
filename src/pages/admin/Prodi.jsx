@@ -14,6 +14,7 @@ import {
     AlertCircle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast, errorMessage } from '../../components/Toast'
 
 
 function ProdiModal({ isOpen, onClose, prodi, onSave, isLoading }) {
@@ -108,14 +109,16 @@ function ProdiPage() {
                 setProdiList(data)
                 setUseSupabase(true)
             } else {
-                setProdiList(saved ? JSON.parse(saved) : [])
+                setProdiList([])
                 setUseSupabase(false)
             }
         } catch (err) {
             console.error('Error loading prodi:', err)
             setError('Gagal memuat data. Menggunakan data lokal.')
-            setProdiList(saved ? JSON.parse(saved) : [])
-            setUseSupabase(false)
+            setProdiList([])
+            // Stay on the database: switching to local mode here made later saves
+            // look successful while never reaching the database
+            toast.error('Gagal memuat data dari server: ' + (err?.message || err) + '. Muat ulang halaman.')
         } finally {
             setIsLoading(false)
         }
@@ -159,9 +162,10 @@ function ProdiPage() {
                 }
             }
             setModalOpen(false)
+            toast.success(editingProdi ? `Program studi "${data.nama}" berhasil diperbarui` : `Program studi "${data.nama}" berhasil ditambahkan`)
         } catch (err) {
             console.error('Error saving prodi:', err)
-            alert('Gagal menyimpan data: ' + err.message)
+            toast.error('Gagal menyimpan data: ' + errorMessage(err))
         } finally {
             setIsSaving(false)
         }
@@ -179,9 +183,10 @@ function ProdiPage() {
                     } else {
                         setProdiList(prodiList.filter(p => p.id !== id))
                     }
+                    toast.success('Program studi berhasil dihapus')
                 } catch (err) {
                     console.error('Error deleting prodi:', err)
-                    alert('Gagal menghapus: ' + err.message)
+                    toast.error('Gagal menghapus: ' + errorMessage(err))
                 }
             }
         })

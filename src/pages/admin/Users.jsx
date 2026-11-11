@@ -30,6 +30,7 @@ import {
     Printer
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { toast } from '../../components/Toast'
 
 
 // Multi-Select Component
@@ -572,20 +573,22 @@ function UsersPage() {
                 setMatkulList(matkulData)
                 setUseSupabase(true)
             } else {
-                setUsers(saved ? JSON.parse(saved) : [])
-                setProdiList(prodi ? JSON.parse(prodi) : [])
-                setKelasList(kelas ? JSON.parse(kelas) : [])
-                setMatkulList(matkul ? JSON.parse(matkul) : [])
+                setUsers([])
+                setProdiList([])
+                setKelasList([])
+                setMatkulList([])
                 setUseSupabase(false)
             }
         } catch (err) {
             console.error('Error loading users:', err)
             setError('Gagal memuat data dari database. Menggunakan data lokal.')
-            setUsers(saved ? JSON.parse(saved) : [])
-            setProdiList(prodi ? JSON.parse(prodi) : [])
-            setKelasList(kelas ? JSON.parse(kelas) : [])
-            setMatkulList(matkul ? JSON.parse(matkul) : [])
-            setUseSupabase(false)
+            setUsers([])
+            setProdiList([])
+            setKelasList([])
+            setMatkulList([])
+            // Stay on the database: switching to local mode here made later saves
+            // look successful while never reaching the database
+            toast.error('Gagal memuat data dari server: ' + (err?.message || err) + '. Muat ulang halaman.')
         } finally {
             setIsLoading(false)
         }
@@ -722,7 +725,11 @@ function UsersPage() {
                         role: created.role,
                         status: created.status,
                         prodiId: created.prodi_id,
-                        kelasId: created.kelas_id
+                        kelasId: created.kelas_id,
+                        // keep dosen pengampu so editing right away shows them
+                        prodiIds: userData.prodiIds || [],
+                        kelasIds: userData.kelasIds || [],
+                        matkulIds: userData.matkulIds || []
                     }
                     setUsers([...users, newUser])
                 }
@@ -734,6 +741,9 @@ function UsersPage() {
                 }
             }
             setModalOpen(false)
+            toast.success(editingUser
+                ? `Data user "${userData.name}" berhasil diperbarui`
+                : `User "${userData.name}" berhasil ditambahkan`)
         } catch (err) {
             console.error('Error saving user:', err)
             // Show user-friendly error messages
@@ -746,6 +756,8 @@ function UsersPage() {
                 errorMessage = `Constraint error: ${err.message}`
             }
             setError(`Gagal menyimpan user: ${errorMessage}`)
+            // The page-level error sits behind the open form, so also toast it
+            toast.error(`Gagal menyimpan user: ${errorMessage}`)
         } finally {
             setIsSaving(false)
         }
@@ -760,10 +772,13 @@ function UsersPage() {
                     if (useSupabase) {
                         await userService.delete(id)
                     }
+                    const removed = users.find(u => u.id === id)
                     setUsers(users.filter(u => u.id !== id))
+                    toast.success(`User "${removed?.name || ''}" berhasil dihapus`)
                 } catch (err) {
                     console.error('Error deleting user:', err)
                     setError(`Gagal menghapus user: ${err.message}`)
+                    toast.error(`Gagal menghapus user: ${err.message}`)
                 }
             }
         })
@@ -782,9 +797,11 @@ function UsersPage() {
             setUsers(users.map(u =>
                 u.id === id ? { ...u, status: newStatus } : u
             ))
+            toast.success(`User "${user.name}" ${newStatus === 'active' ? 'diaktifkan' : 'dinonaktifkan'}`)
         } catch (err) {
             console.error('Error updating status:', err)
             setError(`Gagal mengubah status: ${err.message}`)
+            toast.error(`Gagal mengubah status: ${err.message}`)
         }
     }
 
@@ -859,20 +876,20 @@ function UsersPage() {
         if (!file) return
 
         if (!isValidSpreadsheetFile(file.name)) {
-            alert('Format file tidak didukung. Gunakan file .xlsx, .xls, atau .csv')
+            toast.error('Format file tidak didukung. Gunakan file .xlsx, .xls, atau .csv')
             e.target.value = ''
             return
         }
 
         importFromFile(file, async ({ headers, rows, error }) => {
             if (error) {
-                alert(error)
+                toast.error(String(error))
                 e.target.value = ''
                 return
             }
 
             if (rows.length === 0) {
-                alert('File kosong atau format salah')
+                toast.error('File kosong atau format salah')
                 e.target.value = ''
                 return
             }
@@ -968,17 +985,17 @@ function UsersPage() {
                     await loadData()
 
                     if (errors.length > 0) {
-                        alert(`Berhasil import ${savedCount} dari ${newUsers.length} user.\n\nGagal:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`)
+                        toast.warning(`Berhasil import ${savedCount} dari ${newUsers.length} user.\n\nGagal:\n${errors.slice(0, 5).join('\n')}${errors.length > 5 ? `\n...dan ${errors.length - 5} lainnya` : ''}`, 15000)
                     } else {
-                        alert(`Berhasil import ${savedCount} user ke database!`)
+                        toast.success(`Berhasil import ${savedCount} user ke database`)
                     }
                 } else {
                     // Local storage fallback
                     setUsers([...users, ...newUsers])
-                    alert(`Berhasil import ${newUsers.length} user! (Local storage)`)
+                    toast.success(`Berhasil import ${newUsers.length} user (local storage)`)
                 }
             } else {
-                alert('Tidak ada data valid ditemukan')
+                toast.error('Tidak ada data valid ditemukan')
             }
 
             e.target.value = '' // Reset file input
