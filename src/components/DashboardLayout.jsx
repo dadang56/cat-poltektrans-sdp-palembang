@@ -34,6 +34,20 @@ import { useState } from 'react'
 import './DashboardLayout.css'
 
 // Navigation items per role
+// Icon tile colors for the boxed sidebar menu (cycled per item)
+const NAV_TILE_COLORS = [
+    ['#3b82f6', '#2563eb'], // blue
+    ['#14b8a6', '#0d9488'], // teal
+    ['#f59e0b', '#d97706'], // amber
+    ['#8b5cf6', '#7c3aed'], // violet
+    ['#ec4899', '#db2777'], // pink
+    ['#22c55e', '#16a34a'], // green
+    ['#f97316', '#ea580c'], // orange
+    ['#06b6d4', '#0891b2'], // cyan
+    ['#6366f1', '#4f46e5'], // indigo
+    ['#ef4444', '#dc2626']  // red
+]
+
 const NAV_ITEMS = {
     superadmin: [
         { path: '/superadmin', icon: Home, label: 'Dashboard', end: true },
@@ -169,20 +183,26 @@ function DashboardLayout({ children }) {
                 <nav className="sidebar-nav">
                     <div className="nav-section">
                         <span className="nav-section-title">Menu Utama</span>
-                        {navItems.map(item => (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                end={item.end}
-                                className={({ isActive }) =>
-                                    `sidebar-nav-item ${isActive ? 'active' : ''}`
-                                }
-                                onClick={() => setSidebarOpen(false)}
-                            >
-                                <item.icon size={20} />
-                                <span>{item.label}</span>
-                            </NavLink>
-                        ))}
+                        {navItems.map((item, i) => {
+                            const [c1, c2] = NAV_TILE_COLORS[i % NAV_TILE_COLORS.length]
+                            return (
+                                <NavLink
+                                    key={item.path}
+                                    to={item.path}
+                                    end={item.end}
+                                    className={({ isActive }) =>
+                                        `sidebar-nav-item ${isActive ? 'active' : ''}`
+                                    }
+                                    style={{ '--tile-1': c1, '--tile-2': c2 }}
+                                    onClick={() => setSidebarOpen(false)}
+                                >
+                                    <span className="nav-icon-tile" aria-hidden="true">
+                                        <item.icon size={18} />
+                                    </span>
+                                    <span className="nav-label">{item.label}</span>
+                                </NavLink>
+                            )
+                        })}
                     </div>
                 </nav>
             </aside>

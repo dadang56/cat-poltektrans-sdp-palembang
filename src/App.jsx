@@ -54,6 +54,8 @@ import PengawasBeritaAcara from './pages/pengawas/BeritaAcara'
 import PusbangkatarDashboard from './pages/pusbangkatar/Dashboard'
 import NilaiKondite from './pages/pusbangkatar/NilaiKondite'
 import NilaiSemapta from './pages/pusbangkatar/NilaiSemapta'
+// Theme loaded last so it overrides page-level styles (see file header)
+import './styles/glass.css'
 
 // Auth Context
 export const AuthContext = createContext(null)
@@ -239,6 +241,7 @@ function App() {
       <ConfirmProvider>
         <AuthContext.Provider value={authValue}>
           <SebGuard />
+          <ModalDragGuard />
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={
@@ -602,6 +605,33 @@ function App() {
       </ConfirmProvider>
     </SettingsProvider>
   )
+}
+
+// Pop-ups close when their dark background is clicked. Selecting text in a
+// pop-up and releasing the mouse outside it also produces a "click" on the
+// background, which closed the pop-up mid-edit. A background click now only
+// counts when the press also started on the background. One capture-phase
+// listener covers every .modal-overlay / .confirm-overlay in the app.
+function ModalDragGuard() {
+  useEffect(() => {
+    const isOverlay = el => !!el?.classList && (el.classList.contains('modal-overlay') || el.classList.contains('confirm-overlay'))
+    let pressedOnOverlay = false
+    const onDown = (e) => { pressedOnOverlay = isOverlay(e.target) }
+    const onClick = (e) => {
+      if (isOverlay(e.target) && !pressedOnOverlay) {
+        e.stopPropagation()
+        e.preventDefault()
+      }
+      pressedOnOverlay = false
+    }
+    document.addEventListener('pointerdown', onDown, true)
+    document.addEventListener('click', onClick, true)
+    return () => {
+      document.removeEventListener('pointerdown', onDown, true)
+      document.removeEventListener('click', onClick, true)
+    }
+  }, [])
+  return null
 }
 
 // Closes a mahasiswa session that is open in a normal browser while
