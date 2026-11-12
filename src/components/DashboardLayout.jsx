@@ -30,7 +30,7 @@ import {
     Shield,
     Download
 } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import './DashboardLayout.css'
 
 // Navigation items per role
@@ -135,6 +135,12 @@ function DashboardLayout({ children }) {
     const navigate = useNavigate()
     const location = useLocation()
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    // The content area is the scroll container (header stays put), so a new
+    // page must start at the top instead of the previous page's position
+    const mainRef = useRef(null)
+    useEffect(() => {
+        if (mainRef.current) mainRef.current.scrollTop = 0
+    }, [location.pathname])
 
     const handleLogout = () => {
         logout()
@@ -208,7 +214,7 @@ function DashboardLayout({ children }) {
             </aside>
 
             {/* Main Content */}
-            <main className="main-content">
+            <main className="main-content" ref={mainRef}>
                 <header className="main-header">
                     <div className="header-left">
                         <button

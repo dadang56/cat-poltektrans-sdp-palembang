@@ -18,9 +18,9 @@
     --glass-3: rgba(255, 255, 255, 0.92);          /* pop-ups */
     --glass-edge: rgba(255, 255, 255, 0.85);       /* top highlight */
     --glass-stroke: rgba(99, 115, 160, 0.18);      /* outline */
-    --glass-shadow: 0 10px 30px -12px rgba(30, 50, 100, 0.22), 0 2px 6px -2px rgba(30, 50, 100, 0.08);
+    --glass-shadow: 0 4px 14px -8px rgba(30, 50, 100, 0.25);
     --glass-shadow-lg: 0 24px 60px -20px rgba(20, 40, 90, 0.35);
-    --glass-blur: blur(22px) saturate(180%);
+    --glass-blur: blur(14px) saturate(160%);
 
     --bg-primary: rgba(246, 249, 255, 0.92);
     --bg-secondary: var(--glass-1);
@@ -43,7 +43,6 @@
         radial-gradient(40rem 34rem at 72% 104%, rgba(212, 175, 55, 0.22), transparent 60%),
         radial-gradient(30rem 26rem at 14% 96%, rgba(236, 72, 153, 0.14), transparent 62%),
         linear-gradient(180deg, #eef3fc 0%, #f4f6fb 100%);
-    background-attachment: fixed;
 }
 
 [data-theme="dark"] .dashboard-layout {
@@ -52,7 +51,7 @@
     --glass-3: rgba(20, 28, 48, 0.9);
     --glass-edge: rgba(255, 255, 255, 0.10);
     --glass-stroke: rgba(148, 170, 220, 0.14);
-    --glass-shadow: 0 12px 34px -14px rgba(0, 0, 0, 0.6), 0 2px 6px -2px rgba(0, 0, 0, 0.35);
+    --glass-shadow: 0 4px 14px -8px rgba(0, 0, 0, 0.6);
     --glass-shadow-lg: 0 28px 70px -20px rgba(0, 0, 0, 0.75);
 
     --bg-primary: rgba(12, 18, 32, 0.92);
@@ -66,14 +65,46 @@
         radial-gradient(40rem 34rem at 70% 106%, rgba(212, 175, 55, 0.16), transparent 60%),
         radial-gradient(30rem 26rem at 12% 98%, rgba(139, 92, 246, 0.16), transparent 62%),
         linear-gradient(180deg, #070d1a 0%, #0a1222 100%);
-    background-attachment: fixed;
 }
 
-@media (max-width: 1024px) {
-    /* fixed backgrounds jitter on mobile browsers */
+/* ---------- Layout: header stays, only the content scrolls ----------
+   The layout fills the screen and .main-content is the scroll container,
+   so the header (sticky inside it) never scrolls away and the colorful
+   background is painted once instead of on every scroll frame. */
+.dashboard-layout {
+    height: 100vh;
+    height: 100dvh;
+    overflow: hidden;
+}
+
+.dashboard-layout .main-content {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+}
+
+.dashboard-layout .main-header {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    flex-shrink: 0;
+}
+
+.dashboard-layout .main-body {
+    flex: 1 0 auto;
+}
+
+@media print {
     .dashboard-layout,
-    [data-theme="dark"] .dashboard-layout {
-        background-attachment: scroll;
+    .dashboard-layout .main-content {
+        height: auto !important;
+        overflow: visible !important;
     }
 }
 
@@ -248,32 +279,20 @@
 .dashboard-layout .card:hover,
 .dashboard-layout .package-card:hover,
 .dashboard-layout .room-card:hover {
-    box-shadow: inset 0 1px 0 var(--glass-edge), 0 18px 40px -18px rgba(30, 60, 140, 0.35) !important;
+    box-shadow: inset 0 1px 0 var(--glass-edge), 0 8px 22px -12px rgba(30, 60, 140, 0.35) !important;
 }
 
 .dashboard-layout .card-header {
     border-bottom-color: var(--glass-stroke);
 }
 
-/* Colorful stat tiles: each tile gets its own accent */
-.dashboard-layout .mini-stat {
-    position: relative;
-    overflow: hidden;
-}
-
+/* No colored strips on boxes (stat cards had a colored left bar) */
+.dashboard-layout .stat-card::before,
+.dashboard-layout .stat-card::after,
+.dashboard-layout .mini-stat::before,
 .dashboard-layout .mini-stat::after {
-    content: '';
-    position: absolute;
-    inset: 0 0 auto 0;
-    height: 4px;
-    background: var(--stat-accent, linear-gradient(90deg, #3b82f6, #14b8a6));
+    display: none !important;
 }
-
-.dashboard-layout .mini-stat:nth-child(5n+1) { --stat-accent: linear-gradient(90deg, #3b82f6, #6366f1); }
-.dashboard-layout .mini-stat:nth-child(5n+2) { --stat-accent: linear-gradient(90deg, #14b8a6, #06b6d4); }
-.dashboard-layout .mini-stat:nth-child(5n+3) { --stat-accent: linear-gradient(90deg, #f59e0b, #f97316); }
-.dashboard-layout .mini-stat:nth-child(5n+4) { --stat-accent: linear-gradient(90deg, #8b5cf6, #ec4899); }
-.dashboard-layout .mini-stat:nth-child(5n+5) { --stat-accent: linear-gradient(90deg, #22c55e, #14b8a6); }
 
 .dashboard-layout .mini-stat-value {
     font-weight: 800;
@@ -467,4 +486,19 @@
     .dashboard-layout .sidebar-nav-item:hover {
         transform: none;
     }
+}
+
+/* ---------- Page switch: short opacity fade only ---------- */
+.dashboard-layout .animate-fadeIn {
+    animation: glass-page-in 0.16s ease-out both;
+}
+
+@keyframes glass-page-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Nav items: no lift animation (keeps menu taps snappy) */
+.dashboard-layout .sidebar-nav-item:hover {
+    transform: none;
 }
