@@ -311,6 +311,46 @@ export const matkulService = {
 // Jadwal Ujian Service
 // ============================================
 export const jadwalService = {
+    // Exams of the same class whose exam slot overlaps the new one. A slot is
+    // waktu_mulai + durasi: the window (mulai-selesai) is deliberately allowed
+    // to overlap, e.g. 08:00-12:00 (60 min) followed by 09:00-13:00 (60 min).
+    // Checked against the database (all academic years, not soft-deleted).
+    // Back-to-back slots (end == next start) are fine.
+    async findClassConflicts({ kelasId, tanggal, waktuMulai, waktuSelesai, durasi, excludeId = null }) {
+        if (!kelasId || !tanggal || !waktuMulai) return []
+        const toInterval = (date, start, end, minutes) => {
+            const s = new Date(`${date}T${String(start).slice(0, 5)}:00`)
+            let e
+            if (Number(minutes) > 0) {
+                e = new Date(s.getTime() + Number(minutes) * 60 * 1000)
+            } else {
+                e = new Date(`${date}T${String(end).slice(0, 5)}:00`)
+                if (e <= s) e = new Date(e.getTime() + 24 * 60 * 60 * 1000)
+            }
+            return [s.getTime(), e.getTime()]
+        }
+        const shift = (d, days) => {
+            const x = new Date(`${d}T12:00:00`)
+            x.setDate(x.getDate() + days)
+            return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`
+        }
+        // Include the neighbouring days for exams that run past midnight
+        const { data, error } = await supabase
+            .from('jadwal_ujian')
+            .select('id, tanggal, waktu_mulai, waktu_selesai, durasi, tipe, tahun_akademik, matkul:matkul_id(nama, kode), kelas:kelas_id(nama)')
+            .eq('kelas_id', kelasId)
+            .gte('tanggal', shift(tanggal, -1))
+            .lte('tanggal', shift(tanggal, 1))
+            .is('deleted_at', null)
+        if (error) throw error
+        const [ns, ne] = toInterval(tanggal, waktuMulai, waktuSelesai, durasi)
+        return (data || []).filter(j => {
+            if (excludeId && String(j.id) === String(excludeId)) return false
+            const [js, je] = toInterval(j.tanggal, j.waktu_mulai, j.waktu_selesai, j.durasi)
+            return ns < je && js < ne
+        })
+    },
+
     async getAll(filters = {}) {
         let query = supabase
             .from('jadwal_ujian')

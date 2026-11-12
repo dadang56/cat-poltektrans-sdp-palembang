@@ -584,6 +584,58 @@ function JadwalUjianPage() {
                 `Lanjutkan? (Batal untuk mengganti Tahun Akademik aktif dulu di Pengaturan)`
             )) return
         }
+        // A class can't sit two exams at the same time: reject overlapping
+        // windows on the same date (checked against the database).
+        const kelasId = data.kelas_id || data.kelasId
+        const waktuMulai = data.waktu_mulai || data.waktuMulai
+        const waktuSelesai = data.waktu_selesai || data.waktuSelesai
+        if (useSupabase && kelasId && data.tanggal && waktuMulai && waktuSelesai) {
+            setIsSaving(true)
+            let conflicts = []
+            try {
+                conflicts = await jadwalService.findClassConflicts({
+                    kelasId,
+                    tanggal: data.tanggal,
+                    waktuMulai,
+                    waktuSelesai,
+                    durasi: parseInt(data.durasi) || null,
+                    excludeId: editingJadwal?.id
+                })
+            } catch (err) {
+                setIsSaving(false)
+                toast.error('Gagal memeriksa bentrok jadwal: ' + errorMessage(err) + '. Jadwal belum disimpan.')
+                return
+            }
+            setIsSaving(false)
+            if (conflicts.length > 0) {
+                const hhmm = t => String(t || '').slice(0, 5)
+                // End of an exam slot: start + duration (falls back to the window end)
+                const slotEnd = (start, minutes, fallback) => {
+                    if (!(Number(minutes) > 0)) return hhmm(fallback)
+                    const [h, m] = hhmm(start).split(':').map(Number)
+                    const t = h * 60 + m + Number(minutes)
+                    return `${String(Math.floor(t / 60) % 24).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`
+                }
+                const tgl = d => new Date(`${d}T12:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })
+                const kelasNama = conflicts[0].kelas?.nama || kelasList.find(k => String(k.id) === String(kelasId))?.nama || 'ini'
+                const list = conflicts.map(c =>
+                    `• ${c.tipe || 'Ujian'} ${c.matkul?.nama || '-'}: ${tgl(c.tanggal)}, ${hhmm(c.waktu_mulai)}–${slotEnd(c.waktu_mulai, c.durasi, c.waktu_selesai)}` +
+                    (c.tahun_akademik ? ` (${c.tahun_akademik})` : '')
+                ).join('\n')
+                showConfirm({
+                    title: 'Jadwal Bentrok — Tidak Disimpan',
+                    message: `Kelas ${kelasNama} sudah memiliki ujian pada jam yang sama:\n\n${list}\n\n` +
+                        `Jadwal baru: ${hhmm(waktuMulai)}–${slotEnd(waktuMulai, data.durasi, waktuSelesai)} (Waktu Mulai + Durasi). ` +
+                        `Ubah tanggal, Waktu Mulai, atau Durasi agar tidak bertabrakan.`,
+                    confirmText: 'Mengerti',
+                    confirmVariant: 'error',
+                    hideCancel: true,
+                    onConfirm: () => {}
+                })
+                return
+            }
+        }
+
         setIsSaving(true)
         try {
             const jadwalData = {

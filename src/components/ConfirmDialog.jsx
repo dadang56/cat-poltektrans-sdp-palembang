@@ -13,7 +13,8 @@ export function ConfirmProvider({ children }) {
         onCancel: null
     })
 
-    const showConfirm = useCallback(({ title = 'Konfirmasi', message, onConfirm, onCancel, confirmText = 'Hapus', confirmVariant = 'error' }) => {
+    // hideCancel: information-only popup with a single button (e.g. a rejected save)
+    const showConfirm = useCallback(({ title = 'Konfirmasi', message, onConfirm, onCancel, confirmText = 'Hapus', confirmVariant = 'error', hideCancel = false }) => {
         setConfirmState({
             isOpen: true,
             title,
@@ -21,7 +22,8 @@ export function ConfirmProvider({ children }) {
             onConfirm,
             onCancel,
             confirmText,
-            confirmVariant
+            confirmVariant,
+            hideCancel
         })
     }, [])
 
@@ -48,12 +50,14 @@ export function ConfirmProvider({ children }) {
                             <p>{confirmState.message}</p>
                         </div>
                         <div className="confirm-footer">
-                            <button
-                                className="btn btn-ghost"
-                                onClick={handleCancel}
-                            >
-                                Batal
-                            </button>
+                            {!confirmState.hideCancel && (
+                                <button
+                                    className="btn btn-ghost"
+                                    onClick={handleCancel}
+                                >
+                                    Batal
+                                </button>
+                            )}
                             <button
                                 className={`btn btn-${confirmState.confirmVariant || 'error'}`}
                                 onClick={handleConfirm}
@@ -122,6 +126,7 @@ export function ConfirmProvider({ children }) {
                 }
                 .confirm-body p {
                     margin: 0;
+                    white-space: pre-line;
                     color: var(--color-text-secondary, #6b7280);
                     line-height: 1.5;
                 }
