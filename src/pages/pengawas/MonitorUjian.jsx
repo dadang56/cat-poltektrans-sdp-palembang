@@ -118,7 +118,10 @@ function MonitorUjian() {
   // Load active exams from Supabase jadwal_ujian
   useEffect(() => {
     const loadActiveExams = async () => {
-      const now = new Date()
+      // Server time in WIB: a pengawas device with a wrong clock/timezone
+      // must still list (and be able to activate) today's exams
+      await syncServerClock()
+      const now = serverNow()
 
       try {
         if (isSupabaseConfigured()) {
@@ -138,7 +141,7 @@ function MonitorUjian() {
 
           // Filter for today's exams that are still relevant
           // Use local date (WIB) instead of UTC
-          const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+          const today = new Date(now.getTime() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
           const activeExams = allJadwal.filter(j => {
             if (!j.tanggal) return false
             // Only show today's exams
@@ -146,7 +149,8 @@ function MonitorUjian() {
             // Exclude completed/cancelled exams
             if (j.status === 'completed' || j.status === 'cancelled') return false
             // Exclude exams that ended more than 30 minutes ago
-            const examEnd = new Date(`${j.tanggal}T${j.waktu_selesai || j.waktuSelesai || '23:59'}`)
+            const endTime = String(j.waktu_selesai || j.waktuSelesai || '23:59').slice(0, 5)
+            const examEnd = new Date(`${j.tanggal}T${endTime}:00+07:00`)
             const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000)
             if (examEnd < thirtyMinAgo) return false
             return true
@@ -176,13 +180,17 @@ function MonitorUjian() {
             const waktuSelesai = j.waktu_selesai || j.waktuSelesai
             const matkulName = j.matkul?.nama || 'Ujian'
             const tipe = j.tipe || j.tipe_ujian || 'UTS'
-            const examLabel = `${tipe} - ${matkulName}`
+            const kelasName = j.kelas?.nama || ''
+            // Class in the label: classes sharing a subject/room each have their
+            // own card and must each be activated
+            const examLabel = `${tipe} - ${matkulName}${kelasName ? ` · Kelas ${kelasName}` : ''}`
 
             // Each jadwal = its own entry (1 matkul = 1 card)
             jadwalMap[j.id] = {
               id: j.id,
               roomId: roomId,
               name: roomName,
+              kelasName,
               exam: examLabel,
               exams: [examLabel],
               startTime: waktuMulai,
@@ -840,7 +848,7 @@ function MonitorUjian() {
                       <MapPin size={20} />
                       <div>
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{room.name}</span>
-                        <h3 style={{ margin: 0 }}>{room.name}</h3>
+                        <h3 style={{ margin: 0 }}>{room.kelasName ? `Kelas ${room.kelasName}` : room.name}</h3>
                       </div>
                       {room.status === 'occupied' && <Lock size={16} className="lock-icon" />}
                     </div>

@@ -311,6 +311,18 @@ export const matkulService = {
 // Jadwal Ujian Service
 // ============================================
 export const jadwalService = {
+    // Lightweight refresh of activation status/times for a few jadwal (used by
+    // the student exam list to notice "Aktifkan" without a manual reload)
+    async getStatusByIds(ids = []) {
+        if (!ids.length) return []
+        const { data, error } = await supabase
+            .from('jadwal_ujian')
+            .select('id, status, tanggal, waktu_mulai, waktu_selesai, durasi, deleted_at')
+            .in('id', ids)
+        if (error) throw error
+        return data || []
+    },
+
     // Exams of the same class whose exam slot overlaps the new one. A slot is
     // waktu_mulai + durasi: the window (mulai-selesai) is deliberately allowed
     // to overlap, e.g. 08:00-12:00 (60 min) followed by 09:00-13:00 (60 min).

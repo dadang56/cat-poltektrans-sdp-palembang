@@ -190,7 +190,7 @@ function MahasiswaDashboard() {
                 <FileText size={20} className="text-secondary" />
                 <h3 className="font-semibold">Hasil Ujian Terbaru</h3>
               </div>
-              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/mahasiswa/hasil-ujian')}>Lihat Semua</button>
+              <button className="btn btn-ghost btn-sm" onClick={() => navigate('/mahasiswa/hasil')}>Lihat Semua</button>
             </div>
             <div className="card-body">
               <div className="empty-state" style={{ padding: '32px' }}>

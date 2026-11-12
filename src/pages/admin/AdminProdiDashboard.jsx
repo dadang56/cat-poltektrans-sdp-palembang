@@ -299,7 +299,7 @@ function AdminProdiDashboard() {
                         const tipe = j.tipe || j.tipe_ujian || 'Ujian'
                             return {
                             id: j.id,
-                            name: `${tipe.toUpperCase()} ${mk?.nama || 'Ujian'}`,
+                            name: `${tipe.toUpperCase()} ${mk?.nama || 'Ujian'}${j.kelas?.nama ? ` · Kelas ${j.kelas.nama}` : ''}`,
                             date: j.tanggal,
                             time: `${getJadwalWaktuMulai(j)} - ${getJadwalWaktuSelesai(j)}`,
                             room: getJadwalRuang(j),
@@ -322,7 +322,7 @@ function AdminProdiDashboard() {
                     const tipe = j.tipe || j.tipe_ujian || 'Ujian'
                     return {
                         id: j.id,
-                        name: `${tipe.toUpperCase()} ${mk?.nama || 'Ujian'}`,
+                        name: `${tipe.toUpperCase()} ${mk?.nama || 'Ujian'}${j.kelas?.nama ? ` · Kelas ${j.kelas.nama}` : ''}`,
                         startTime: getJadwalWaktuMulai(j),
                         endTime: getJadwalWaktuSelesai(j),
                         room: getJadwalRuang(j),

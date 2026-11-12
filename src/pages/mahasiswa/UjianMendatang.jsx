@@ -21,6 +21,14 @@ import {
     Lock
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { syncServerClock, serverNowMs } from '../../utils/serverTime'
+
+// Exam times are WIB wall-clock times. Parse them as +07:00 so a phone set
+// to the wrong timezone still compares correctly.
+const wibDate = (tanggal, time) => {
+    const t = String(time || '00:00').slice(0, 8)
+    return new Date(`${tanggal}T${t.length === 5 ? `${t}:00` : t}+07:00`)
+}
 
 
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
@@ -201,10 +209,15 @@ function UjianPage() {
     const [ulangEligibility, setUlangEligibility] = useState({}) // { jadwalId: true/false }
     const [confirmModal, setConfirmModal] = useState({ open: false, exam: null })
     const [loading, setLoading] = useState(true)
+    // Server time (not the phone's clock), re-read every 15s so the
+    // "Mulai Ujian" button appears on time without a manual reload
+    const [nowMs, setNowMs] = useState(() => serverNowMs())
 
     useEffect(() => {
         const loadData = async () => {
             try {
+                await syncServerClock()
+                setNowMs(serverNowMs())
                 if (isSupabaseConfigured()) {
                     // OPTIMIZED: Only load what's needed (removed soalService.getAll and userService.getAll)
                     // jadwal already includes nested matkul, kelas, ruangan, dosen from joins
@@ -274,9 +287,47 @@ function UjianPage() {
         loadData()
     }, [user, tahunAkademik])
 
+    // Keep activation status fresh: before this, the list was loaded once,
+    // so students who opened the page before the pengawas pressed "Aktifkan"
+    // kept seeing "Belum Diaktifkan" until they reloaded.
+    useEffect(() => {
+        if (!isSupabaseConfigured() || loading) return
+        const mahasiswaKelas = user?.kelasId || user?.kelas_id
+        const refresh = async () => {
+            setNowMs(serverNowMs())
+            const dayMs = 24 * 60 * 60 * 1000
+            const ids = jadwalList
+                .filter(j => String(j.kelas_id || j.kelasId) === String(mahasiswaKelas))
+                .filter(j => Math.abs(wibDate(j.tanggal, '12:00').getTime() - serverNowMs()) < 1.5 * dayMs)
+                .map(j => j.id)
+            if (!ids.length) return
+            try {
+                const fresh = await jadwalService.getStatusByIds(ids)
+                const byId = Object.fromEntries(fresh.map(f => [String(f.id), f]))
+                setJadwalList(prev => prev
+                    .filter(j => !byId[String(j.id)]?.deleted_at)
+                    .map(j => {
+                        const f = byId[String(j.id)]
+                        return f ? { ...j, status: f.status, tanggal: f.tanggal, waktu_mulai: f.waktu_mulai, waktu_selesai: f.waktu_selesai, durasi: f.durasi } : j
+                    }))
+            } catch (err) {
+                console.warn('[UjianMendatang] Status refresh failed:', err?.message)
+            }
+        }
+        const interval = setInterval(refresh, 15000)
+        const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+        document.addEventListener('visibilitychange', onVisible)
+        window.addEventListener('focus', refresh)
+        return () => {
+            clearInterval(interval)
+            document.removeEventListener('visibilitychange', onVisible)
+            window.removeEventListener('focus', refresh)
+        }
+    }, [loading, jadwalList.length, user?.kelasId, user?.kelas_id])
+
     // Get mahasiswa's kelas
     const mahasiswaKelasId = user?.kelasId || user?.kelas_id
-    const now = new Date()
+    const now = new Date(nowMs)
     const oneDayMs = 24 * 60 * 60 * 1000
 
 
@@ -293,8 +344,8 @@ function UjianPage() {
             // Hide exams expired more than 1 day ago
             const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
             const waktuMulaiCheck = getField(j, 'waktu_mulai', 'waktuMulai')
-            let examEnd = new Date(`${j.tanggal}T${waktuSelesai}`)
-            const examStartCheck = new Date(`${j.tanggal}T${waktuMulaiCheck}`)
+            let examEnd = wibDate(j.tanggal, waktuSelesai)
+            const examStartCheck = wibDate(j.tanggal, waktuMulaiCheck)
             // Handle cross-midnight exams (e.g. 20:18 - 00:18)
             if (examEnd <= examStartCheck) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
             if ((now - examEnd) > oneDayMs) return false
@@ -317,8 +368,8 @@ function UjianPage() {
             const waktuMulai = getField(j, 'waktu_mulai', 'waktuMulai')
             const waktuSelesai = getField(j, 'waktu_selesai', 'waktuSelesai')
             const tipeUjian = j.tipe || getField(j, 'tipe_ujian', 'tipeUjian') || 'UTS'
-            const startTime = new Date(`${j.tanggal}T${waktuMulai}`)
-            let endTime = new Date(`${j.tanggal}T${waktuSelesai}`)
+            const startTime = wibDate(j.tanggal, waktuMulai)
+            let endTime = wibDate(j.tanggal, waktuSelesai)
             // Handle cross-midnight exams
             if (endTime <= startTime) endTime = new Date(endTime.getTime() + 24 * 60 * 60 * 1000)
             const durasiMenit = Math.round((endTime - startTime) / 60000)
@@ -383,12 +434,10 @@ function UjianPage() {
         })
 
     const getDaysUntil = (dateStr) => {
-        const examDate = new Date(dateStr)
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        examDate.setHours(0, 0, 0, 0)
-        const diffTime = examDate - today
-        return Math.ceil(diffTime / (1000 * 60 * 60 * 24))
+        // Whole WIB calendar days between today and the exam date
+        const wibToday = new Date(nowMs + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
+        const diff = wibDate(dateStr, '00:00') - wibDate(wibToday, '00:00')
+        return Math.round(diff / (1000 * 60 * 60 * 24))
     }
 
     const getExamStatus = (exam) => {
@@ -398,16 +447,16 @@ function UjianPage() {
         if (jadwalStatus === 'cancelled') return 'cancelled'
         // If exam is NOT yet activated by pengawas/admin
         if (jadwalStatus !== 'ongoing') {
-            const now = new Date()
-            const examStart = new Date(`${exam.date}T${exam.time}`)
-            let examEnd = new Date(`${exam.date}T${exam.endTime}`)
+            const now = new Date(nowMs)
+            const examStart = wibDate(exam.date, exam.time)
+            let examEnd = wibDate(exam.date, exam.endTime)
             if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
             if (now > examEnd) return 'expired'
             return 'not_activated'
         }
-        const now = new Date()
-        const examStart = new Date(`${exam.date}T${exam.time}`)
-        let examEnd = new Date(`${exam.date}T${exam.endTime}`)
+        const now = new Date(nowMs)
+        const examStart = wibDate(exam.date, exam.time)
+        let examEnd = wibDate(exam.date, exam.endTime)
         if (examEnd <= examStart) examEnd = new Date(examEnd.getTime() + 24 * 60 * 60 * 1000)
         if (now >= examStart && now <= examEnd) return 'active'
         if (now > examEnd) return 'expired'
