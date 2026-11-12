@@ -142,9 +142,11 @@ function App() {
           // Session was invalidated (user logged in elsewhere)
           setSessionMessage('Akun Anda telah login di perangkat lain. Anda akan logout otomatis.')
 
-          // Auto logout after showing message
+          // Auto logout after showing message. Local only: signOut() would clear
+          // session_token in the database and so also log out the NEW device
+          // that legitimately took over the account.
           setTimeout(async () => {
-            await authService.signOut()
+            await authService.signOutLocal()
             setUser(null)
             setSessionMessage(null)
           }, 3000)

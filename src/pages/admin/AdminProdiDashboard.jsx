@@ -418,10 +418,13 @@ function AdminProdiDashboard() {
                                 <span className="stat-value">{stat.value}</span>
                                 <span className="stat-label">{stat.label}</span>
                             </div>
-                            <div className="stat-trend">
-                                <TrendingUp size={14} />
-                                <span>{stat.trend}</span>
-                            </div>
+                            {/* Only when there is a real trend (was always "-", squeezing the label) */}
+                            {stat.trend && stat.trend !== '-' && (
+                                <div className="stat-trend">
+                                    <TrendingUp size={14} />
+                                    <span>{stat.trend}</span>
+                                </div>
+                            )}
                         </div>
                     ))}
                 </div>

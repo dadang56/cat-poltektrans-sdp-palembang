@@ -409,3 +409,28 @@
         grid-template-columns: 1fr;
     }
 }
+
+/* A field never grows wider than its container (a select otherwise takes
+   the width of its longest option, e.g. long lecturer names) */
+select,
+.form-input,
+.form-select {
+    max-width: 100%;
+}
+
+.filter-group {
+    min-width: 0;
+}
+
+/* Wide tables scroll sideways inside their card instead of being cut off
+   (was only defined for small screens) */
+.table-responsive,
+.table-container {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
+}
+
+.stat-content {
+    min-width: 0;
+}

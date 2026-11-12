@@ -831,9 +831,17 @@ function AdminNilaiAkhirPage() {
                 .filter-group {
                     display: flex;
                     flex-direction: column;
+                    align-items: stretch; /* fields fill their column instead of overflowing it */
+                    min-width: 0;
                     gap: 8px;
                     min-width: 200px;
                     flex: 1;
+                }
+                .filter-group .form-select,
+                .filter-group .form-input,
+                .filter-group select {
+                    width: 100%;
+                    min-width: 0;
                 }
                 .filter-group label {
                     font-size: 13px;

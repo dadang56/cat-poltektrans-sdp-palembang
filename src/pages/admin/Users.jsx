@@ -1386,15 +1386,27 @@ function UsersPage() {
                                 >
                                     <ChevronLeft size={18} />
                                 </button>
-                                {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                                    <button
-                                        key={page}
-                                        className={`btn btn-sm ${currentPage === page ? 'btn-primary' : 'btn-ghost'}`}
-                                        onClick={() => setCurrentPage(page)}
-                                    >
-                                        {page}
-                                    </button>
-                                ))}
+                                {(() => {
+                                    // Compact list: first, last, and current ±1 with "…" gaps,
+                                    // so 38 pages never overflow the card
+                                    const pages = []
+                                    for (let n = 1; n <= totalPages; n++) {
+                                        if (n === 1 || n === totalPages || Math.abs(n - currentPage) <= 1) pages.push(n)
+                                        else if (pages[pages.length - 1] !== '…') pages.push('…')
+                                    }
+                                    return pages.map((page, i) => page === '…' ? (
+                                        <span key={`gap-${i}`} className="pagination-gap" aria-hidden="true" style={{ padding: '0 0.35rem', color: 'var(--text-muted)' }}>…</span>
+                                    ) : (
+                                        <button
+                                            key={page}
+                                            className={`btn btn-sm ${currentPage === page ? 'btn-primary' : 'btn-ghost'}`}
+                                            onClick={() => setCurrentPage(page)}
+                                            aria-current={currentPage === page ? 'page' : undefined}
+                                        >
+                                            {page}
+                                        </button>
+                                    ))
+                                })()}
                                 <button
                                     className="btn btn-icon btn-ghost btn-sm"
                                     disabled={currentPage === totalPages}
