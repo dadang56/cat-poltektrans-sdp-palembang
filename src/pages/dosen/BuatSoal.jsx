@@ -717,6 +717,14 @@ function BuatSoalPage() {
     const [editKelasIds, setEditKelasIds] = useState([])
     const [editKelasLoading, setEditKelasLoading] = useState(false)
 
+    // Edit mata kuliah: move a whole package to another course / exam type
+    const [editMatkulPkg, setEditMatkulPkg] = useState(null)
+    const [editMatkulTarget, setEditMatkulTarget] = useState({ matkulId: '', examType: 'UTS' })
+    const [editMatkulSaving, setEditMatkulSaving] = useState(false)
+
+    // New (empty) package: pick course + exam type, then add/import questions
+    const [newPkgForm, setNewPkgForm] = useState({ matkulId: '', examType: 'UTS', kelasIds: [] })
+
     // Load matkul, kelas, and soal from Supabase (parallelized for speed)
     useEffect(() => {
         const loadData = async () => {
@@ -921,7 +929,8 @@ function BuatSoalPage() {
             const questionData = selectedPackage ? {
                 ...data,
                 matkulId: selectedPackage.matkulId,
-                examType: selectedPackage.examType
+                examType: selectedPackage.examType,
+                kelasIds: (data.kelasIds && data.kelasIds.length > 0) ? data.kelasIds : getPackageKelasIds(selectedPackage)
             } : data
 
             // Map tipe_soal to Supabase schema values
@@ -1127,6 +1136,103 @@ function BuatSoalPage() {
         }
     }
 
+    // Courses of the active term for package pickers
+    const termMatkulList = filterMatkulByTerm(matkulList, tahunAkademik)
+
+    // Classes of a package: chosen when it was created, else the union of its
+    // questions' classes. New/imported questions inherit them.
+    const getPackageKelasIds = (pkg) => {
+        if (!pkg) return []
+        if (pkg.kelasIds && pkg.kelasIds.length > 0) return pkg.kelasIds
+        return [...new Set(questions
+            .filter(q => String(q.matkulId) === String(pkg.matkulId) && q.examType?.toUpperCase() === pkg.examType?.toUpperCase())
+            .flatMap(q => q.kelasIds || []))]
+    }
+
+    const openNewPackage = () => {
+        setNewPkgForm({ matkulId: termMatkulList[0]?.id || '', examType: 'UTS', kelasIds: [] })
+        setCreatePackageModalOpen(true)
+    }
+
+    // Open a package straight away (no first question needed), so the dosen
+    // can use Template / Upload Excel / Bank Soal immediately
+    const handleCreatePackage = () => {
+        const { matkulId, examType, kelasIds } = newPkgForm
+        if (!matkulId) {
+            toast.warning('Pilih mata kuliah terlebih dahulu.')
+            return
+        }
+        const exists = questions.some(q => String(q.matkulId) === String(matkulId) && q.examType?.toUpperCase() === examType)
+        setCreatePackageModalOpen(false)
+        setSelectedPackage({ matkulId, examType, kelasIds })
+        setViewMode('questions')
+        if (exists) {
+            toast.info(`Paket ${getMatkulName(matkulId)} - ${examType} sudah ada, paket tersebut dibuka.`)
+        } else {
+            toast.success(`Paket ${getMatkulName(matkulId)} - ${examType} siap. Tambahkan soal, Upload Excel, atau ambil dari Bank Soal.`)
+        }
+    }
+
+    const openEditMatkul = (pkg, e) => {
+        if (e) e.stopPropagation()
+        setEditMatkulPkg(pkg)
+        setEditMatkulTarget({ matkulId: pkg.matkulId, examType: pkg.examType })
+    }
+
+    // Move every question of a package to another course / exam type
+    const moveEditMatkulPackage = async () => {
+        const pkg = editMatkulPkg
+        const target = { ...editMatkulTarget }
+        setEditMatkulSaving(true)
+        try {
+            const results = await Promise.allSettled(pkg.questions.map(q =>
+                soalService.update(q.id, { matkul_id: target.matkulId, tipe_ujian: target.examType })
+            ))
+            const movedIds = new Set(pkg.questions.filter((_, i) => results[i].status === 'fulfilled').map(q => q.id))
+            const failed = results.length - movedIds.size
+            setQuestions(prev => prev.map(q => movedIds.has(q.id) ? { ...q, matkulId: target.matkulId, examType: target.examType } : q))
+            if (selectedPackage && String(selectedPackage.matkulId) === String(pkg.matkulId) && selectedPackage.examType === pkg.examType && failed === 0) {
+                setSelectedPackage({ matkulId: target.matkulId, examType: target.examType })
+            }
+            if (failed === 0) {
+                toast.success(`${movedIds.size} soal dipindahkan ke ${getMatkulName(target.matkulId)} - ${target.examType}`)
+                setEditMatkulPkg(null)
+            } else {
+                toast.error(`${movedIds.size} soal berhasil dipindahkan, ${failed} gagal. Coba simpan lagi untuk sisanya.`, 12000)
+            }
+        } catch (error) {
+            toast.error('Gagal memindahkan paket: ' + errorMessage(error))
+        } finally {
+            setEditMatkulSaving(false)
+        }
+    }
+
+    const handleSaveEditMatkul = () => {
+        const pkg = editMatkulPkg
+        const target = editMatkulTarget
+        if (!pkg || !target.matkulId) return
+        if (String(target.matkulId) === String(pkg.matkulId) && target.examType === pkg.examType) {
+            setEditMatkulPkg(null)
+            return
+        }
+        const existing = questions.filter(q =>
+            String(q.matkulId) === String(target.matkulId) && q.examType?.toUpperCase() === target.examType)
+        if (existing.length > 0) {
+            const total = calcEffectivePoints([...existing, ...pkg.questions])
+            showConfirm({
+                title: 'Gabungkan Paket Soal',
+                message: `Paket ${getMatkulName(target.matkulId)} - ${target.examType} sudah berisi ${existing.length} soal. ` +
+                    `${pkg.questions.length} soal akan digabung ke paket tersebut (total ${total} poin` +
+                    `${total > 100 ? ', melebihi 100 — kurangi bobot setelahnya' : ''}). Lanjutkan?`,
+                confirmText: 'Gabungkan',
+                confirmVariant: 'success',
+                onConfirm: moveEditMatkulPackage
+            })
+            return
+        }
+        moveEditMatkulPackage()
+    }
+
     const handleImportFromBank = async (importedQuestions) => {
         try {
             // If inside a package, use package's matkulId and examType
@@ -1174,7 +1280,9 @@ function BuatSoalPage() {
                 }
 
                 // Optional columns (may not exist if migration not run)
-                const kelasIds = (q.kelasIds && q.kelasIds.length > 0) ? q.kelasIds : (orig.kelas_ids || [])
+                const pkgKelas = getPackageKelasIds(selectedPackage)
+                const kelasIds = pkgKelas.length > 0 ? pkgKelas
+                    : ((q.kelasIds && q.kelasIds.length > 0) ? q.kelasIds : (orig.kelas_ids || []))
                 if (kelasIds.length > 0) supabaseData.kelas_ids = kelasIds
                 const gambar = q.image || orig.gambar || null
                 if (gambar) supabaseData.gambar = gambar
@@ -1346,6 +1454,7 @@ function BuatSoalPage() {
 
             let created = 0
             let errors = 0
+            const packageKelasIds = getPackageKelasIds(selectedPackage)
             const errorRows = [] // Excel row numbers rejected because the answer key is unclear
             const newQuestions = []
             let rowNumber = 1 // header is row 1
@@ -1399,7 +1508,8 @@ function BuatSoalPage() {
                         pilihan: pilihan,
                         jawaban_benar: jawabanBenar,
                         dosen_id: user?.id,
-                        tahun_akademik: tahunAkademik
+                        tahun_akademik: tahunAkademik,
+                        ...(packageKelasIds.length > 0 ? { kelas_ids: packageKelasIds } : {})
                     }
 
                     const result = await soalService.create(supabaseData)
@@ -1551,23 +1661,17 @@ function BuatSoalPage() {
                                     <BookOpen size={48} />
                                     <h3>Belum ada paket soal</h3>
                                     <p>Mulai buat soal dengan mengklik tombol di bawah</p>
-                                    <button className="btn btn-primary" onClick={() => {
-                                        setSelectedPackage(null)
-                                        setModalOpen(true)
-                                    }} style={{ marginTop: '1rem' }}>
+                                    <button className="btn btn-primary" onClick={openNewPackage} style={{ marginTop: '1rem' }}>
                                         <Plus size={18} />
-                                        Buat Soal Pertama
+                                        Buat Paket Soal
                                     </button>
                                 </div>
                             ) : (
                                 <>
                                     <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                                        <button className="btn btn-primary" onClick={() => {
-                                            setSelectedPackage(null)
-                                            setModalOpen(true)
-                                        }}>
+                                        <button className="btn btn-primary" onClick={openNewPackage}>
                                             <Plus size={18} />
-                                            Buat Soal Baru
+                                            Buat Paket Soal Baru
                                         </button>
                                     </div>
                                     <div className="packages-grid" style={{
@@ -1660,18 +1764,31 @@ function BuatSoalPage() {
                                                     justifyContent: 'space-between',
                                                     alignItems: 'center',
                                                     borderTop: '1px solid var(--border-color)',
-                                                    paddingTop: '1rem',
-                                                    marginTop: '0.5rem'
+                                                    paddingTop: '0.75rem',
+                                                    marginTop: '0.75rem'
                                                 }}>
                                                     <span style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                                                         {pkg.questions.length} soal
                                                     </span>
-                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                    <span style={{ color: 'var(--primary)', fontSize: '0.875rem', fontWeight: '600', whiteSpace: 'nowrap' }}>
+                                                        Kelola Soal →
+                                                    </span>
+                                                </div>
+                                                <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.25rem', marginTop: '0.5rem' }}>
+                                                        <button
+                                                            className="btn btn-ghost btn-sm"
+                                                            onClick={(e) => openEditMatkul(pkg, e)}
+                                                            title="Pindahkan paket ke mata kuliah / jenis ujian lain"
+                                                            style={{ padding: '0.25rem 0.5rem' }}
+                                                        >
+                                                            <BookOpen size={14} />
+                                                            Edit Matkul
+                                                        </button>
                                                         <button
                                                             className="btn btn-ghost btn-sm"
                                                             onClick={(e) => handleOpenEditKelas(pkg, e)}
                                                             title="Edit Kelas"
-                                                            style={{ padding: '0.25rem 0.5rem', color: 'var(--primary)' }}
+                                                            style={{ padding: '0.25rem 0.5rem' }}
                                                         >
                                                             <Edit2 size={14} />
                                                             Edit Kelas
@@ -1685,17 +1802,9 @@ function BuatSoalPage() {
                                                             title="Hapus Paket"
                                                             style={{ padding: '0.25rem 0.5rem' }}
                                                         >
-                                                            <Trash2 size={16} />
+                                                            <Trash2 size={14} />
                                                             Hapus
                                                         </button>
-                                                        <span style={{
-                                                            color: 'var(--primary)',
-                                                            fontSize: '0.875rem',
-                                                            fontWeight: '500'
-                                                        }}>
-                                                            Kelola Soal →
-                                                        </span>
-                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -1748,7 +1857,7 @@ function BuatSoalPage() {
                                             <div className="empty-state">
                                                 <BookOpen size={48} />
                                                 <h3>Belum ada soal dalam paket ini</h3>
-                                                <p>Klik tombol "Tambah Soal" untuk menambahkan soal</p>
+                                                <p>Gunakan tombol di atas: <strong>Template Excel</strong> lalu <strong>Upload Excel</strong>, <strong>Ambil dari Bank Soal</strong>, atau <strong>Tambah Soal</strong> satu per satu.</p>
                                             </div>
                                         )
                                     }
@@ -1945,6 +2054,152 @@ function BuatSoalPage() {
                     dosenId={user?.id}
                     tahunAkademik={tahunAkademik}
                 />
+
+                {/* Buat Paket Soal (empty package; questions come next) */}
+                {createPackageModalOpen && (() => {
+                    const chosen = matkulList.find(m => String(m.id) === String(newPkgForm.matkulId))
+                    const chosenProdi = chosen?.prodi_id || chosen?.prodiId
+                    const pkgKelasOptions = chosenProdi
+                        ? kelasList.filter(k => String(k.prodi_id || k.prodiId) === String(chosenProdi))
+                        : kelasList
+                    return (
+                        <div className="modal-overlay" onClick={() => setCreatePackageModalOpen(false)}>
+                            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                                <div className="modal-header">
+                                    <h3>Buat Paket Soal</h3>
+                                    <button className="btn btn-icon btn-ghost" onClick={() => setCreatePackageModalOpen(false)}>
+                                        <X size={20} />
+                                    </button>
+                                </div>
+                                <div className="modal-body">
+                                    <p className="form-hint" style={{ marginTop: 0, marginBottom: '1rem' }}>
+                                        Pilih mata kuliah dan jenis ujian. Setelah itu Anda bisa langsung memakai Template Excel, Upload Excel, Bank Soal, atau menambah soal satu per satu.
+                                    </p>
+                                    <div className="form-group">
+                                        <label className="form-label">Mata Kuliah</label>
+                                        <select
+                                            className="form-input"
+                                            value={newPkgForm.matkulId}
+                                            onChange={e => setNewPkgForm({ ...newPkgForm, matkulId: e.target.value, kelasIds: [] })}
+                                        >
+                                            {termMatkulList.length === 0 && <option value="">Tidak ada mata kuliah semester ini</option>}
+                                            {termMatkulList.map(mk => (
+                                                <option key={mk.id} value={mk.id}>{mk.kode ? `${mk.kode} - ` : ''}{mk.nama}</option>
+                                            ))}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Jenis Ujian</label>
+                                        <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                            {['UTS', 'UAS'].map(t => (
+                                                <button
+                                                    key={t}
+                                                    type="button"
+                                                    className={`btn ${newPkgForm.examType === t ? 'btn-primary' : 'btn-outline'}`}
+                                                    style={{ flex: 1 }}
+                                                    onClick={() => setNewPkgForm({ ...newPkgForm, examType: t })}
+                                                >
+                                                    {t}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    {pkgKelasOptions.length > 0 && (
+                                        <div className="form-group">
+                                            <label className="form-label">Kelas (opsional)</label>
+                                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
+                                                {pkgKelasOptions.map(k => {
+                                                    const on = newPkgForm.kelasIds.includes(k.id)
+                                                    return (
+                                                        <button
+                                                            key={k.id}
+                                                            type="button"
+                                                            className={`btn btn-sm ${on ? 'btn-primary' : 'btn-outline'}`}
+                                                            onClick={() => setNewPkgForm({
+                                                                ...newPkgForm,
+                                                                kelasIds: on ? newPkgForm.kelasIds.filter(id => id !== k.id) : [...newPkgForm.kelasIds, k.id]
+                                                            })}
+                                                        >
+                                                            {on && <CheckCircle size={14} />}
+                                                            {k.nama}
+                                                        </button>
+                                                    )
+                                                })}
+                                            </div>
+                                            <span className="form-hint">Soal yang ditambahkan ke paket ini otomatis memakai kelas yang dipilih.</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="modal-footer">
+                                    <button className="btn btn-ghost" onClick={() => setCreatePackageModalOpen(false)}>Batal</button>
+                                    <button className="btn btn-primary" onClick={handleCreatePackage} disabled={!newPkgForm.matkulId}>
+                                        <ArrowRight size={16} />
+                                        Lanjut ke Paket Soal
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    )
+                })()}
+
+                {/* Edit Mata Kuliah: move a whole package */}
+                {editMatkulPkg && (
+                    <div className="modal-overlay" onClick={() => !editMatkulSaving && setEditMatkulPkg(null)}>
+                        <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '520px' }}>
+                            <div className="modal-header">
+                                <h3>Edit Mata Kuliah Paket</h3>
+                                <button className="btn btn-icon btn-ghost" onClick={() => setEditMatkulPkg(null)} disabled={editMatkulSaving}>
+                                    <X size={20} />
+                                </button>
+                            </div>
+                            <div className="modal-body">
+                                <p className="form-hint" style={{ marginTop: 0, marginBottom: '1rem' }}>
+                                    Semua <strong>{editMatkulPkg.questions.length} soal</strong> di paket <strong>{getMatkulName(editMatkulPkg.matkulId)} - {editMatkulPkg.examType}</strong> akan dipindahkan ke mata kuliah / jenis ujian di bawah. Isi soal, bobot, dan kunci jawaban tidak berubah.
+                                </p>
+                                <div className="form-group">
+                                    <label className="form-label">Pindahkan ke Mata Kuliah</label>
+                                    <select
+                                        className="form-input"
+                                        value={editMatkulTarget.matkulId}
+                                        onChange={e => setEditMatkulTarget({ ...editMatkulTarget, matkulId: e.target.value })}
+                                    >
+                                        {filterMatkulByTerm(matkulList, tahunAkademik, [editMatkulPkg.matkulId]).map(mk => (
+                                            <option key={mk.id} value={mk.id}>
+                                                {mk.kode ? `${mk.kode} - ` : ''}{mk.nama}{String(mk.id) === String(editMatkulPkg.matkulId) ? ' (saat ini)' : ''}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Jenis Ujian</label>
+                                    <div style={{ display: 'flex', gap: '0.5rem' }}>
+                                        {['UTS', 'UAS'].map(t => (
+                                            <button
+                                                key={t}
+                                                type="button"
+                                                className={`btn ${editMatkulTarget.examType === t ? 'btn-primary' : 'btn-outline'}`}
+                                                style={{ flex: 1 }}
+                                                onClick={() => setEditMatkulTarget({ ...editMatkulTarget, examType: t })}
+                                            >
+                                                {t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            </div>
+                            <div className="modal-footer">
+                                <button className="btn btn-ghost" onClick={() => setEditMatkulPkg(null)} disabled={editMatkulSaving}>Batal</button>
+                                <button
+                                    className="btn btn-primary"
+                                    onClick={handleSaveEditMatkul}
+                                    disabled={editMatkulSaving || (String(editMatkulTarget.matkulId) === String(editMatkulPkg.matkulId) && editMatkulTarget.examType === editMatkulPkg.examType)}
+                                >
+                                    {editMatkulSaving ? <><Loader2 size={16} className="spin" /> Memindahkan...</> : <><Save size={16} /> Simpan</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Edit Kelas Modal */}
                 {editKelasModal && editKelasPackage && (
