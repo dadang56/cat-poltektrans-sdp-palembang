@@ -722,6 +722,9 @@ function BuatSoalPage() {
     const [editMatkulTarget, setEditMatkulTarget] = useState({ matkulId: '', examType: 'UTS' })
     const [editMatkulSaving, setEditMatkulSaving] = useState(false)
 
+    // Excel upload progress / result panel
+    const [importProgress, setImportProgress] = useState(null)
+
     // New (empty) package: pick course + exam type, then add/import questions
     const [newPkgForm, setNewPkgForm] = useState({ matkulId: '', examType: 'UTS', kelasIds: [] })
 
@@ -1001,6 +1004,15 @@ function BuatSoalPage() {
                 if (questionData.clusterLabel) supabaseData.cluster_label = questionData.clusterLabel
             }
 
+            // Warn before adding a question whose text already exists in the package
+            if (!(editingQuestion && !editingQuestion._isNewVariant) && selectedPackage) {
+                const key = normalizeSoalText(questionData.text)
+                if (key && getPackageQuestions().some(q => normalizeSoalText(q.text) === key) &&
+                    !window.confirm('Soal dengan teks yang sama sudah ada di paket ini. Tetap simpan sebagai soal baru?')) {
+                    return false
+                }
+            }
+
             if (editingQuestion && !editingQuestion._isNewVariant) {
                 // Update existing question in Supabase
                 const updated = await soalService.update(editingQuestion.id, supabaseData)
@@ -1258,9 +1270,14 @@ function BuatSoalPage() {
             }
 
             const newQuestions = []
+            const existingTexts = new Set(getPackageQuestions().map(pq => normalizeSoalText(pq.text)))
+            let skippedDup = 0
             for (const q of importedQuestions) {
                 // Use _original data for reliable field access
                 const orig = q._original || {}
+                const key = normalizeSoalText(q.text)
+                if (key && existingTexts.has(key)) { skippedDup++; continue }
+                existingTexts.add(key)
 
                 // Get pilihan: prefer mapped options if non-empty, else fall back to original DB data
                 const pilihan = (q.options && q.options.length > 0) ? q.options : (orig.pilihan || [])
@@ -1308,7 +1325,8 @@ function BuatSoalPage() {
             }
             setQuestions(prev => [...prev, ...newQuestions])
             console.log('[BuatSoal] Imported', newQuestions.length, 'questions')
-            toast.success(`${newQuestions.length} soal berhasil diimpor dari bank soal`)
+            toast.success(`${newQuestions.length} soal berhasil diimpor dari bank soal` +
+                (skippedDup ? ` (${skippedDup} dilewati karena sudah ada di paket)` : ''))
         } catch (error) {
             console.error('[BuatSoal] Error importing questions:', error)
             toast.error('Gagal mengimpor soal: ' + errorMessage(error))
@@ -1398,12 +1416,23 @@ function BuatSoalPage() {
     }
 
     // Import questions from Excel file
+    // Same question = same text, ignoring case, spacing and HTML tags
+    const normalizeSoalText = (t) => String(t || '')
+        .replace(/<[^>]+>/g, ' ')
+        .replace(/&nbsp;/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase()
+
+    // Excel upload in steps: read & check the file, show a summary (ready /
+    // duplicates / invalid), then upload in batches with a visible progress.
     const handleExcelImport = async (e) => {
         const file = e.target.files[0]
         if (!file) return
 
         // Reset input so same file can be re-uploaded
         e.target.value = ''
+        if (importProgress?.running) return
 
         const sourceYearMatch = file.name.match(/(20\d{2})-(20\d{2})-(Ganjil|Genap)/i)
         if (sourceYearMatch) {
@@ -1413,144 +1442,216 @@ function BuatSoalPage() {
             )) return
         }
 
+        let rows
         try {
             const data = await file.arrayBuffer()
             const workbook = XLSX.read(data, { type: 'array' })
-            const sheetName = workbook.SheetNames[0]
-            const sheet = workbook.Sheets[sheetName]
-            const rows = XLSX.utils.sheet_to_json(sheet)
-
-            if (rows.length === 0) {
-                toast.error('File Excel kosong. Pastikan ada data di sheet pertama.')
-                return
-            }
-            if (!selectedPackage) {
-                toast.error('Buka paket soal (mata kuliah & jenis ujian) dulu sebelum upload Excel.')
-                return
-            }
-
-            const targetMatkulId = selectedPackage?.matkulId || matkulList[0]?.id
-            const targetExamType = selectedPackage?.examType || 'UTS'
-
-            // Map tipe_soal
-            const mapTipeSoal = (type) => {
-                const t = (type || '').toLowerCase().trim()
-                const mapping = {
-                    'pilihan_ganda': 'pilihan_ganda',
-                    'pilihan ganda': 'pilihan_ganda',
-                    'pg': 'pilihan_ganda',
-                    'multiple_choice': 'pilihan_ganda',
-                    'essay': 'uraian',
-                    'uraian': 'uraian',
-                    'benar_salah': 'benar_salah',
-                    'benar salah': 'benar_salah',
-                    'true_false': 'benar_salah',
-                }
-                return mapping[t] || 'pilihan_ganda'
-            }
-
-            // Map answer letter to index
-            const answerMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 }
-
-            let created = 0
-            let errors = 0
-            const packageKelasIds = getPackageKelasIds(selectedPackage)
-            const errorRows = [] // Excel row numbers rejected because the answer key is unclear
-            const newQuestions = []
-            let rowNumber = 1 // header is row 1
-
-            for (const row of rows) {
-                rowNumber++
-                const pertanyaan = row['Pertanyaan'] || row['pertanyaan']
-                if (!pertanyaan || pertanyaan.toString().trim() === '') continue
-
-                const tipeSoal = mapTipeSoal(row['Tipe Soal'] || row['tipe_soal'] || 'pilihan_ganda')
-                const bobot = parseInt(row['Bobot'] || row['bobot'] || 10)
-
-                // Build options for pilihan_ganda
-                let pilihan = []
-                let jawabanBenar = null
-
-                if (tipeSoal === 'pilihan_ganda') {
-                    const letters = ['A', 'B', 'C', 'D', 'E']
-                    const rawOptions = letters.map(l => {
-                        const v = row[`Pilihan ${l}`] ?? row[`pilihan_${l.toLowerCase()}`] ?? ''
-                        return v.toString().trim()
-                    })
-
-                    // The answer must be a single letter that points at a filled
-                    // option. Never guess: a wrong key silently fails every student.
-                    const jawabanRaw = (row['Jawaban Benar (A/B/C/D/E)'] ?? row['jawaban_benar'] ?? '').toString().trim().toUpperCase().replace(/[^A-E]/g, '')
-                    const answerIdx = jawabanRaw.length === 1 ? answerMap[jawabanRaw] : undefined
-                    if (answerIdx === undefined || !rawOptions[answerIdx]) {
-                        errors++
-                        errorRows.push(rowNumber)
-                        continue
-                    }
-
-                    // Drop empty options, then point the key at the same option
-                    // in the compacted list (empty C would otherwise shift D to C)
-                    const kept = rawOptions.map((text, i) => ({ text, i })).filter(o => o.text !== '')
-                    pilihan = kept.map(o => ({ text: o.text, image: null }))
-                    jawabanBenar = kept.findIndex(o => o.i === answerIdx)
-                } else if (tipeSoal === 'benar_salah') {
-                    const jawaban = (row['Jawaban Benar (A/B/C/D/E)'] || row['jawaban_benar'] || '').toString().trim().toLowerCase()
-                    jawabanBenar = jawaban === 'benar' || jawaban === 'true' || jawaban === 'b'
-                }
-
-                try {
-                    const supabaseData = {
-                        pertanyaan: pertanyaan.toString().trim(),
-                        tipe_soal: tipeSoal,
-                        matkul_id: targetMatkulId,
-                        tipe_ujian: targetExamType,
-                        bobot: bobot,
-                        pilihan: pilihan,
-                        jawaban_benar: jawabanBenar,
-                        dosen_id: user?.id,
-                        tahun_akademik: tahunAkademik,
-                        ...(packageKelasIds.length > 0 ? { kelas_ids: packageKelasIds } : {})
-                    }
-
-                    const result = await soalService.create(supabaseData)
-
-                    const reverseTipeSoal = (dbType) => {
-                        const mapping = { 'uraian': 'essay', 'menjodohkan': 'mencocokan' }
-                        return mapping[dbType] || dbType
-                    }
-
-                    newQuestions.push({
-                        id: result.id,
-                        text: result.pertanyaan,
-                        type: reverseTipeSoal(result.tipe_soal),
-                        matkulId: result.matkul_id,
-                        examType: result.tipe_ujian?.toUpperCase() || 'UTS',
-                        points: result.bobot || 10,
-                        options: result.pilihan || [],
-                        correctAnswer: result.jawaban_benar,
-                        dosenId: result.dosen_id,
-                        kelasIds: result.kelas_ids || []
-                    })
-                    created++
-                } catch (err) {
-                    console.error('[BuatSoal] Error importing row:', err, row)
-                    errors++
-                }
-            }
-
-            setQuestions(prev => [...prev, ...newQuestions])
-
-            if (errors > 0) {
-                const detail = errorRows.length
-                    ? `\nBaris Excel dengan kunci jawaban kosong/tidak valid (harus satu huruf A-E yang pilihannya terisi): ${errorRows.slice(0, 15).join(', ')}${errorRows.length > 15 ? ', ...' : ''}`
-                    : ''
-                toast.warning(`Import selesai: ${created} soal berhasil, ${errors} soal gagal.${detail}`, 12000)
-            } else {
-                toast.success(`${created} soal berhasil diimport dari Excel`)
-            }
+            const sheet = workbook.Sheets[workbook.SheetNames[0]]
+            rows = XLSX.utils.sheet_to_json(sheet)
         } catch (error) {
-            console.error('[BuatSoal] Excel import error:', error)
+            console.error('[BuatSoal] Excel read error:', error)
             toast.error('Gagal membaca file Excel: ' + errorMessage(error))
+            return
+        }
+
+        if (!rows || rows.length === 0) {
+            toast.error('File Excel kosong. Pastikan ada data di sheet pertama.')
+            return
+        }
+        if (!selectedPackage) {
+            toast.error('Buka paket soal (mata kuliah & jenis ujian) dulu sebelum upload Excel.')
+            return
+        }
+
+        const targetMatkulId = selectedPackage.matkulId
+        const targetExamType = selectedPackage.examType || 'UTS'
+        const packageKelasIds = getPackageKelasIds(selectedPackage)
+
+        const mapTipeSoal = (type) => {
+            const t = (type || '').toLowerCase().trim()
+            const mapping = {
+                'pilihan_ganda': 'pilihan_ganda',
+                'pilihan ganda': 'pilihan_ganda',
+                'pg': 'pilihan_ganda',
+                'multiple_choice': 'pilihan_ganda',
+                'essay': 'uraian',
+                'uraian': 'uraian',
+                'benar_salah': 'benar_salah',
+                'benar salah': 'benar_salah',
+                'true_false': 'benar_salah',
+            }
+            return mapping[t] || 'pilihan_ganda'
+        }
+        const answerMap = { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 }
+
+        // ---- Step 1: read and check every row ----
+        const ready = []          // { rowNumber, data }
+        const invalidRows = []    // answer key empty / not A-E / points at an empty option
+        const dupInFile = []      // { rowNumber, sameAs }
+        const dupInPackage = []   // rowNumber
+        const firstRowByText = new Map()
+        const existingTexts = new Set(getPackageQuestions().map(q => normalizeSoalText(q.text)))
+        let rowNumber = 1 // header is row 1
+        let totalRows = 0
+
+        for (const row of rows) {
+            rowNumber++
+            const pertanyaan = row['Pertanyaan'] || row['pertanyaan']
+            if (!pertanyaan || pertanyaan.toString().trim() === '') continue
+            totalRows++
+
+            const tipeSoal = mapTipeSoal(row['Tipe Soal'] || row['tipe_soal'] || 'pilihan_ganda')
+            const bobot = parseInt(row['Bobot'] || row['bobot'] || 10)
+            let pilihan = []
+            let jawabanBenar = null
+
+            if (tipeSoal === 'pilihan_ganda') {
+                const letters = ['A', 'B', 'C', 'D', 'E']
+                const rawOptions = letters.map(l => {
+                    const v = row[`Pilihan ${l}`] ?? row[`pilihan_${l.toLowerCase()}`] ?? ''
+                    return v.toString().trim()
+                })
+                // The answer must be a single letter that points at a filled
+                // option. Never guess: a wrong key silently fails every student.
+                const jawabanRaw = (row['Jawaban Benar (A/B/C/D/E)'] ?? row['jawaban_benar'] ?? '').toString().trim().toUpperCase().replace(/[^A-E]/g, '')
+                const answerIdx = jawabanRaw.length === 1 ? answerMap[jawabanRaw] : undefined
+                if (answerIdx === undefined || !rawOptions[answerIdx]) {
+                    invalidRows.push(rowNumber)
+                    continue
+                }
+                // Drop empty options, then point the key at the same option
+                // in the compacted list (empty C would otherwise shift D to C)
+                const kept = rawOptions.map((text, i) => ({ text, i })).filter(o => o.text !== '')
+                pilihan = kept.map(o => ({ text: o.text, image: null }))
+                jawabanBenar = kept.findIndex(o => o.i === answerIdx)
+            } else if (tipeSoal === 'benar_salah') {
+                const jawaban = (row['Jawaban Benar (A/B/C/D/E)'] || row['jawaban_benar'] || '').toString().trim().toLowerCase()
+                jawabanBenar = jawaban === 'benar' || jawaban === 'true' || jawaban === 'b'
+            }
+
+            const key = normalizeSoalText(pertanyaan)
+            if (existingTexts.has(key)) {
+                dupInPackage.push(rowNumber)
+                continue
+            }
+            if (firstRowByText.has(key)) {
+                dupInFile.push({ rowNumber, sameAs: firstRowByText.get(key) })
+                continue
+            }
+            firstRowByText.set(key, rowNumber)
+
+            ready.push({
+                rowNumber,
+                data: {
+                    pertanyaan: pertanyaan.toString().trim(),
+                    tipe_soal: tipeSoal,
+                    matkul_id: targetMatkulId,
+                    tipe_ujian: targetExamType,
+                    bobot: bobot,
+                    pilihan: pilihan,
+                    jawaban_benar: jawabanBenar,
+                    dosen_id: user?.id,
+                    tahun_akademik: tahunAkademik,
+                    ...(packageKelasIds.length > 0 ? { kelas_ids: packageKelasIds } : {})
+                }
+            })
+        }
+
+        // ---- Step 2: summary before anything is saved ----
+        const list = (arr) => arr.slice(0, 12).join(', ') + (arr.length > 12 ? `, ... (+${arr.length - 12})` : '')
+        const lines = [
+            `File "${file.name}": ${totalRows} soal terbaca.`,
+            '',
+            `✓ Siap diupload: ${ready.length} soal`
+        ]
+        if (dupInPackage.length) lines.push(`⚠ Sudah ada di paket ini (dilewati): ${dupInPackage.length} — baris ${list(dupInPackage)}`)
+        if (dupInFile.length) lines.push(`⚠ Duplikat di dalam file (dilewati): ${dupInFile.length} — ${list(dupInFile.map(d => `baris ${d.rowNumber} = baris ${d.sameAs}`))}`)
+        if (invalidRows.length) lines.push(`✗ Kunci jawaban kosong/tidak valid (dilewati): ${invalidRows.length} — baris ${list(invalidRows)}`)
+
+        if (ready.length === 0) {
+            showConfirm({
+                title: 'Tidak Ada Soal Baru',
+                message: lines.join('\n') + '\n\nTidak ada soal yang diupload.',
+                confirmText: 'Mengerti',
+                confirmVariant: 'success',
+                hideCancel: true,
+                onConfirm: () => {}
+            })
+            return
+        }
+
+        showConfirm({
+            title: 'Periksa Sebelum Upload',
+            message: lines.join('\n') + `\n\nSoal akan masuk ke paket ${getMatkulName(targetMatkulId)} - ${targetExamType}.`,
+            confirmText: `Upload ${ready.length} Soal`,
+            confirmVariant: 'success',
+            onConfirm: () => runExcelUpload(ready, {
+                fileName: file.name,
+                skippedDuplicates: dupInPackage.length + dupInFile.length,
+                skippedInvalid: invalidRows.length
+            })
+        })
+    }
+
+    // ---- Step 3: upload in batches with progress ----
+    const runExcelUpload = async (ready, info) => {
+        const BATCH = 20
+        const reverseTipeSoal = (dbType) => ({ 'uraian': 'essay', 'menjodohkan': 'mencocokan' }[dbType] || dbType)
+        const toLocal = (r) => ({
+            id: r.id,
+            text: r.pertanyaan,
+            type: reverseTipeSoal(r.tipe_soal),
+            matkulId: r.matkul_id,
+            examType: r.tipe_ujian?.toUpperCase() || 'UTS',
+            points: r.bobot || 10,
+            options: r.pilihan || [],
+            correctAnswer: r.jawaban_benar,
+            dosenId: r.dosen_id,
+            kelasIds: r.kelas_ids || []
+        })
+
+        const failedRows = []
+        let done = 0
+        setImportProgress({ running: true, total: ready.length, done: 0, failed: 0, fileName: info.fileName })
+
+        for (let i = 0; i < ready.length; i += BATCH) {
+            const chunk = ready.slice(i, i + BATCH)
+            let inserted = []
+            try {
+                inserted = await soalService.createMany(chunk.map(c => c.data))
+            } catch (batchError) {
+                // One bad row fails the whole batch: retry row by row to save the rest
+                console.warn('[BuatSoal] Batch insert failed, retrying per row:', batchError?.message)
+                for (const c of chunk) {
+                    try {
+                        inserted.push(await soalService.create(c.data))
+                    } catch (rowError) {
+                        console.error('[BuatSoal] Row insert failed:', c.rowNumber, rowError)
+                        failedRows.push(c.rowNumber)
+                    }
+                }
+            }
+            if (inserted.length) setQuestions(prev => [...prev, ...inserted.map(toLocal)])
+            done += chunk.length
+            setImportProgress(p => ({ ...p, done, failed: failedRows.length }))
+        }
+
+        const created = ready.length - failedRows.length
+        setImportProgress({
+            running: false,
+            total: ready.length,
+            done: ready.length,
+            failed: failedRows.length,
+            created,
+            failedRows,
+            skippedDuplicates: info.skippedDuplicates,
+            skippedInvalid: info.skippedInvalid,
+            fileName: info.fileName
+        })
+        if (failedRows.length === 0) {
+            toast.success(`${created} soal berhasil diupload dari Excel`)
+        } else {
+            toast.error(`${created} soal masuk, ${failedRows.length} gagal (baris ${failedRows.slice(0, 10).join(', ')}). Upload ulang file yang sama: soal yang sudah masuk otomatis dilewati.`, 15000)
         }
     }
 
@@ -1604,14 +1705,15 @@ function BuatSoalPage() {
                                     <Download size={18} />
                                     Template Excel
                                 </button>
-                                <label className="btn btn-outline" style={{ cursor: 'pointer' }}>
-                                    <Upload size={18} />
-                                    Upload Excel
+                                <label className="btn btn-outline" style={{ cursor: importProgress?.running ? 'wait' : 'pointer', opacity: importProgress?.running ? 0.6 : 1 }}>
+                                    {importProgress?.running ? <Loader2 size={18} className="spin" /> : <Upload size={18} />}
+                                    {importProgress?.running ? `Mengupload ${importProgress.done}/${importProgress.total}` : 'Upload Excel'}
                                     <input
                                         type="file"
                                         accept=".xlsx,.xls"
                                         style={{ display: 'none' }}
                                         onChange={handleExcelImport}
+                                        disabled={!!importProgress?.running}
                                     />
                                 </label>
                                 <button className="btn btn-primary" onClick={handleAddQuestion}>
@@ -1880,6 +1982,18 @@ function BuatSoalPage() {
                                         }
                                     })
 
+                                    // Questions whose text repeats an earlier one in this package
+                                    const duplicateIds = new Set()
+                                    {
+                                        const seen = new Set()
+                                        getPackageQuestions().forEach(q => {
+                                            const key = normalizeSoalText(q.text)
+                                            if (!key) return
+                                            if (seen.has(key)) duplicateIds.add(q.id)
+                                            else seen.add(key)
+                                        })
+                                    }
+
                                     // Render function for a single question card
                                     const renderQuestion = (question, index, variantLabel = null) => (
                                         <div key={question.id} className="question-card">
@@ -1892,6 +2006,9 @@ function BuatSoalPage() {
                                                         }`}>
                                                         {typeLabels[question.type]}
                                                     </span>
+                                                    {duplicateIds.has(question.id) && (
+                                                        <span className="badge badge-error" title="Teks soal ini sama dengan soal lain di paket ini">Duplikat</span>
+                                                    )}
                                                     {variantLabel && (
                                                         <span className="badge badge-warning">{variantLabel}</span>
                                                     )}
@@ -1934,6 +2051,11 @@ function BuatSoalPage() {
 
                                     return (
                                         <>
+                                            {duplicateIds.size > 0 && (
+                                                <div className="alert alert-warning">
+                                                    <span>⚠ {duplicateIds.size} soal di paket ini sama persis dengan soal lain (ditandai <strong>Duplikat</strong>). Hapus salah satunya agar soal tidak muncul dua kali.</span>
+                                                </div>
+                                            )}
                                             {/* Render clustered questions */}
                                             {Object.values(clusters).map(cluster => {
                                                 const clusterStartIndex = globalIndex
@@ -1998,8 +2120,9 @@ function BuatSoalPage() {
 
                                             {/* Render standalone questions */}
                                             {standalone.map(q => {
+                                                const idx = globalIndex
                                                 globalIndex += 1
-                                                return renderQuestion(q, globalIndex)
+                                                return renderQuestion(q, idx)
                                             })}
                                         </>
                                     )
@@ -2054,6 +2177,59 @@ function BuatSoalPage() {
                     dosenId={user?.id}
                     tahunAkademik={tahunAkademik}
                 />
+
+                {/* Excel upload progress / result (can't be closed while uploading) */}
+                {importProgress && (() => {
+                    const p = importProgress
+                    const pct = p.total ? Math.round((p.done / p.total) * 100) : 0
+                    return (
+                        <div className="modal-overlay" onClick={() => { if (!p.running) setImportProgress(null) }}>
+                            <div className="modal" onClick={e => e.stopPropagation()} style={{ maxWidth: '480px' }} role="dialog" aria-live="polite">
+                                <div className="modal-header">
+                                    <h3>{p.running ? 'Mengupload Soal…' : (p.failed ? 'Upload Selesai (Ada yang Gagal)' : 'Upload Selesai')}</h3>
+                                </div>
+                                <div className="modal-body">
+                                    <p className="form-hint" style={{ marginTop: 0 }}>{p.fileName}</p>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.9rem', marginBottom: '0.4rem' }}>
+                                        <span>{p.running ? 'Menyimpan soal ke paket' : 'Selesai'}</span>
+                                        <strong>{p.done} / {p.total} soal ({pct}%)</strong>
+                                    </div>
+                                    <div style={{ height: '10px', background: 'var(--bg-tertiary)', borderRadius: '6px', overflow: 'hidden' }}>
+                                        <div style={{
+                                            height: '100%',
+                                            width: `${pct}%`,
+                                            background: p.failed ? 'var(--warning-500)' : 'var(--success-500)',
+                                            transition: 'width 0.25s ease'
+                                        }} />
+                                    </div>
+                                    {p.running ? (
+                                        <p className="form-hint" style={{ marginTop: '0.75rem' }}>
+                                            <Loader2 size={14} className="spin" style={{ verticalAlign: 'middle', marginRight: 6 }} />
+                                            Jangan tutup atau pindah halaman sampai selesai.
+                                        </p>
+                                    ) : (
+                                        <div style={{ marginTop: '1rem', display: 'grid', gap: '0.4rem', fontSize: '0.92rem' }}>
+                                            <div>✅ <strong>{p.created}</strong> soal berhasil masuk ke paket</div>
+                                            {p.skippedDuplicates > 0 && <div>⚠️ {p.skippedDuplicates} soal duplikat dilewati</div>}
+                                            {p.skippedInvalid > 0 && <div>⚠️ {p.skippedInvalid} soal dilewati (kunci jawaban tidak valid)</div>}
+                                            {p.failed > 0 && (
+                                                <div style={{ color: 'var(--error-600)' }}>
+                                                    ❌ {p.failed} soal gagal disimpan (baris {p.failedRows.slice(0, 12).join(', ')}{p.failedRows.length > 12 ? ', …' : ''}).
+                                                    Upload ulang file yang sama — soal yang sudah masuk otomatis dilewati.
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                                {!p.running && (
+                                    <div className="modal-footer">
+                                        <button className="btn btn-primary" onClick={() => setImportProgress(null)}>Tutup</button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    )
+                })()}
 
                 {/* Buat Paket Soal (empty package; questions come next) */}
                 {createPackageModalOpen && (() => {

@@ -585,6 +585,18 @@ export const soalService = {
         return data
     },
 
+    // Insert several soal in one request (Excel import). Returns inserted rows.
+    async createMany(rows) {
+        if (!rows.length) return []
+        const { data, error } = await supabase
+            .from('soal')
+            .insert(rows)
+            .select()
+
+        if (error) throw error
+        return data || []
+    },
+
     async update(id, soalData) {
         const { data, error } = await supabase
             .from('soal')
