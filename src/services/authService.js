@@ -1,4 +1,5 @@
 import { supabase, isSupabaseConfigured } from '../lib/supabase'
+import { hashBypassPassword, isSebGateOn, isSebBrowser, grantBypass, SebRequiredError } from '../utils/sebGate'
 
 /**
  * Authentication Service for CAT Poltektrans
@@ -8,6 +9,37 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase'
 // LocalStorage keys for session persistence
 const USER_PROFILE_KEY = 'cat_user'
 const SESSION_TOKEN_KEY = 'cat_session_token'
+
+/**
+ * "Wajib SEB" gate: called after the password is verified and BEFORE a
+ * session token is written, so a refused attempt from a normal browser never
+ * logs the student out of their real SEB session on another device.
+ * Reads the setting straight from the database (not the cached context).
+ */
+async function enforceSebGate(user, options = {}) {
+    if (user?.role !== 'mahasiswa' || isSebBrowser()) return
+    const { data } = await supabase
+        .from('app_settings')
+        .select('value')
+        .eq('key', 'app_config')
+        .maybeSingle()
+    const config = data?.value || {}
+    if (!isSebGateOn(config)) return
+
+    const bypass = (options.sebBypassPassword || '').trim()
+    if (!bypass) {
+        throw new SebRequiredError('SEB_REQUIRED',
+            'Akun mahasiswa hanya bisa login menggunakan Safe Exam Browser (SEB).')
+    }
+    if (!config.sebBypassHash) {
+        throw new SebRequiredError('SEB_BYPASS_NOT_SET',
+            'Password uji coba belum diatur oleh admin. Buka akun ini lewat SEB.')
+    }
+    if (await hashBypassPassword(bypass) !== config.sebBypassHash) {
+        throw new SebRequiredError('SEB_BYPASS_WRONG', 'Password uji coba admin salah.')
+    }
+    grantBypass(user.id)
+}
 
 /**
  * Generate unique session token
@@ -24,7 +56,7 @@ function generateSessionToken() {
  * 3. If user has NO auth_id -> legacy password check (no Supabase Auth call)
  * This avoids wasting a Supabase Auth call for every legacy user login.
  */
-export async function signInWithNimNip(nimNip, password) {
+export async function signInWithNimNip(nimNip, password, options = {}) {
     try {
         // STEP 1: Lookup user in DB first (lightweight - select only needed columns)
         let existingUser = null
@@ -82,6 +114,14 @@ export async function signInWithNimNip(nimNip, password) {
                 throw new Error('Password salah')
             }
 
+            try {
+                await enforceSebGate(existingUser, options)
+            } catch (gateError) {
+                // Drop only this browser's auth session; leave session_token alone
+                await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+                throw gateError
+            }
+
             // Generate session token (skip for admin_prodi/superadmin to allow multi-device)
             const skipSessionToken = ['admin_prodi', 'superadmin'].includes(existingUser.role)
             if (!skipSessionToken) {
@@ -106,6 +146,8 @@ export async function signInWithNimNip(nimNip, password) {
             if (password !== storedPassword) {
                 throw new Error('Password salah')
             }
+
+            await enforceSebGate(existingUser, options)
 
             // Generate session token (skip for admin_prodi/superadmin to allow multi-device)
             const skipSessionToken = ['admin_prodi', 'superadmin'].includes(existingUser.role)
@@ -165,6 +207,19 @@ export async function signUpUser(nimNip, password, userData) {
         console.error('[AuthService] Sign up error:', error)
         return { data: null, error }
     }
+}
+
+/**
+ * Clear this browser's session only. Unlike signOut() it does NOT clear
+ * session_token in the database, so the user's session on another device
+ * (e.g. their SEB) stays valid.
+ */
+export async function signOutLocal() {
+    localStorage.removeItem(USER_PROFILE_KEY)
+    localStorage.removeItem(SESSION_TOKEN_KEY)
+    try {
+        await supabase.auth.signOut({ scope: 'local' })
+    } catch { /* ignore */ }
 }
 
 /**
@@ -393,6 +448,7 @@ export default {
     signInWithNimNip,
     signUpUser,
     signOut,
+    signOutLocal,
     getSession,
     getCurrentUser,
     onAuthStateChange,

@@ -2,7 +2,9 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useState, useEffect, createContext, useContext } from 'react'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { ConfirmProvider } from './components/ConfirmDialog'
-import { ToastContainer } from './components/Toast'
+import { ToastContainer, toast } from './components/Toast'
+import { useSettings } from './contexts/SettingsContext'
+import { isBlockedHere } from './utils/sebGate'
 import authService from './services/authService'
 
 // Pages
@@ -192,8 +194,10 @@ function App() {
     }
   }, [user])
 
-  const login = async (nimNip, password) => {
-    const { data, error } = await authService.signInWithNimNip(nimNip, password)
+  // options.sebBypassPassword: admin's "password uji coba" to open a
+  // mahasiswa account outside SEB (see utils/sebGate.js)
+  const login = async (nimNip, password, _tahunAkademik, options = {}) => {
+    const { data, error } = await authService.signInWithNimNip(nimNip, password, options)
     if (error) {
       throw error
     }
@@ -203,6 +207,12 @@ function App() {
 
   const logout = async () => {
     await authService.signOut()
+    setUser(null)
+  }
+
+  // Leave this browser only (keeps the user's session on other devices)
+  const logoutLocal = async () => {
+    await authService.signOutLocal()
     setUser(null)
   }
 
@@ -218,6 +228,7 @@ function App() {
     isLoading,
     login,
     logout,
+    logoutLocal,
     theme,
     toggleTheme,
     sessionMessage
@@ -227,6 +238,7 @@ function App() {
     <SettingsProvider>
       <ConfirmProvider>
         <AuthContext.Provider value={authValue}>
+          <SebGuard />
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={
@@ -590,6 +602,21 @@ function App() {
       </ConfirmProvider>
     </SettingsProvider>
   )
+}
+
+// Closes a mahasiswa session that is open in a normal browser while
+// "Wajib SEB" is on (e.g. logged in before the setting was turned on).
+// Login itself is gated in authService; this covers restored sessions.
+function SebGuard() {
+  const { user, logoutLocal } = useAuth()
+  const { settings } = useSettings()
+  useEffect(() => {
+    if (isBlockedHere(user, settings)) {
+      toast.error('Akun mahasiswa hanya bisa digunakan melalui Safe Exam Browser (SEB). Sesi di browser ini ditutup.', 10000)
+      logoutLocal()
+    }
+  }, [user, settings?.requireSEB])
+  return null
 }
 
 export default App

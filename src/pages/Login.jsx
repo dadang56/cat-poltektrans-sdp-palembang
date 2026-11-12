@@ -12,7 +12,8 @@ import {
     Anchor,
     Ship,
     Waves,
-    Calendar
+    Calendar,
+    ShieldCheck
 } from 'lucide-react'
 import './Login.css'
 import { generateAcademicYearOptions } from '../utils/academicYear'
@@ -31,6 +32,10 @@ function Login() {
     const [showPassword, setShowPassword] = useState(false)
     const [error, setError] = useState('')
     const [isLoading, setIsLoading] = useState(false)
+    // "Wajib SEB": set when a mahasiswa login was refused outside SEB; shows
+    // the admin's "password uji coba" field
+    const [sebRequired, setSebRequired] = useState(false)
+    const [sebBypass, setSebBypass] = useState('')
 
     // Clear form on mount/unmount and load settings
     useEffect(() => {
@@ -48,6 +53,8 @@ function Login() {
         const { name, value } = e.target
         setFormData(prev => ({ ...prev, [name]: value }))
         setError('')
+        // A different account starts over (no bypass field)
+        if (name === 'username') { setSebRequired(false); setSebBypass('') }
     }
 
     const handleSubmit = async (e) => {
@@ -61,14 +68,21 @@ function Login() {
         try {
             // Use authService via the login function from AuthContext
             // The login function now handles both Supabase Auth and demo mode
-            const result = await login(cleanUsername, password, tahunAkademik)
+            const result = await login(cleanUsername, password, tahunAkademik, {
+                sebBypassPassword: sebRequired ? sebBypass : ''
+            })
             if (result?.success && ['superadmin', 'admin', 'admin_prodi'].includes(result.user?.role)) {
                 await saveSettings({ tahunAkademik })
             }
             // On success, App.jsx will handle navigation via user state change
         } catch (err) {
             console.error('Login error:', err)
-            if (err.message?.includes('Invalid login credentials')) {
+            if (err.code === 'SEB_REQUIRED' || err.code === 'SEB_BYPASS_WRONG' || err.code === 'SEB_BYPASS_NOT_SET') {
+                setSebRequired(true)
+                setError(err.code === 'SEB_REQUIRED'
+                    ? 'Akun mahasiswa hanya bisa login menggunakan Safe Exam Browser (SEB). Untuk uji coba di browser biasa, admin dapat memasukkan password uji coba di bawah.'
+                    : err.message)
+            } else if (err.message?.includes('Invalid login credentials')) {
                 setError('Username atau password salah.')
             } else if (err.message) {
                 setError(err.message)
@@ -186,6 +200,26 @@ function Login() {
                                     </button>
                                 </div>
                             </div>
+
+                            {sebRequired && (
+                                <div className="form-group">
+                                    <label className="form-label" htmlFor="sebBypass">Password Uji Coba (Admin)</label>
+                                    <div className="form-input-icon">
+                                        <ShieldCheck className="icon" size={20} />
+                                        <input
+                                            type="password"
+                                            id="sebBypass"
+                                            name="sebBypass"
+                                            className="form-input"
+                                            placeholder="Diisi admin untuk membuka di browser biasa"
+                                            value={sebBypass}
+                                            onChange={e => { setSebBypass(e.target.value); setError('') }}
+                                            autoComplete="off"
+                                            autoFocus
+                                        />
+                                    </div>
+                                </div>
+                            )}
 
                             <div className="form-group">
                                 <label className="form-label" htmlFor="tahunAkademik">Tahun Akademik</label>

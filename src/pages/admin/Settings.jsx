@@ -15,10 +15,34 @@ import {
     AlertTriangle
 } from 'lucide-react'
 import { toast, errorMessage } from '../../components/Toast'
+import { hashBypassPassword } from '../../utils/sebGate'
 
 function SettingsPage() {
     const { settings, updateSettings, resetSettings, isLoaded } = useSettings()
     const [localSettings, setLocalSettings] = useState(settings)
+    const [bypassInput, setBypassInput] = useState('')
+    const [bypassSaving, setBypassSaving] = useState(false)
+
+    // Saved on its own (not with "Simpan Pengaturan"): only the hash is stored
+    const saveBypassPassword = async (clear = false) => {
+        const pw = bypassInput.trim()
+        if (!clear && pw.length < 6) {
+            toast.warning('Password uji coba minimal 6 karakter.')
+            return
+        }
+        setBypassSaving(true)
+        try {
+            const hash = clear ? null : await hashBypassPassword(pw)
+            await updateSettings({ sebBypassHash: hash })
+            setLocalSettings(prev => ({ ...prev, sebBypassHash: hash }))
+            setBypassInput('')
+            toast.success(clear ? 'Password uji coba dihapus' : 'Password uji coba berhasil disimpan')
+        } catch (err) {
+            toast.error('Gagal menyimpan password uji coba: ' + errorMessage(err))
+        } finally {
+            setBypassSaving(false)
+        }
+    }
     const [logoPreview, setLogoPreview] = useState(settings.logoUrl)
     const [saveStatus, setSaveStatus] = useState(null)
     const fileInputRef = useRef(null)
@@ -355,12 +379,37 @@ function SettingsPage() {
                                         <span className="toggle-slider"></span>
                                     </label>
                                     <span className="toggle-label">
-                                        {localSettings.requireSEB ? 'Aktif - Ujian hanya bisa diakses via SEB' : 'Nonaktif - Ujian bisa diakses browser biasa'}
+                                        {localSettings.requireSEB ? 'Aktif - Akun mahasiswa hanya bisa login lewat SEB' : 'Nonaktif - Mahasiswa bisa login dari browser biasa'}
                                     </span>
                                 </div>
                                 <p className="form-hint">
                                     <AlertTriangle size={14} />
-                                    Jika diaktifkan, mahasiswa wajib menggunakan Safe Exam Browser untuk mengakses ujian.
+                                    Jika diaktifkan, akun mahasiswa ditolak saat login dari browser selain Safe Exam Browser / exam browser, dan sesi mahasiswa yang terbuka di browser biasa ditutup. Klik "Simpan Pengaturan" setelah mengubah.
+                                </p>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Password Uji Coba (Browser Biasa)</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <input
+                                        type="password"
+                                        className="form-input"
+                                        style={{ flex: '1 1 220px' }}
+                                        placeholder={localSettings.sebBypassHash ? 'Ketik password baru untuk mengganti' : 'Buat password uji coba (min. 6 karakter)'}
+                                        value={bypassInput}
+                                        onChange={e => setBypassInput(e.target.value)}
+                                        autoComplete="new-password"
+                                    />
+                                    <button type="button" className="btn btn-primary" onClick={() => saveBypassPassword(false)} disabled={bypassSaving || !bypassInput.trim()}>
+                                        {bypassSaving ? 'Menyimpan...' : 'Simpan Password'}
+                                    </button>
+                                    {localSettings.sebBypassHash && (
+                                        <button type="button" className="btn btn-outline" onClick={() => saveBypassPassword(true)} disabled={bypassSaving}>
+                                            Hapus
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="form-hint">
+                                    Status: <strong>{localSettings.sebBypassHash ? 'sudah diatur' : 'belum diatur'}</strong>. Saat akun mahasiswa ditolak di browser biasa, admin dapat mengisi password ini di halaman login untuk uji coba. Berlaku hanya untuk tab browser itu. Jangan bagikan ke mahasiswa.
                                 </p>
                             </div>
                             <div className="form-group">
