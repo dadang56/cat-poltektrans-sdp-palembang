@@ -607,6 +607,14 @@ function JadwalUjianPage() {
                 return
             }
             setIsSaving(false)
+            // Religion exams run in parallel for one class (each student sits
+            // only their own religion), so Agama vs Agama is not a clash.
+            const isAgama = nama => /agama/i.test(nama || '')
+            const newMatkulId = data.matkul_id || data.matkulId
+            const newMatkulNama = matkulList.find(m => String(m.id) === String(newMatkulId))?.nama
+            if (isAgama(newMatkulNama)) {
+                conflicts = conflicts.filter(c => !isAgama(c.matkul?.nama))
+            }
             if (conflicts.length > 0) {
                 const hhmm = t => String(t || '').slice(0, 5)
                 // End of an exam slot: start + duration (falls back to the window end)
