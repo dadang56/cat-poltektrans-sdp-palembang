@@ -365,3 +365,47 @@
 .text-nowrap {
     white-space: nowrap;
 }
+
+/* ---------- Modals: never taller than the screen ----------
+   Header and footer (Simpan/Batal) stay visible; only the body scrolls.
+   Works for both layouts in use: .modal > .modal-body + .modal-footer and
+   .modal > form > .modal-body + .modal-footer. */
+.modal-overlay > .modal {
+    display: flex;
+    flex-direction: column;
+    max-height: min(92vh, 900px);
+    overflow: hidden;
+}
+
+.modal-overlay > .modal > form {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+.modal-overlay > .modal .modal-header,
+.modal-overlay > .modal .modal-footer {
+    flex-shrink: 0;
+}
+
+.modal-overlay > .modal .modal-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+/* Inside a modal, paired fields stay side by side down to 480px wide
+   (the page-level .form-row collapses earlier, at 640px) */
+@media (max-width: 640px) {
+    .modal .form-row {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+}
+
+@media (max-width: 480px) {
+    .modal .form-row {
+        grid-template-columns: 1fr;
+    }
+}

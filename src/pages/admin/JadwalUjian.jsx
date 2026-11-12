@@ -235,7 +235,8 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                             )}
                         </div>
 
-                        {/* Kelas - Simple Dropdown */}
+                        {/* Kelas + Tipe Ujian side by side (keeps the form short) */}
+                        <div className="form-row">
                         <div className="form-group" style={{ marginBottom: '1rem' }}>
                             <label className="form-label">Kelas</label>
                             <select
@@ -270,6 +271,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 <option value="UAS">UAS</option>
                                 <option value="ULANG">Ujian Ulang (Remedial)</option>
                             </select>
+                        </div>
                         </div>
 
                         {/* ULANG-specific fields */}
@@ -360,15 +362,30 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 )}
                             </>
                         )}
-                        <div className="form-group">
-                            <label className="form-label">Tanggal</label>
-                            <input
-                                type="date"
-                                className="form-input"
-                                value={formData.tanggal}
-                                onChange={e => setFormData({ ...formData, tanggal: e.target.value })}
-                                required
-                            />
+                        <div className="form-row">
+                            <div className="form-group">
+                                <label className="form-label">Tanggal</label>
+                                <input
+                                    type="date"
+                                    className="form-input"
+                                    value={formData.tanggal}
+                                    onChange={e => setFormData({ ...formData, tanggal: e.target.value })}
+                                    required
+                                />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Durasi (menit)</label>
+                                <input
+                                    type="number"
+                                    className="form-input"
+                                    value={formData.durasi}
+                                    onChange={e => setFormData({ ...formData, durasi: e.target.value === '' ? '' : parseInt(e.target.value) || '' })}
+                                    min={1}
+                                    max={600}
+                                    required
+                                    placeholder="mis. 90"
+                                />
+                            </div>
                         </div>
                         <div className="form-row">
                             <div className="form-group">
@@ -392,23 +409,11 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                 />
                             </div>
                         </div>
-                        <div className="form-group" style={{ marginBottom: '1rem' }}>
-                            <label className="form-label">Durasi Ujian (menit)</label>
-                            <input
-                                type="number"
-                                className="form-input"
-                                value={formData.durasi}
-                                onChange={e => setFormData({ ...formData, durasi: e.target.value === '' ? '' : parseInt(e.target.value) || '' })}
-                                min={1}
-                                max={600}
-                                required
-                                placeholder="Masukkan durasi (menit)"
-                            />
-                            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                                Durasi personal per mahasiswa. Mahasiswa bisa mulai kapan saja dalam jendela waktu di atas.
-                            </small>
-                        </div>
-                        {/* Ruangan */}
+                        <small className="form-hint" style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                            Durasi berlaku per mahasiswa. Mahasiswa bisa mulai kapan saja di antara Waktu Mulai dan Waktu Selesai.
+                        </small>
+                        {/* Ruangan + Dosen side by side */}
+                        <div className="form-row">
                         <div className="form-group" style={{ marginBottom: '1rem' }}>
                             <label className="form-label">Ruangan</label>
                             <select
@@ -435,6 +440,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
                                     <option key={d.id} value={d.id}>{d.nama} ({d.nim_nip})</option>
                                 ))}
                             </select>
+                        </div>
                         </div>
                     </div>
                     <div className="modal-footer">
