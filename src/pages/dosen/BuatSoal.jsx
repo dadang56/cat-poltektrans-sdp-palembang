@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
-import { getActiveAcademicYear } from '../../utils/academicYear'
+import { getActiveAcademicYear, filterMatkulByTerm } from '../../utils/academicYear'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
 import {
@@ -1931,7 +1931,7 @@ function BuatSoalPage() {
                     onClose={() => setModalOpen(false)}
                     question={editingQuestion}
                     onSave={handleSaveQuestion}
-                    matkul={matkulList}
+                    matkul={filterMatkulByTerm(matkulList, tahunAkademik, [editingQuestion?.matkulId])}
                     kelasList={kelasList}
                     currentExamType={selectedPackage?.examType || (examTypeFilter !== 'all' ? examTypeFilter : 'uts')}
                     selectedPackage={selectedPackage}

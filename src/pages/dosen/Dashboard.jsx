@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
-import { getActiveAcademicYear } from '../../utils/academicYear'
+import { getActiveAcademicYear, isMatkulInTerm } from '../../utils/academicYear'
 import { useNavigate } from 'react-router-dom'
 import { matkulService, jadwalService, soalService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
@@ -62,7 +62,7 @@ function DosenDashboard() {
 
                     // Filter mata kuliah by dosen's matkulIds
                     const filteredMatkul = dosenMatkulIds.length > 0
-                        ? allMatkul.filter(m => dosenMatkulIds.includes(String(m.id)))
+                        ? allMatkul.filter(m => dosenMatkulIds.includes(String(m.id)) && isMatkulInTerm(m, tahunAkademik))
                         : []
 
                     console.log('[DosenDashboard] Filtered matkul:', filteredMatkul.length)

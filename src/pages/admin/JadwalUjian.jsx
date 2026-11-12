@@ -4,7 +4,7 @@ import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { jadwalService, matkulService, prodiService, kelasService, ruangService, userService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import { useSettings } from '../../contexts/SettingsContext'
-import { getCurrentAcademicYear } from '../../utils/academicYear'
+import { getCurrentAcademicYear, filterMatkulByTerm } from '../../utils/academicYear'
 import {
     Calendar,
     Plus,
@@ -1103,7 +1103,11 @@ function JadwalUjianPage() {
                     jadwal={editingJadwal}
                     onSave={handleSave}
                     isLoading={isSaving}
-                    matkulList={user?.role === 'superadmin' ? matkulList : matkulList.filter(m => (m.prodi_id || m.prodiId) === user?.prodiId)}
+                    matkulList={filterMatkulByTerm(
+                        user?.role === 'superadmin' ? matkulList : matkulList.filter(m => (m.prodi_id || m.prodiId) === user?.prodiId),
+                        settings?.tahunAkademik,
+                        [editingJadwal?.matkul_id || editingJadwal?.matkulId]
+                    )}
                     kelasList={user?.role === 'superadmin' ? kelasList : kelasList.filter(k => (k.prodi_id || k.prodiId) === user?.prodiId)}
                     ruangList={ruangList}
                     dosenList={(() => {

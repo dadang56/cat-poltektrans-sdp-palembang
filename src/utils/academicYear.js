@@ -29,3 +29,27 @@ export function getActiveAcademicYear(settings, user) {
 
     return user?.tahunAkademik || settings?.tahunAkademik || ''
 }
+
+// "2026/2027 Ganjil" -> 'Ganjil', "... Genap" -> 'Genap'
+export function getTerm(tahunAkademik) {
+    const t = String(tahunAkademik || '').trim().toLowerCase()
+    if (t.endsWith('ganjil')) return 'Ganjil'
+    if (t.endsWith('genap')) return 'Genap'
+    return null
+}
+
+// Courses are taught in odd semesters (1,3,5,7) in Ganjil and even ones in
+// Genap. Courses without a semester, or an unknown term, always pass.
+export function isMatkulInTerm(matkul, tahunAkademik) {
+    const term = getTerm(tahunAkademik)
+    const sem = Number(matkul?.semester)
+    if (!term || !sem) return true
+    return term === 'Ganjil' ? sem % 2 === 1 : sem % 2 === 0
+}
+
+// Course list for pickers in the active term. keepIds stay in the list even
+// when off-term, so editing an existing record never loses its course.
+export function filterMatkulByTerm(list = [], tahunAkademik, keepIds = []) {
+    const keep = new Set((keepIds || []).filter(Boolean).map(String))
+    return list.filter(m => keep.has(String(m.id)) || isMatkulInTerm(m, tahunAkademik))
+}

@@ -22,6 +22,8 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
+import { useSettings } from '../../contexts/SettingsContext'
+import { getTerm, isMatkulInTerm } from '../../utils/academicYear'
 
 function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) {
     const getInitialData = (data) => ({
@@ -182,7 +184,10 @@ function MataKuliahPage() {
     const [prodiList, setProdiList] = useState([])
     const [search, setSearch] = useState('')
     const [prodiFilter, setProdiFilter] = useState('all')
-    const [semesterFilter, setSemesterFilter] = useState('all')
+    const { settings } = useSettings()
+    const activeTerm = getTerm(settings?.tahunAkademik)
+    // Default: only courses of the active term (Ganjil = smt 1,3,5,7; Genap = 2,4,6,8)
+    const [semesterFilter, setSemesterFilter] = useState('term')
     const [modalOpen, setModalOpen] = useState(false)
     const [editingMatkul, setEditingMatkul] = useState(null)
     const [isLoading, setIsLoading] = useState(true)
@@ -241,7 +246,8 @@ function MataKuliahPage() {
         const matchesSearch = m.nama.toLowerCase().includes(search.toLowerCase()) ||
             m.kode.toLowerCase().includes(search.toLowerCase())
         const matchesProdi = effectiveProdiFilter === 'all' || m.prodi_id === effectiveProdiFilter
-        const matchesSemester = semesterFilter === 'all' || (m.semester || 1) === Number(semesterFilter)
+        const matchesSemester = semesterFilter === 'all'
+            || (semesterFilter === 'term' ? isMatkulInTerm(m, settings?.tahunAkademik) : (m.semester || 1) === Number(semesterFilter))
         return matchesSearch && matchesProdi && matchesSemester
     })
 
@@ -507,6 +513,9 @@ function MataKuliahPage() {
                                     value={semesterFilter}
                                     onChange={e => setSemesterFilter(e.target.value)}
                                 >
+                                    {activeTerm && (
+                                        <option value="term">Semester {activeTerm} ({activeTerm === 'Ganjil' ? '1, 3, 5, 7' : '2, 4, 6, 8'})</option>
+                                    )}
                                     <option value="all">Semua Semester</option>
                                     {[1, 2, 3, 4, 5, 6, 7, 8].map(s => (
                                         <option key={s} value={s}>Semester {s}</option>

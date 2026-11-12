@@ -30,6 +30,8 @@ import {
     Printer
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { useSettings } from '../../contexts/SettingsContext'
+import { isMatkulInTerm } from '../../utils/academicYear'
 import { toast } from '../../components/Toast'
 
 // Multi-Select Component
@@ -172,9 +174,12 @@ function UserModal({ isOpen, onClose, user, onSave, currentUser, prodiList = [],
         const kProdiId = String(k.prodi_id || k.prodi?.id || k.prodiId)
         return formData.prodiIds?.map(String).includes(kProdiId)
     })
+    // Courses of the active term only; already-assigned ones stay visible
+    const { settings: appSettings } = useSettings()
     const filteredMatkulForDosen = matkulList.filter(m => {
         const mProdiId = String(m.prodi_id || m.prodi?.id || m.prodiId)
-        return formData.prodiIds?.map(String).includes(mProdiId)
+        if (!formData.prodiIds?.map(String).includes(mProdiId)) return false
+        return (formData.matkulIds || []).map(String).includes(String(m.id)) || isMatkulInTerm(m, appSettings?.tahunAkademik)
     })
 
     const handlePhotoChange = (e) => {
