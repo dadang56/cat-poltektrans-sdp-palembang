@@ -35,6 +35,7 @@ import {
 import { useState, useEffect, useRef, Fragment } from 'react'
 import './DashboardLayout.css'
 import { useTableCards } from '../utils/tableCards'
+import { useEdgeSwipe } from '../utils/edgeSwipe'
 
 // Navigation items per role
 // Icon tile colors for the boxed sidebar menu (cycled per item)
@@ -146,6 +147,7 @@ function DashboardLayout({ children }) {
     const navigate = useNavigate()
     const location = useLocation()
     const [sidebarOpen, setSidebarOpen] = useState(false)
+    useEdgeSwipe(sidebarOpen, setSidebarOpen)
     // The content area is the scroll container (header stays put), so a new
     // page must start at the top instead of the previous page's position
     const mainRef = useRef(null)
