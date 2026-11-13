@@ -416,6 +416,19 @@
     color: var(--ex-accent);
 }
 
+.exam-result-page .result-card .btn {
+    display: flex;
+    width: 100%;
+    justify-content: center;
+}
+
+.exam-result-page .seb-quit-btn {
+    margin-top: 10px;
+    background: var(--ex-solid);
+    border: 1px solid var(--ex-stroke);
+    color: var(--text-primary);
+}
+
 /* ---------- Waiting / kicked / unavailable ---------- */
 .exam-error > div[style] {
     border-radius: 999px !important;

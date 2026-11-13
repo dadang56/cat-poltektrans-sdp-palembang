@@ -1,6 +1,10 @@
 {
     "rewrites": [
         {
+            "source": "/sipandu.seb",
+            "destination": "/api/seb-config"
+        },
+        {
             "source": "/((?!api/).*)",
             "destination": "/index.html"
         }

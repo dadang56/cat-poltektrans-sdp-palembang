@@ -27,6 +27,7 @@ import {
 } from 'lucide-react'
 import './TakeExam.css'
 import './TakeExamGlass.css'
+import { sebConfigLink, sebQuitUrl } from '../../utils/sebGate'
 
 // LocalStorage keys
 
@@ -461,11 +462,13 @@ function TakeExamPage() {
             setShowSEBWarning(true)
         }
 
-        // ANTI-CHEAT: Only initialize if NOT using SEB.
-        // SEB already handles all security (blocks alt-tab, copy-paste, etc.)
-        // Running anti-cheat on top of SEB causes false positives and kicks students out.
-        if (!submitted && !isSEB) {
+        // ANTI-CHEAT. Inside SEB only "left the app" is watched (sebMode):
+        // SEB blocks shortcuts/copying itself, but on iPhone it only locks the
+        // device when opened with the /sipandu.seb config, so leaving SEB is
+        // still recorded and warned about. Short blips are ignored there.
+        if (!submitted) {
             AntiCheat.init({
+                sebMode: isSEB,
                 maxWarnings: acSettings.maxWarnings,
                 level: acSettings.antiCheatLevel,
                 onViolation: (violation, count) => {
@@ -502,13 +505,11 @@ function TakeExamPage() {
             })
 
             // Try to enter fullscreen on exam start (only non-SEB)
-            if (acSettings.antiCheatLevel === 'high' || acSettings.antiCheatLevel === 'medium') {
+            if (!isSEB && (acSettings.antiCheatLevel === 'high' || acSettings.antiCheatLevel === 'medium')) {
                 setTimeout(() => {
                     AntiCheat.requestFullscreen()
                 }, 500)
             }
-        } else if (isSEB) {
-            console.log('[TakeExam] SEB detected — anti-cheat disabled (SEB handles security)')
         }
 
         // Cleanup on unmount
@@ -1054,6 +1055,12 @@ function TakeExamPage() {
                     <a href="/mahasiswa" className="btn btn-primary btn-lg">
                         Kembali ke Dashboard
                     </a>
+                    {sebDetected && (
+                        // quitURL in the SEB config: closes SEB without the password
+                        <a href={sebQuitUrl()} className="btn btn-outline btn-lg seb-quit-btn">
+                            Keluar dari Safe Exam Browser
+                        </a>
+                    )}
                 </div>
             </div>
         )
@@ -1103,7 +1110,7 @@ function TakeExamPage() {
                                     Klik tombol di bawah untuk membuka langsung di SEB:
                                 </p>
                                 <a
-                                    href={`sebs://${window.location.host}${window.location.pathname}`}
+                                    href={sebConfigLink()}
                                     className="btn btn-primary"
                                     style={{ textDecoration: 'none', display: 'inline-flex' }}
                                 >
@@ -1128,7 +1135,7 @@ function TakeExamPage() {
                                 className="btn btn-outline"
                                 onClick={() => {
                                     // Copy sebs:// link to clipboard
-                                    const sebLink = `sebs://${window.location.host}${window.location.pathname}`
+                                    const sebLink = sebConfigLink()
                                     navigator.clipboard?.writeText(sebLink)
                                     alert('Link SEB disalin: ' + sebLink)
                                 }}

@@ -21,6 +21,26 @@ export async function hashBypassPassword(password) {
     return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('')
 }
 
+// SEB quit password: SEB stores it as a plain SHA-256 hex hash (upper case)
+// in its settings (hashedQuitPassword). The /sipandu.seb config file
+// (api/seb-config.js) puts this hash in, which is what makes SEB on iPhone/
+// iPad lock the device during the exam.
+export async function hashSebQuitPassword(password) {
+    const bytes = new TextEncoder().encode(String(password))
+    const digest = await crypto.subtle.digest('SHA-256', bytes)
+    return [...new Uint8Array(digest)].map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+}
+
+// sebs:// link that makes SEB download the locked exam configuration
+export function sebConfigLink() {
+    return `sebs://${window.location.host}/sipandu.seb`
+}
+
+// Opening this URL inside SEB closes SEB (quitURL in the config file)
+export function sebQuitUrl() {
+    return `${window.location.origin}/seb-keluar`
+}
+
 export function isSebGateOn(config) {
     return config?.requireSEB === true
 }

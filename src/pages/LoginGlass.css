@@ -365,6 +365,20 @@
 [data-theme="dark"] .login-glass .db-status-ok { color: #34d399; }
 [data-theme="dark"] .login-glass .db-status-error { color: #f87171; }
 
+.login-glass .login-seb-quit {
+    display: block;
+    width: fit-content;
+    margin: 0.75rem auto 0;
+    padding: 0.5rem 1rem;
+    border-radius: 999px;
+    border: 1px solid var(--lg-stroke);
+    background: var(--lg-field);
+    color: var(--lg-text);
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-decoration: none;
+}
+
 @keyframes dbPulse {
     50% { opacity: 0.3; }
 }

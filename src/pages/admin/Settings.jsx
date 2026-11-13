@@ -15,13 +15,37 @@ import {
     AlertTriangle
 } from 'lucide-react'
 import { toast, errorMessage } from '../../components/Toast'
-import { hashBypassPassword } from '../../utils/sebGate'
+import { hashBypassPassword, hashSebQuitPassword } from '../../utils/sebGate'
 
 function SettingsPage() {
     const { settings, updateSettings, resetSettings, isLoaded } = useSettings()
     const [localSettings, setLocalSettings] = useState(settings)
     const [bypassInput, setBypassInput] = useState('')
     const [bypassSaving, setBypassSaving] = useState(false)
+    const [quitInput, setQuitInput] = useState('')
+    const [quitSaving, setQuitSaving] = useState(false)
+
+    // SEB quit password: only its SHA-256 hash is stored; the /sipandu.seb
+    // config file uses it to lock iPhones/iPads during the exam
+    const saveQuitPassword = async (clear = false) => {
+        const pw = quitInput.trim()
+        if (!clear && pw.length < 6) {
+            toast.warning('Password keluar SEB minimal 6 karakter.')
+            return
+        }
+        setQuitSaving(true)
+        try {
+            const hash = clear ? null : await hashSebQuitPassword(pw)
+            await updateSettings({ sebQuitHash: hash })
+            setLocalSettings(prev => ({ ...prev, sebQuitHash: hash }))
+            setQuitInput('')
+            toast.success(clear ? 'Password keluar SEB dihapus' : 'Password keluar SEB disimpan. File konfigurasi SEB sudah memakai password ini.')
+        } catch (err) {
+            toast.error('Gagal menyimpan password keluar SEB: ' + errorMessage(err))
+        } finally {
+            setQuitSaving(false)
+        }
+    }
 
     // Saved on its own (not with "Simpan Pengaturan"): only the hash is stored
     const saveBypassPassword = async (clear = false) => {
@@ -409,7 +433,32 @@ function SettingsPage() {
                                     )}
                                 </div>
                                 <p className="form-hint">
-                                    Status: <strong>{localSettings.sebBypassHash ? 'sudah diatur' : 'belum diatur'}</strong>. Saat akun mahasiswa ditolak di browser biasa, admin dapat mengisi password ini di halaman login untuk uji coba. Berlaku hanya untuk tab browser itu. Jangan bagikan ke mahasiswa.
+                                    <span>Status: <strong>{localSettings.sebBypassHash ? 'sudah diatur' : 'belum diatur'}</strong>. Saat akun mahasiswa ditolak di browser biasa, admin dapat mengisi password ini di halaman login untuk uji coba. Berlaku hanya untuk tab browser itu. Jangan bagikan ke mahasiswa.</span>
+                                </p>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Password Keluar SEB (iPhone / iPad / Mac / Windows)</label>
+                                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+                                    <input
+                                        type="password"
+                                        className="form-input"
+                                        style={{ flex: '1 1 220px' }}
+                                        placeholder={localSettings.sebQuitHash ? 'Ketik password baru untuk mengganti' : 'Buat password keluar SEB (min. 6 karakter)'}
+                                        value={quitInput}
+                                        onChange={e => setQuitInput(e.target.value)}
+                                        autoComplete="new-password"
+                                    />
+                                    <button type="button" className="btn btn-primary" onClick={() => saveQuitPassword(false)} disabled={quitSaving || !quitInput.trim()}>
+                                        {quitSaving ? 'Menyimpan...' : 'Simpan Password'}
+                                    </button>
+                                    {localSettings.sebQuitHash && (
+                                        <button type="button" className="btn btn-outline" onClick={() => saveQuitPassword(true)} disabled={quitSaving}>
+                                            Hapus
+                                        </button>
+                                    )}
+                                </div>
+                                <p className="form-hint">
+                                    <span>Status: <strong>{localSettings.sebQuitHash ? 'sudah diatur — iPhone/iPad terkunci selama ujian' : 'belum diatur — SEB di iPhone/iPad TIDAK mengunci perangkat'}</strong>. Mahasiswa membuka SEB lewat tautan <code>sebs://{window.location.host}/sipandu.seb</code> (tombol "Buka di Safe Exam Browser"). Password ini hanya untuk pengawas, untuk menutup SEB secara manual. Mahasiswa bisa keluar sendiri lewat tombol "Keluar dari SEB" setelah selesai ujian.</span>
                                 </p>
                             </div>
                             <div className="form-group">

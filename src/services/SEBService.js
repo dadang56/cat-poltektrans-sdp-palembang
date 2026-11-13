@@ -157,6 +157,16 @@ export const AntiCheat = {
 
     console.log(`[AntiCheat] Platform: SEB=${this._isSEB}, iOS=${this._isIOS}, Mobile=${this._isMobile}`)
 
+    // Inside SEB: SEB itself blocks shortcuts, copying, other windows. Only
+    // watch for the student leaving the app (iPhone without the locked
+    // config, Home gesture, app switcher), measured when they come back.
+    if (options.sebMode) {
+      this._violationCooldown = 10000
+      this.monitorAppLeave()
+      console.log('[AntiCheat] SEB mode: watching for leaving the app only')
+      return
+    }
+
     // Set cooldown based on platform
     // iOS/mobile get longer cooldown because they fire more false events
     if (this._isIOS || this._isMobile) {
@@ -172,6 +182,10 @@ export const AntiCheat = {
     // SEB and iOS fire false visibility events constantly
     if (!this._isSEB && !this._isIOS) {
       this.monitorVisibility()
+    } else {
+      // iOS/SEB pause timers in the background, so measure the time away
+      // when the page comes back instead
+      this.monitorAppLeave()
     }
 
     // Medium + High: block shortcuts, context menu, devtools
@@ -214,6 +228,9 @@ export const AntiCheat = {
     document.removeEventListener('contextmenu', this._contextHandler)
     document.removeEventListener('keydown', this._keyHandler)
     document.removeEventListener('visibilitychange', this._visibilityHandler)
+    document.removeEventListener('visibilitychange', this._leaveVisibilityHandler)
+    window.removeEventListener('pagehide', this._leaveHideHandler)
+    window.removeEventListener('pageshow', this._leaveShowHandler)
     document.removeEventListener('fullscreenchange', this._fullscreenChangeHandler)
     window.removeEventListener('blur', this._blurHandler)
     window.removeEventListener('focus', this._focusHandler)
@@ -387,6 +404,35 @@ export const AntiCheat = {
     }
 
     document.addEventListener('visibilitychange', this._visibilityHandler)
+  },
+
+  /**
+   * Leaving the app on phones / in SEB (Home gesture, app switcher, another
+   * app). iOS suspends the page in the background, so a timer cannot fire
+   * there: note when the page was hidden and count it when it is shown
+   * again. Short blips (under 5 s: keyboard, notification banner, system
+   * alerts) are ignored.
+   */
+  monitorAppLeave(thresholdMs = 5000) {
+    let leftAt = null
+    this._leaveHideHandler = () => {
+      if (leftAt === null) leftAt = Date.now()
+    }
+    this._leaveShowHandler = () => {
+      if (leftAt === null) return
+      const away = Date.now() - leftAt
+      leftAt = null
+      if (away >= thresholdMs) {
+        this.reportViolation('APP_LEAVE', `Keluar dari aplikasi ujian selama ${Math.round(away / 1000)} detik`)
+      }
+    }
+    this._leaveVisibilityHandler = () => {
+      if (document.hidden) this._leaveHideHandler()
+      else this._leaveShowHandler()
+    }
+    document.addEventListener('visibilitychange', this._leaveVisibilityHandler)
+    window.addEventListener('pagehide', this._leaveHideHandler)
+    window.addEventListener('pageshow', this._leaveShowHandler)
   },
 
   /**
