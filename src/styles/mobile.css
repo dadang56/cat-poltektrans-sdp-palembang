@@ -1,0 +1,761 @@
+/* ==========================================================================
+   Phone layout — one size scale for every page
+
+   Loaded after glass.css (see App.jsx). Older page <style> blocks and
+   index.css set their own phone sizes (48px buttons, 56px inputs, 17px
+   button text, stacked filters), so phones got a different look on every
+   page and a lot of wasted space. These rules give all dashboard pages the
+   same compact scale on small screens. The exam screen (TakeExam) is not
+   inside .dashboard-layout and is not affected.
+   ========================================================================== */
+
+/* ---------- Side menu: fills the screen, scroll hint ---------- */
+.nav-scroll-hint {
+    position: absolute;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-end;
+    height: 92px;
+    padding-bottom: calc(0.85rem + env(safe-area-inset-bottom, 0px));
+    background: linear-gradient(to bottom, rgba(240, 244, 252, 0), rgba(240, 244, 252, 0.96) 62%);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    z-index: 2;
+}
+
+[data-theme="dark"] .nav-scroll-hint {
+    background: linear-gradient(to bottom, rgba(14, 21, 38, 0), rgba(14, 21, 38, 0.96) 62%);
+}
+
+.nav-scroll-hint.visible {
+    opacity: 1;
+}
+
+.nav-scroll-hint-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.4rem 0.85rem;
+    border: 1px solid rgba(99, 115, 160, 0.2);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.92);
+    box-shadow: 0 6px 16px -8px rgba(30, 50, 100, 0.45);
+    color: var(--primary-700, #1e3a5f);
+    font: inherit;
+    font-size: 0.75rem;
+    font-weight: 700;
+    cursor: pointer;
+}
+
+.nav-scroll-hint.visible .nav-scroll-hint-btn {
+    pointer-events: auto;
+}
+
+.nav-scroll-hint-btn svg {
+    animation: nav-hint-bounce 1.4s ease-in-out infinite;
+}
+
+[data-theme="dark"] .nav-scroll-hint-btn {
+    background: rgba(30, 41, 66, 0.95);
+    border-color: rgba(148, 170, 220, 0.2);
+    color: #f5d77f;
+}
+
+@keyframes nav-hint-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(3px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nav-scroll-hint-btn svg {
+        animation: none;
+    }
+}
+
+/* Thin line under the menu title once the list is scrolled */
+.dashboard-layout .sidebar-nav.is-scrolled {
+    box-shadow: inset 0 1px 0 var(--glass-stroke);
+}
+
+/* The menu list takes all the height left under the logo and scrolls on
+   its own (on phones it was capped at 100vh - 250px, leaving a blank band
+   and cutting the menu off with no sign that it scrolls; on short laptop
+   screens the last items fell below the window) */
+.dashboard-layout .sidebar {
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+    max-height: none;
+    overflow: hidden;
+}
+
+.dashboard-layout .sidebar-header {
+    flex-shrink: 0;
+}
+
+.dashboard-layout .sidebar-nav {
+    flex: 1 1 auto;
+    min-height: 0;
+    max-height: none;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    padding-bottom: 4.5rem; /* last item can scroll above the hint */
+}
+
+/* ==========================================================================
+   Phones (up to 640px)
+   ========================================================================== */
+@media (max-width: 640px) {
+    /* ---------- Menu drawer ---------- */
+    .dashboard-layout .sidebar {
+        width: min(84vw, 300px);
+        max-width: none;
+    }
+
+    .dashboard-layout .sidebar-header {
+        min-height: 64px;
+        padding: 0.75rem 1rem;
+    }
+
+    /* The drawer is wide enough for the app name (was hidden below 360px) */
+    .dashboard-layout .sidebar .logo-text {
+        display: flex;
+    }
+
+    .dashboard-layout .nav-section {
+        margin: 0;
+        padding: 0;
+    }
+
+    .dashboard-layout .nav-section-title {
+        display: none; /* "MENU UTAMA" adds nothing on a phone */
+    }
+
+    .dashboard-layout .sidebar-nav {
+        padding: 0.75rem 0.75rem 4.5rem;
+    }
+
+    .dashboard-layout .sidebar-nav-item {
+        min-height: 46px;
+        margin: 0 0 0.4rem;
+        padding: 0.4rem 0.7rem 0.4rem 0.4rem;
+        gap: 0.7rem;
+        border-radius: 14px;
+        font-size: 0.875rem;
+    }
+
+    .dashboard-layout .sidebar-nav-item .nav-icon-tile {
+        flex: 0 0 32px !important;
+        width: 32px;
+        min-width: 32px;
+        max-width: 32px;
+        height: 32px;
+        border-radius: 10px;
+    }
+
+    .dashboard-layout .sidebar-nav-item .nav-icon-tile svg {
+        width: 17px;
+        height: 17px;
+    }
+
+    .dashboard-layout .sidebar-nav-item .nav-label {
+        flex: 1 1 auto;
+        font-size: 0.875rem;
+        white-space: normal;
+        overflow: visible;
+    }
+
+    /* ---------- Top bar: page name + year only ---------- */
+    .dashboard-layout .main-header {
+        min-height: 56px;
+        padding: 0.45rem 0.75rem;
+        gap: 0.5rem;
+    }
+
+    .dashboard-layout .header-left {
+        gap: 0.5rem;
+        min-width: 0;
+        flex: 1 1 auto;
+    }
+
+    .dashboard-layout .header-page-eyebrow,
+    .dashboard-layout .header-year-prefix,
+    .dashboard-layout .header-user-info {
+        display: none;
+    }
+
+    .dashboard-layout .header-page-context {
+        min-width: 0;
+    }
+
+    .dashboard-layout .header-page-title {
+        font-size: 0.95rem;
+        font-weight: 700;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .dashboard-layout .header-page-year {
+        font-size: 0.7rem;
+        white-space: nowrap;
+    }
+
+    .dashboard-layout .main-header .btn-icon,
+    .dashboard-layout .mobile-menu-btn,
+    .dashboard-layout .header-right .btn-icon {
+        width: 40px;
+        height: 40px;
+        min-height: 40px;
+        padding: 0;
+    }
+
+    .dashboard-layout .header-logout-btn {
+        width: 40px;
+        height: 40px !important;
+        min-height: 40px;
+        padding: 0 !important;
+        justify-content: center;
+    }
+
+    .dashboard-layout .header-right {
+        gap: 0.35rem;
+        flex-shrink: 0;
+    }
+
+    /* ---------- Page frame ---------- */
+    .dashboard-layout .main-body {
+        padding: 0.9rem 0.75rem calc(1.5rem + env(safe-area-inset-bottom, 0px));
+    }
+
+    .dashboard-layout .page-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.65rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .dashboard-layout .page-title {
+        font-size: 1.3rem;
+        line-height: 1.25;
+        gap: 0.5rem;
+    }
+
+    .dashboard-layout .page-title svg {
+        width: 22px;
+        height: 22px;
+    }
+
+    /* Descriptions under the title repeat what the menu already says.
+       Subtitles that carry live info are marked .keep-mobile. */
+    .dashboard-layout .page-subtitle {
+        display: none;
+    }
+
+    .dashboard-layout .page-subtitle.keep-mobile {
+        display: block;
+        margin-top: 0.2rem;
+        font-size: 0.8rem;
+    }
+
+    /* Header buttons: a tidy row of equal buttons */
+    .dashboard-layout .page-header > div:not(:first-child),
+    .dashboard-layout .page-header .header-actions,
+    .dashboard-layout .page-header .page-actions {
+        display: flex;
+        flex-wrap: wrap;
+        width: 100%;
+        gap: 0.5rem;
+        justify-content: stretch;
+    }
+
+    .dashboard-layout .page-header > div:not(:first-child) > .btn,
+    .dashboard-layout .page-header > div:not(:first-child) > * > .btn,
+    .dashboard-layout .page-header .header-actions .btn,
+    .dashboard-layout .page-header .page-actions .btn {
+        flex: 1 1 0;
+        min-width: 96px;
+        justify-content: center;
+    }
+
+    /* ---------- Type scale ---------- */
+    .dashboard-layout .card-title,
+    .dashboard-layout .card-header h2,
+    .dashboard-layout .card-header h3,
+    .dashboard-layout .section-title {
+        font-size: 1rem;
+        line-height: 1.3;
+    }
+
+    .dashboard-layout .card-header h4 {
+        font-size: 0.9rem;
+    }
+
+    .dashboard-layout .form-label,
+    .dashboard-layout .form-group > label {
+        font-size: 0.8rem;
+        margin-bottom: 0.3rem;
+    }
+
+    .dashboard-layout .form-hint,
+    .dashboard-layout small {
+        font-size: 0.72rem;
+    }
+
+    /* ---------- Buttons ---------- */
+    .dashboard-layout .btn {
+        min-height: 40px;
+        padding: 0.5rem 0.85rem;
+        font-size: 0.85rem;
+        gap: 0.4rem;
+        border-radius: 12px;
+    }
+
+    .dashboard-layout .btn svg {
+        width: 16px;
+        height: 16px;
+    }
+
+    .dashboard-layout .btn-sm {
+        min-height: 34px;
+        padding: 0.35rem 0.65rem;
+        font-size: 0.78rem;
+        border-radius: 10px;
+    }
+
+    .dashboard-layout .btn-sm svg {
+        width: 14px;
+        height: 14px;
+    }
+
+    .dashboard-layout .btn-icon {
+        width: 38px;
+        height: 38px;
+        min-height: 38px;
+        padding: 0;
+    }
+
+    .dashboard-layout .btn-icon.btn-sm,
+    .dashboard-layout .table .btn-icon {
+        width: 34px;
+        height: 34px;
+        min-height: 34px;
+    }
+
+    /* ---------- Fields: 44px tall, 16px text (no iOS zoom) ---------- */
+    .dashboard-layout .form-input,
+    .dashboard-layout .form-select,
+    .dashboard-layout select.form-input,
+    .dashboard-layout .filters-row select,
+    .dashboard-layout .filters-row input {
+        min-height: 44px;
+        padding: 0.55rem 0.8rem;
+        font-size: 16px !important;
+        border-radius: 12px;
+    }
+
+    .dashboard-layout textarea.form-input {
+        min-height: 88px;
+    }
+
+    .dashboard-layout .search-box .form-input,
+    .dashboard-layout .search-box input {
+        padding-left: 2.4rem;
+    }
+
+    .dashboard-layout .search-box .search-icon,
+    .dashboard-layout .search-box > svg {
+        left: 0.8rem;
+        width: 17px;
+        height: 17px;
+    }
+
+    /* ---------- Filters: two per row, no repeated labels ---------- */
+    .dashboard-layout .filters-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 0.5rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .dashboard-layout .filters-row > * {
+        width: auto;
+        min-width: 0;
+    }
+
+    .dashboard-layout .filters-row > .search-box,
+    .dashboard-layout .filters-row > :only-child,
+    .dashboard-layout .filters-row > :last-child:nth-child(odd) {
+        grid-column: 1 / -1;
+    }
+
+    .dashboard-layout .filter-group {
+        display: flex;
+        flex-direction: row;
+        align-items: center;
+        gap: 0.5rem;
+        width: auto;
+    }
+
+    /* "Program Studi:" next to a list that already says "Semua Prodi" */
+    .dashboard-layout .filter-group > label,
+    .dashboard-layout .filter-group > span:not(.badge),
+    .dashboard-layout .filter-group > svg {
+        display: none;
+    }
+
+    /* A group with two fields (e.g. prodi + date) gets a full row */
+    .dashboard-layout .filter-group:has(> :is(select, input) ~ :is(select, input)) {
+        grid-column: 1 / -1;
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .dashboard-layout .filter-group .form-input,
+    .dashboard-layout .filter-group .form-select,
+    .dashboard-layout .filter-group select,
+    .dashboard-layout .filter-group input {
+        flex: 1 1 auto;
+        width: 100%;
+        min-width: 0;
+    }
+
+    /* Odd one out at the end of a two-column group takes the full row */
+    .dashboard-layout .filter-group > select:last-of-type:nth-of-type(odd) {
+        grid-column: 1 / -1;
+    }
+
+    /* Avatars in lists keep their round shape */
+    .dashboard-layout .avatar {
+        flex-shrink: 0;
+    }
+
+    /* ---------- Cards ---------- */
+    .dashboard-layout .card {
+        margin-bottom: 0.9rem;
+        border-radius: 18px !important;
+    }
+
+    .dashboard-layout .card-header {
+        padding: 0.75rem 0.9rem;
+        gap: 0.5rem;
+    }
+
+    .dashboard-layout .card-body {
+        padding: 0.9rem;
+    }
+
+    .dashboard-layout .card-footer {
+        padding: 0.75rem 0.9rem;
+    }
+
+    /* ---------- Stat boxes: compact, side by side ---------- */
+    .dashboard-layout .mini-stats {
+        display: grid !important;
+        grid-template-columns: repeat(auto-fit, minmax(70px, 1fr)) !important;
+        gap: 0.5rem !important;
+        margin-bottom: 0.9rem !important;
+    }
+
+    .dashboard-layout .mini-stat {
+        min-width: 0 !important;
+        padding: 0.6rem 0.4rem !important;
+        border-radius: 14px !important;
+        text-align: center;
+    }
+
+    .dashboard-layout .mini-stat-value {
+        font-size: 1.15rem !important;
+        line-height: 1.2;
+    }
+
+    .dashboard-layout .mini-stat-label {
+        font-size: 0.68rem !important;
+        line-height: 1.25;
+    }
+
+    .dashboard-layout .stats-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+        gap: 0.5rem !important;
+        margin-bottom: 0.9rem !important;
+    }
+
+    .dashboard-layout .stat-card {
+        display: flex !important;
+        flex-direction: row !important;
+        align-items: center !important;
+        gap: 0.6rem !important;
+        min-height: 0 !important;
+        padding: 0.7rem !important;
+        border-radius: 16px !important;
+    }
+
+    .dashboard-layout .stat-card .stat-icon {
+        flex: 0 0 34px;
+        width: 34px !important;
+        height: 34px !important;
+        margin: 0 !important;
+        border-radius: 10px !important;
+    }
+
+    .dashboard-layout .stat-card .stat-icon svg {
+        width: 17px !important;
+        height: 17px !important;
+    }
+
+    .dashboard-layout .stat-card .stat-value {
+        font-size: 1.15rem !important;
+        line-height: 1.15 !important;
+    }
+
+    .dashboard-layout .stat-card .stat-label {
+        font-size: 0.7rem !important;
+        line-height: 1.25 !important;
+        margin: 0 !important;
+    }
+
+    .dashboard-layout .stat-card .stat-trend {
+        display: none !important; /* extra words; the number says enough */
+    }
+
+    /* ---------- Tables ---------- */
+    .dashboard-layout .table th {
+        font-size: 0.66rem;
+        padding: 0.55rem 0.6rem;
+    }
+
+    .dashboard-layout .table td {
+        font-size: 0.8rem;
+        padding: 0.55rem 0.6rem;
+        line-height: 1.35;
+    }
+
+    .dashboard-layout .table td small,
+    .dashboard-layout .table td .text-muted {
+        font-size: 0.7rem;
+    }
+
+    .dashboard-layout .badge {
+        font-size: 0.7rem;
+        padding: 0.15rem 0.5rem;
+    }
+
+    /* ---------- Empty states ---------- */
+    .dashboard-layout .empty-state {
+        padding: 1.75rem 1rem;
+        font-size: 0.85rem;
+    }
+
+    .dashboard-layout .empty-state svg:not(.btn svg) {
+        width: 40px;
+        height: 40px;
+    }
+
+    .dashboard-layout .empty-state h3 {
+        font-size: 0.95rem;
+    }
+
+    /* ---------- Pop-ups: near full width, compact edges ---------- */
+    .modal-overlay {
+        padding: 0.6rem !important;
+    }
+
+    .dashboard-layout .modal {
+        width: 100% !important;
+        max-width: 100% !important;
+        max-height: 94dvh !important;
+        margin: 0 !important;
+        border-radius: 22px;
+    }
+
+    .dashboard-layout .modal-header {
+        padding: 0.85rem 1rem;
+    }
+
+    .dashboard-layout .modal-header h2,
+    .dashboard-layout .modal-header h3 {
+        font-size: 1rem;
+    }
+
+    .dashboard-layout .modal-body {
+        max-height: none;
+        padding: 0.9rem 1rem;
+    }
+
+    .dashboard-layout .modal-footer {
+        padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+        gap: 0.5rem;
+    }
+
+    .dashboard-layout .modal-footer .btn {
+        flex: 1 1 0;
+        min-width: 0;
+    }
+
+    /* ---------- Pagination ---------- */
+    .dashboard-layout .pagination {
+        flex-wrap: wrap;
+        justify-content: center;
+        gap: 0.5rem;
+        font-size: 0.78rem;
+    }
+
+    /* ---------- Pengawas: room / exam pickers stack, full width ---------- */
+    .dashboard-layout .room-selector {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.6rem;
+    }
+
+    .dashboard-layout .selector-item {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.3rem;
+        min-width: 0;
+    }
+
+    .dashboard-layout .selector-item label {
+        font-size: 0.78rem;
+    }
+
+    .dashboard-layout .selector-item .form-input {
+        min-width: 0;
+        width: 100%;
+    }
+
+    /* ---------- Admin prodi dashboard banner: title + year only ---------- */
+    .dashboard-layout .welcome-banner-card {
+        padding: 1rem 1.1rem;
+        gap: 0.75rem;
+        margin-bottom: 0.9rem;
+        border-radius: 20px;
+    }
+
+    .dashboard-layout .welcome-title {
+        font-size: 1.25rem;
+        margin: 0;
+    }
+
+    .dashboard-layout .welcome-subtitle {
+        display: none;
+    }
+
+    .dashboard-layout .tahun-akademik-selector-premium {
+        width: 100%;
+        padding: 0.3rem 0.75rem;
+    }
+
+    .dashboard-layout .tahun-akademik-selector-premium select {
+        flex: 1 1 auto;
+        min-width: 0;
+        font-size: 16px;
+    }
+
+    /* ---------- Prodi dashboard schedule list: date | details ---------- */
+    .dashboard-layout .jadwal-item {
+        display: grid;
+        grid-template-columns: 46px minmax(0, 1fr);
+        column-gap: 0.7rem;
+        row-gap: 0.15rem;
+        align-items: start;
+        padding: 0.65rem 0.75rem;
+    }
+
+    .dashboard-layout .jadwal-date {
+        grid-row: span 2;
+        min-width: 0;
+        padding: 0.35rem 0.2rem;
+    }
+
+    .dashboard-layout .jadwal-date .day {
+        font-size: 1.1rem;
+    }
+
+    .dashboard-layout .jadwal-date .month {
+        font-size: 0.65rem;
+    }
+
+    .dashboard-layout .jadwal-info h4 {
+        font-size: 0.85rem;
+        line-height: 1.3;
+        margin: 0 0 0.15rem;
+    }
+
+    .dashboard-layout .jadwal-info p {
+        display: block;
+        font-size: 0.72rem;
+        line-height: 1.4;
+    }
+
+    .dashboard-layout .jadwal-info p svg {
+        display: inline-block;
+        vertical-align: -1px;
+        margin-right: 0.2rem;
+    }
+
+    .dashboard-layout .jadwal-countdown {
+        grid-column: 2;
+        font-size: 0.72rem;
+    }
+
+    .dashboard-layout .jadwal-item .chevron {
+        display: none;
+    }
+
+    /* ---------- Buat Soal: grading note as small chips ---------- */
+    .dashboard-layout .score-info-card {
+        padding: 0.55rem 0.75rem;
+        margin-bottom: 0.9rem;
+    }
+
+    .dashboard-layout .score-info-text {
+        flex-wrap: wrap;
+        justify-content: flex-start;
+        gap: 0.25rem 0.75rem;
+        font-size: 0.78rem;
+    }
+
+    .dashboard-layout .score-info-text .divider {
+        display: none;
+    }
+
+    .dashboard-layout .empty-state p {
+        font-size: 0.85rem;
+        line-height: 1.45;
+    }
+
+    /* ---------- Admin dashboard: academic-year picker on one line ---------- */
+    .dashboard-layout .tahun-akademik-selector {
+        flex-wrap: nowrap !important;
+        padding: 0.2rem 0.3rem 0.2rem 0.75rem;
+        border-radius: 14px;
+    }
+
+    .dashboard-layout .tahun-akademik-selector select {
+        flex: 1 1 auto;
+        min-width: 0 !important;
+        border: none;
+        background: transparent;
+        box-shadow: none;
+    }
+}
+
+/* Very small phones (≤360px): one more step down */
+@media (max-width: 360px) {
+    .dashboard-layout .page-title {
+        font-size: 1.15rem;
+    }
+
+    .dashboard-layout .header-page-year {
+        display: none;
+    }
+
+    .dashboard-layout .main-body {
+        padding-left: 0.6rem;
+        padding-right: 0.6rem;
+    }
+}

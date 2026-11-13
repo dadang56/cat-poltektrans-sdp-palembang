@@ -28,7 +28,8 @@ import {
     Layout,
     Award,
     Shield,
-    Download
+    Download,
+    ChevronDown
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import './DashboardLayout.css'
@@ -142,6 +143,33 @@ function DashboardLayout({ children }) {
         if (mainRef.current) mainRef.current.scrollTop = 0
     }, [location.pathname])
 
+    // Menu scroll hint: on short screens (phones) some menu items sit below
+    // the fold. Show a fade + "Menu lainnya" button until the list is
+    // scrolled to the end, so users know there is more to scroll.
+    const navRef = useRef(null)
+    const [navHasMore, setNavHasMore] = useState(false)
+    const [navScrolled, setNavScrolled] = useState(false)
+    const updateNavHint = () => {
+        const el = navRef.current
+        if (!el) return
+        setNavHasMore(el.scrollHeight - el.scrollTop - el.clientHeight > 8)
+        setNavScrolled(el.scrollTop > 4)
+    }
+    useEffect(() => {
+        updateNavHint()
+        // The sidebar slides in; measure again once it is in place
+        const t = setTimeout(updateNavHint, 320)
+        window.addEventListener('resize', updateNavHint)
+        return () => {
+            clearTimeout(t)
+            window.removeEventListener('resize', updateNavHint)
+        }
+    }, [sidebarOpen, user?.role])
+    const scrollNavDown = () => {
+        const el = navRef.current
+        if (el) el.scrollBy({ top: Math.round(el.clientHeight * 0.7), behavior: 'smooth' })
+    }
+
     const handleLogout = () => {
         logout()
         navigate('/login')
@@ -186,7 +214,11 @@ function DashboardLayout({ children }) {
                     </button>
                 </div>
 
-                <nav className="sidebar-nav">
+                <nav
+                    className={`sidebar-nav ${navScrolled ? 'is-scrolled' : ''}`}
+                    ref={navRef}
+                    onScroll={updateNavHint}
+                >
                     <div className="nav-section">
                         <span className="nav-section-title">Menu Utama</span>
                         {navItems.map((item, i) => {
@@ -211,6 +243,17 @@ function DashboardLayout({ children }) {
                         })}
                     </div>
                 </nav>
+                <div className={`nav-scroll-hint ${navHasMore ? 'visible' : ''}`} aria-hidden={!navHasMore}>
+                    <button
+                        type="button"
+                        className="nav-scroll-hint-btn"
+                        onClick={scrollNavDown}
+                        tabIndex={navHasMore ? 0 : -1}
+                    >
+                        Menu lainnya
+                        <ChevronDown size={16} />
+                    </button>
+                </div>
             </aside>
 
             {/* Main Content */}
@@ -241,7 +284,7 @@ function DashboardLayout({ children }) {
                         <div className="header-page-context" aria-live="polite">
                             <span className="header-page-eyebrow">{ROLE_LABELS[user?.role] || 'Portal Akademik'}</span>
                             <span className="header-page-title">{activeItem?.label || 'Portal Akademik'}</span>
-                            <span className="header-page-year">Tahun Akademik · {activeAcademicYear || 'belum dipilih'}</span>
+                            <span className="header-page-year"><span className="header-year-prefix">Tahun Akademik · </span>{activeAcademicYear || 'belum dipilih'}</span>
                         </div>
                     </div>
                     <div className="header-right">

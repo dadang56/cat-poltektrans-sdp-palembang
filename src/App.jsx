@@ -56,6 +56,7 @@ import NilaiKondite from './pages/pusbangkatar/NilaiKondite'
 import NilaiSemapta from './pages/pusbangkatar/NilaiSemapta'
 // Theme loaded last so it overrides page-level styles (see file header)
 import './styles/glass.css'
+import './styles/mobile.css'
 
 // Auth Context
 export const AuthContext = createContext(null)

@@ -909,7 +909,7 @@ function MonitorUjian() {
                   ← Kembali ke Daftar Ruangan
                 </button>
                 <h1 className="page-title">{selectedRoom.exam}</h1>
-                <p className="page-subtitle">
+                <p className="page-subtitle keep-mobile">
                   {selectedRoom.name} • {selectedRoom.startTime} - {selectedRoom.endTime}
                 </p>
               </div>

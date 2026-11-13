@@ -1683,7 +1683,7 @@ function BuatSoalPage() {
                                     const totalPts = calcEffectivePoints(pkgQ)
                                     const color = totalPts === 100 ? 'var(--success-600)' : totalPts > 100 ? 'var(--error-600)' : 'var(--text-muted)'
                                     return (
-                                        <p className="page-subtitle">
+                                        <p className="page-subtitle keep-mobile">
                                             Kelola soal dalam paket ini • 
                                             <span style={{ fontWeight: '600', color, marginLeft: '4px' }}>
                                                 Total Poin: {totalPts}/100 {totalPts === 100 ? '✓' : totalPts > 100 ? '⚠ Kelebihan!' : `(Sisa: ${100 - totalPts})`}

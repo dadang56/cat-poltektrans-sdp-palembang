@@ -240,9 +240,15 @@
     color: var(--text-muted);
 }
 
-.empty-state svg {
+.empty-state svg:not(.btn svg) {
     margin-bottom: var(--space-3);
     opacity: 0.5;
+}
+
+/* Icons inside empty-state buttons stay button-sized and solid */
+.empty-state .btn svg {
+    margin: 0;
+    opacity: 1;
 }
 
 .loading-container {
