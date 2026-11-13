@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../App'
 import { useSettings } from '../contexts/SettingsContext'
-import { userService, isSupabaseConfigured } from '../services/supabaseService'
+import { isSupabaseConfigured } from '../services/supabaseService'
 import { supabase } from '../lib/supabase'
 import {
     User,
@@ -37,11 +37,31 @@ function Login() {
     // the admin's "password uji coba" field
     const [sebRequired, setSebRequired] = useState(false)
     const [sebBypass, setSebBypass] = useState('')
+    // Database connection, checked once when the page opens (no button)
+    const [dbStatus, setDbStatus] = useState('checking') // checking | ok | error
+
+    useEffect(() => {
+        let cancelled = false
+        const check = async () => {
+            if (!isSupabaseConfigured()) {
+                if (!cancelled) setDbStatus('error')
+                return
+            }
+            try {
+                const { error } = await supabase.from('users').select('id', { head: true }).limit(1)
+                if (!cancelled) setDbStatus(error ? 'error' : 'ok')
+            } catch {
+                if (!cancelled) setDbStatus('error')
+            }
+        }
+        check()
+        return () => { cancelled = true }
+    }, [])
 
     // Clear form on mount/unmount and load settings
     useEffect(() => {
         // Reset form to clean state
-        setFormData(prev => ({
+        setFormData(() => ({
             username: '',
             password: '',
             tahunAkademik: settings?.tahunAkademik || TAHUN_AJARAN_OPTIONS[0] || ''
@@ -136,8 +156,8 @@ function Login() {
                             )}
                         </div>
                         <h1 className="branding-title">{settings?.appName || 'CAT POLTEKTRANS'}</h1>
-                        <p className="branding-subtitle">{settings?.institution || 'Politeknik Transportasi Sungai Danau dan Penyeberangan Palembang'}</p>
                         <p className="branding-tagline">{settings?.appSubtitle || 'Sistem Ujian Online Berbasis Komputer'}</p>
+                        <p className="branding-subtitle">{settings?.institution || 'Politeknik Transportasi Sungai Danau dan Penyeberangan Palembang'}</p>
                     </div>
                 </div>
 
@@ -260,28 +280,12 @@ function Login() {
 
                         <div className="login-footer">
                             <p>© 2026 Poltektrans SDP Palembang · v2.1</p>
-                            <button
-                                type="button"
-                                onClick={async () => {
-                                    if (!confirm('Cek koneksi database?')) return;
-                                    try {
-                                        // Check Access
-                                        alert('Memeriksa akses database...');
-                                        const { count, error } = await supabase.from('users').select('*', { count: 'exact', head: true });
-
-                                        if (error) {
-                                            alert(`❌ GAGAL AKSES: ${error.message}\n\nSOLUSI: Jalankan script "/supabase/fix_login_visibility.sql" di Supabase Editor.`);
-                                        } else {
-                                            alert(`✅ KONEKSI AMAN! Database terbuka. Total user terbaca: ${count}.\n\nJika user 'DILA' tetap gagal, pastikan datanya ada.`);
-                                        }
-                                    } catch (e) {
-                                        alert('Error: ' + e.message);
-                                    }
-                                }}
-                                className="login-troubleshoot"
-                            >
-                                Cek koneksi database
-                            </button>
+                            <div className={`db-status db-status-${dbStatus}`} role="status" aria-live="polite">
+                                <span className="db-status-dot" aria-hidden="true"></span>
+                                {dbStatus === 'checking' && 'Memeriksa koneksi database…'}
+                                {dbStatus === 'ok' && 'Koneksi database aman'}
+                                {dbStatus === 'error' && 'Koneksi database terkendala'}
+                            </div>
                         </div>
                     </div>
                 </div>
