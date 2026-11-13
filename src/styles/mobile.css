@@ -446,6 +446,16 @@ html.dashboard-locked #root {
         grid-column: 1 / -1;
     }
 
+    /* When the search box takes the first row, pairing starts after it:
+       the leftover filter is the even-numbered last one */
+    .dashboard-layout .filters-row:has(> .search-box:first-child) > :last-child:nth-child(odd):not(.search-box) {
+        grid-column: auto;
+    }
+
+    .dashboard-layout .filters-row:has(> .search-box:first-child) > :last-child:nth-child(even) {
+        grid-column: 1 / -1;
+    }
+
     .dashboard-layout .filter-group {
         display: flex;
         flex-direction: row;
@@ -963,5 +973,43 @@ html.dashboard-locked #root {
     .dashboard-layout td .action-buttons,
     .dashboard-layout td .table-actions {
         gap: 0.5rem !important;
+    }
+}
+
+/* ---------- Rekap Nilai list (phones) ----------
+   Meta line (prodi, kelas, dosen) wraps as whole words instead of being
+   squeezed into narrow columns; the student count sits under the title. */
+@media (max-width: 640px) {
+    .dashboard-layout .rekap-header {
+        align-items: flex-start;
+        gap: 0.5rem;
+    }
+
+    .dashboard-layout .rekap-info {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .dashboard-layout .rekap-info p {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.2rem 0.5rem;
+        align-items: center;
+    }
+
+    .dashboard-layout .rekap-info p > span:not(:last-child) {
+        white-space: nowrap;
+    }
+
+    .dashboard-layout .rekap-meta {
+        flex: 0 0 auto;
+        flex-direction: column;
+        align-items: flex-end;
+        gap: 0.2rem;
+    }
+
+    .dashboard-layout .rekap-meta .student-count {
+        white-space: nowrap;
+        font-size: 0.72rem;
     }
 }

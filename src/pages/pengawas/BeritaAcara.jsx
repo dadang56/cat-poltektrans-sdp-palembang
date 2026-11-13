@@ -247,13 +247,13 @@ function BeritaAcaraPage() {
                     <div className="card-body">
                         <div className="room-selector">
                             <div className="selector-item">
-                                <label>Pilih Ruangan:</label>
+                                <label>Ruangan ujian hari ini</label>
                                 <select
                                     className="form-input"
                                     value={selectedRoom?.id || ''}
                                     onChange={(e) => handleRoomSelect(e.target.value)}
                                 >
-                                    <option value="">-- Pilih Mata Ujian Hari Ini --</option>
+                                    <option value="">-- Pilih ruangan --</option>
                                     {rooms.map(room => (
                                         <option key={room.id} value={room.id}>
                                             {room.name} — {room.exams[0]} ({jam(room.waktuMulai)})

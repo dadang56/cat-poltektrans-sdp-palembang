@@ -27,8 +27,7 @@ import {
   MapPin,
   Calendar,
   Power,
-  ToggleLeft,
-  ToggleRight,
+  ChevronRight,
   RotateCcw,
   Play,
   Timer
@@ -868,32 +867,28 @@ function MonitorUjian() {
                         Diawasi oleh: {room.pengawasName}
                       </div>
                     )}
-                    {/* Activation Toggle */}
+                    {/* Exam on/off: a labelled switch, not a big button, so it
+                        isn't mistaken for "open this room" */}
                     <button
-                      className={`btn btn-sm ${room.isActivated ? 'btn-success' : 'btn-outline'}`}
+                      type="button"
+                      className={`room-switch ${room.isActivated ? 'is-on' : ''}`}
                       onClick={(e) => handleToggleActivation(room, e)}
-                      style={{
-                        width: '100%',
-                        marginTop: '8px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        padding: '8px 12px',
-                        fontSize: '0.85rem',
-                        fontWeight: '600',
-                        borderRadius: '8px',
-                        background: room.isActivated ? 'var(--success-500)' : 'transparent',
-                        color: room.isActivated ? 'white' : 'var(--text-secondary)',
-                        border: room.isActivated ? 'none' : '2px dashed var(--border-color)',
-                        transition: 'all 0.2s ease'
-                      }}
+                      role="switch"
+                      aria-checked={room.isActivated}
+                      title={room.isActivated ? 'Klik untuk menonaktifkan ujian' : 'Klik untuk mengaktifkan ujian'}
                     >
-                      {room.isActivated ? <ToggleRight size={18} /> : <ToggleLeft size={18} />}
-                      {room.isActivated ? '✓ Ujian Aktif' : '○ Aktifkan Ujian'}
+                      <span className="room-switch-track"><span className="room-switch-thumb" /></span>
+                      <span className="room-switch-text">
+                        {room.isActivated ? 'Ujian aktif — mahasiswa bisa masuk' : 'Ujian belum aktif'}
+                      </span>
                     </button>
-                    <div className={`room-status-badge ${room.status}`}>
-                      {room.status === 'available' ? 'Tersedia' : 'Sedang Diawasi'}
+                    <div className="room-card-footer">
+                      <span className={`room-status-badge ${room.status}`}>
+                        {room.status === 'available' ? 'Belum ada pengawas' : 'Sedang diawasi'}
+                      </span>
+                      <span className="room-open-btn">
+                        {canAccessRoom(room) ? <>Pantau Ruangan <ChevronRight size={16} /></> : <><Lock size={14} /> Terkunci</>}
+                      </span>
                     </div>
                   </div>
                 ))}
@@ -1606,6 +1601,81 @@ function MonitorUjian() {
         .room-pengawas {
           color: var(--warning-600);
           font-weight: var(--font-medium);
+        }
+        .room-switch {
+          display: flex;
+          align-items: center;
+          gap: 0.6rem;
+          width: 100%;
+          margin-top: 10px;
+          padding: 0.55rem 0.7rem;
+          border: 1px solid var(--border-color);
+          border-radius: 14px;
+          background: rgba(255, 255, 255, 0.7);
+          color: var(--text-secondary);
+          font: inherit;
+          font-size: 0.82rem;
+          font-weight: 600;
+          text-align: left;
+          cursor: pointer;
+        }
+        .room-switch.is-on {
+          border-color: rgba(34, 197, 94, 0.45);
+          background: rgba(34, 197, 94, 0.08);
+          color: #166534;
+        }
+        .room-switch-track {
+          position: relative;
+          flex: 0 0 auto;
+          width: 38px;
+          height: 22px;
+          border-radius: 999px;
+          background: #cbd5e1;
+          transition: background 0.15s ease;
+        }
+        .room-switch.is-on .room-switch-track {
+          background: #22c55e;
+        }
+        .room-switch-thumb {
+          position: absolute;
+          top: 3px;
+          left: 3px;
+          width: 16px;
+          height: 16px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+          transition: transform 0.15s ease;
+        }
+        .room-switch.is-on .room-switch-thumb {
+          transform: translateX(16px);
+        }
+        .room-card-footer {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.5rem;
+          margin-top: 10px;
+        }
+        .room-card-footer .room-status-badge {
+          position: static;
+          margin-top: 0;
+        }
+        .room-open-btn {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.25rem;
+          padding: 0.45rem 0.9rem;
+          border-radius: 999px;
+          background: linear-gradient(135deg, #1e3a5f 0%, #2d5a9e 60%, #3b82f6 100%);
+          color: #fff;
+          font-size: 0.82rem;
+          font-weight: 700;
+          white-space: nowrap;
+        }
+        .room-card.locked .room-open-btn {
+          background: #e2e8f0;
+          color: #64748b;
         }
         .room-status-badge {
           display: inline-block;
