@@ -116,6 +116,14 @@ function Login() {
 
 
 
+    // Play the cover video unless the device asks for less motion / data
+    const playVideo = (() => {
+        try {
+            if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return false
+            if (navigator.connection?.saveData) return false
+        } catch { /* old browser: just play */ }
+        return true
+    })()
     const appName = settings?.appName || 'Si-PANDU'
     const tagline = settings?.appSubtitle || 'Sistem Penilaian Terpadu'
     // Caps Lock on is the usual reason a correct password "doesn't work"
@@ -127,21 +135,39 @@ function Login() {
         <div className="login-page login-sheet-page">
             <main className="login-card">
                 {/* Top: brand area with the logo, like an app cover */}
-                <section className="login-hero">
-                    <span className="login-cloud cloud-a" aria-hidden="true" />
-                    <span className="login-cloud cloud-b" aria-hidden="true" />
-                    <span className="login-cloud cloud-c" aria-hidden="true" />
-                    <span className="login-spark spark-a" aria-hidden="true" />
-                    <span className="login-spark spark-b" aria-hidden="true" />
-                    <div className="login-hero-logo">
-                        {settings?.logoUrl ? (
-                            <img src={settings.logoUrl} alt={`Logo ${appName}`} />
-                        ) : (
-                            <GraduationCap size={64} />
-                        )}
+                <section className="login-hero has-video">
+                    {/* Captain at the ship's wheel: plays once, then stays on
+                        the last frame. Still image instead when the phone
+                        asks for less motion or to save data. */}
+                    {playVideo ? (
+                        <video
+                            className="login-hero-video"
+                            src="/media/kapten-kemudi.mp4"
+                            poster="/media/kapten-kemudi-awal.webp"
+                            autoPlay
+                            muted
+                            playsInline
+                            preload="auto"
+                            disablePictureInPicture
+                            aria-hidden="true"
+                            tabIndex={-1}
+                        />
+                    ) : (
+                        <img className="login-hero-video" src="/media/kapten-kemudi-akhir.webp" alt="" aria-hidden="true" />
+                    )}
+                    <div className="login-hero-brand">
+                        <div className="login-hero-logo">
+                            {settings?.logoUrl ? (
+                                <img src={settings.logoUrl} alt={`Logo ${appName}`} />
+                            ) : (
+                                <GraduationCap size={36} />
+                            )}
+                        </div>
+                        <div className="login-hero-text">
+                            <div className="login-hero-name">{appName}</div>
+                            <div className="login-hero-tagline">{tagline}</div>
+                        </div>
                     </div>
-                    <div className="login-hero-name">{appName}</div>
-                    <div className="login-hero-tagline">{tagline}</div>
                 </section>
 
                 {/* Bottom sheet: the form */}
