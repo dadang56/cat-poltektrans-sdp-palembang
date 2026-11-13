@@ -1,0 +1,680 @@
+/* ==========================================================================
+   Exam screen — Liquid Glass look (same theme as the dashboard and login)
+
+   Loaded after TakeExam.css. Visual only: no layout logic the exam relies
+   on (timer, navigator drawer, anti-cheat overlays) is changed.
+
+   No backdrop-filter on .take-exam-page / .exam-content / cards: it would
+   turn them into the containing block of the position:fixed navigator
+   drawer and pop-ups. Blur is only used on the sticky top and bottom bars.
+   ========================================================================== */
+
+.take-exam-page,
+.exam-result-page,
+.exam-error,
+.exam-loading {
+    --ex-card: rgba(255, 255, 255, 0.74);
+    --ex-solid: rgba(255, 255, 255, 0.96);
+    --ex-bar: rgba(255, 255, 255, 0.8);
+    --ex-stroke: rgba(99, 115, 160, 0.18);
+    --ex-edge: rgba(255, 255, 255, 0.9);
+    --ex-soft: rgba(30, 58, 120, 0.05);
+    --ex-shadow: 0 6px 18px -10px rgba(30, 50, 100, 0.3);
+    --ex-shadow-lg: 0 28px 70px -24px rgba(20, 40, 90, 0.4);
+    --ex-brand: linear-gradient(135deg, #1e3a5f 0%, #2d5a9e 60%, #3b82f6 100%);
+    --ex-on-brand: #fff;
+    --ex-accent: #2563eb;
+    --ex-accent-soft: rgba(37, 99, 235, 0.09);
+    --ex-ring: rgba(37, 99, 235, 0.16);
+    --ex-ok: #059669;
+    --ex-ok-soft: rgba(16, 185, 129, 0.12);
+    --ex-bg:
+        radial-gradient(42rem 32rem at 8% -6%, rgba(59, 130, 246, 0.26), transparent 60%),
+        radial-gradient(36rem 30rem at 96% 4%, rgba(20, 184, 166, 0.22), transparent 62%),
+        radial-gradient(40rem 34rem at 72% 104%, rgba(212, 175, 55, 0.18), transparent 60%),
+        linear-gradient(180deg, #eef3fc 0%, #f4f6fb 100%);
+}
+
+[data-theme="dark"] .take-exam-page,
+[data-theme="dark"] .exam-result-page,
+[data-theme="dark"] .exam-error,
+[data-theme="dark"] .exam-loading {
+    --ex-card: rgba(22, 31, 52, 0.7);
+    --ex-solid: rgba(20, 28, 48, 0.97);
+    --ex-bar: rgba(14, 21, 38, 0.82);
+    --ex-stroke: rgba(148, 170, 220, 0.15);
+    --ex-edge: rgba(255, 255, 255, 0.08);
+    --ex-soft: rgba(255, 255, 255, 0.05);
+    --ex-shadow: 0 6px 18px -10px rgba(0, 0, 0, 0.6);
+    --ex-shadow-lg: 0 28px 70px -24px rgba(0, 0, 0, 0.75);
+    --ex-brand: linear-gradient(135deg, #d4af37, #b59228);
+    --ex-on-brand: #111827;
+    --ex-accent: #e9c45a;
+    --ex-accent-soft: rgba(212, 175, 55, 0.14);
+    --ex-ring: rgba(212, 175, 55, 0.2);
+    --ex-ok: #34d399;
+    --ex-ok-soft: rgba(16, 185, 129, 0.16);
+    --ex-bg:
+        radial-gradient(44rem 34rem at 6% -8%, rgba(59, 130, 246, 0.24), transparent 60%),
+        radial-gradient(38rem 30rem at 98% 2%, rgba(20, 184, 166, 0.18), transparent 62%),
+        radial-gradient(40rem 34rem at 70% 106%, rgba(212, 175, 55, 0.14), transparent 60%),
+        linear-gradient(180deg, #070d1a 0%, #0a1222 100%);
+}
+
+.take-exam-page,
+.exam-error {
+    background: var(--ex-bg);
+}
+
+/* the loading screen sets its background inline */
+.exam-loading {
+    background: var(--ex-bg) !important;
+}
+
+/* ---------- Top bar ---------- */
+.take-exam-page .exam-header {
+    background: var(--ex-bar);
+    border-bottom: 1px solid var(--ex-stroke);
+    box-shadow: inset 0 -1px 0 var(--ex-edge), 0 6px 20px -16px rgba(20, 40, 90, 0.4);
+    backdrop-filter: blur(16px) saturate(170%);
+    -webkit-backdrop-filter: blur(16px) saturate(170%);
+    padding: 10px 24px;
+    padding-top: max(10px, env(safe-area-inset-top, 0px));
+}
+
+.take-exam-page .exam-info h1 {
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.take-exam-page .exam-timer {
+    padding: 8px 18px;
+    background: var(--ex-brand);
+    color: var(--ex-on-brand);
+    border: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 8px 18px -10px rgba(37, 99, 235, 0.6);
+}
+
+.take-exam-page .exam-timer.warning {
+    background: linear-gradient(135deg, #f59e0b, #d97706);
+    color: #fff;
+}
+
+.take-exam-page .exam-timer.danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: #fff;
+}
+
+.take-exam-page .security-badge {
+    padding: 6px 10px;
+}
+
+.take-exam-page .exam-header .btn-icon {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    background: var(--ex-soft);
+    border: 1px solid var(--ex-stroke);
+}
+
+/* ---------- Navigator ---------- */
+.take-exam-page .question-navigator {
+    background: var(--ex-card);
+    border: 1px solid var(--ex-stroke);
+    border-radius: 26px;
+    box-shadow: inset 0 1px 0 var(--ex-edge), var(--ex-shadow);
+    padding: 20px;
+}
+
+.take-exam-page .question-grid {
+    gap: 8px;
+}
+
+.take-exam-page .question-number-btn {
+    border-radius: 14px;
+    border: 1px solid var(--ex-stroke);
+    background: var(--ex-solid);
+    font-weight: 600;
+}
+
+.take-exam-page .question-number-btn:hover {
+    border-color: var(--ex-accent);
+    color: var(--ex-accent);
+}
+
+.take-exam-page .question-number-btn.answered {
+    background: var(--ex-ok-soft);
+    border-color: rgba(16, 185, 129, 0.45);
+    color: var(--ex-ok);
+}
+
+.take-exam-page .question-number-btn.current,
+.take-exam-page .question-number-btn.answered.current {
+    background: var(--ex-brand);
+    border-color: transparent;
+    color: var(--ex-on-brand);
+    box-shadow: 0 6px 14px -6px rgba(37, 99, 235, 0.6);
+}
+
+.take-exam-page .legend-dot {
+    border-radius: 50%;
+}
+
+.take-exam-page .legend-dot.current {
+    background: var(--ex-accent);
+    border-color: var(--ex-accent);
+}
+
+.take-exam-page .navigator-legend {
+    border-bottom-color: var(--ex-stroke);
+}
+
+.take-exam-page .navigator-toggle {
+    min-height: 46px;
+    border-radius: 999px;
+    background: var(--ex-card);
+    border: 1px solid var(--ex-stroke);
+    box-shadow: inset 0 1px 0 var(--ex-edge), var(--ex-shadow);
+    font-weight: 600;
+}
+
+/* ---------- Question card ---------- */
+.take-exam-page .question-card {
+    background: var(--ex-card);
+    border: 1px solid var(--ex-stroke);
+    border-radius: 28px;
+    box-shadow: inset 0 1px 0 var(--ex-edge), var(--ex-shadow);
+    padding: 28px;
+}
+
+.take-exam-page .question-number {
+    font-weight: 700;
+}
+
+.take-exam-page .question-meta .badge {
+    border-radius: 999px;
+    padding: 3px 10px;
+}
+
+.take-exam-page .question-points {
+    border-radius: 999px;
+}
+
+.take-exam-page .flag-btn {
+    min-height: 36px;
+    padding: 6px 14px;
+    background: var(--ex-soft);
+    border-color: var(--ex-stroke);
+}
+
+.take-exam-page .question-image {
+    border-radius: 18px;
+    border-color: var(--ex-stroke);
+}
+
+/* Options: pill-like rows with a round letter */
+.take-exam-page .option-item {
+    min-height: 56px;
+    padding: 12px 16px;
+    background: var(--ex-solid);
+    border: 1.5px solid var(--ex-stroke);
+    border-radius: 20px;
+    box-shadow: 0 2px 8px -6px rgba(30, 50, 100, 0.25);
+}
+
+.take-exam-page .option-item:hover {
+    border-color: var(--ex-accent);
+    background: var(--ex-solid);
+}
+
+.take-exam-page .option-item.selected {
+    border-color: var(--ex-accent);
+    background: var(--ex-accent-soft);
+    box-shadow: 0 0 0 4px var(--ex-ring);
+}
+
+.take-exam-page .option-letter {
+    width: 36px;
+    height: 36px;
+    background: var(--ex-soft);
+    border: 1px solid var(--ex-stroke);
+}
+
+.take-exam-page .option-item.selected .option-letter {
+    background: var(--ex-brand);
+    color: var(--ex-on-brand);
+    border-color: transparent;
+}
+
+.take-exam-page .option-check {
+    color: var(--ex-accent);
+}
+
+.take-exam-page .option-image {
+    border-radius: 14px;
+}
+
+.take-exam-page .tf-option {
+    background: var(--ex-solid);
+    border: 1.5px solid var(--ex-stroke);
+    border-radius: 22px;
+}
+
+.take-exam-page .tf-option:hover {
+    border-color: var(--ex-accent);
+}
+
+.take-exam-page .tf-option.selected {
+    border-color: var(--ex-accent);
+    background: var(--ex-accent-soft);
+    color: var(--ex-accent);
+    box-shadow: 0 0 0 4px var(--ex-ring);
+}
+
+/* Essay */
+.take-exam-page .essay-input {
+    background: var(--ex-solid);
+    border: 1.5px solid var(--ex-stroke);
+    border-radius: 20px;
+    padding: 16px 18px;
+}
+
+.take-exam-page .essay-input:focus {
+    border-color: var(--ex-accent);
+    box-shadow: 0 0 0 4px var(--ex-ring);
+}
+
+.take-exam-page .essay-input::placeholder {
+    font-style: normal;
+}
+
+.take-exam-page .math-keyboard {
+    background: var(--ex-soft);
+    border-color: var(--ex-stroke);
+    border-radius: 20px;
+}
+
+.take-exam-page .math-kb-key,
+.take-exam-page .math-kb-tab {
+    background: var(--ex-solid);
+    border-color: var(--ex-stroke);
+}
+
+.take-exam-page .math-kb-key {
+    border-radius: 12px;
+}
+
+.take-exam-page .math-kb-tab.active {
+    background: var(--ex-brand);
+    border-color: transparent;
+    color: var(--ex-on-brand);
+}
+
+/* ---------- Buttons (exam screen, result, error states) ---------- */
+/* icon-only buttons keep their own size (padding would squash the icon) */
+.take-exam-page .btn:not(.btn-icon),
+.exam-result-page .btn,
+.exam-error .btn {
+    min-height: 46px;
+    border-radius: 999px;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
+    font-weight: 600;
+}
+
+.take-exam-page .btn-primary,
+.exam-result-page .btn-primary,
+.exam-error .btn-primary {
+    background: var(--ex-brand);
+    color: var(--ex-on-brand);
+    border: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 22px -12px rgba(37, 99, 235, 0.6);
+}
+
+.take-exam-page .btn-accent {
+    background: linear-gradient(135deg, #059669, #10b981);
+    color: #fff;
+    border: none;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 10px 22px -12px rgba(16, 185, 129, 0.6);
+}
+
+.take-exam-page .btn-outline {
+    background: var(--ex-solid);
+    border: 1px solid var(--ex-stroke);
+    color: var(--text-primary);
+}
+
+.take-exam-page .btn-outline:disabled {
+    opacity: 0.45;
+}
+
+/* ---------- Pop-ups ---------- */
+.take-exam-page .modal {
+    background: var(--ex-solid);
+    border: 1px solid var(--ex-stroke);
+    border-radius: 28px;
+    box-shadow: var(--ex-shadow-lg);
+    overflow: hidden;
+}
+
+.take-exam-page .modal-header,
+.take-exam-page .modal-footer {
+    border-color: var(--ex-stroke);
+}
+
+.take-exam-page .modal-footer {
+    background: var(--ex-soft);
+    border-radius: 0;
+}
+
+.take-exam-page .submit-summary {
+    background: var(--ex-soft);
+    border-radius: 18px;
+}
+
+.take-exam-page .summary-item:not(:last-child) {
+    border-bottom-color: var(--ex-stroke);
+}
+
+.take-exam-page .warning-text {
+    border-radius: 16px;
+}
+
+.take-exam-page .warning-modal,
+.take-exam-page .seb-required-modal {
+    border-radius: 28px;
+}
+
+.take-exam-page .seb-instructions {
+    border-radius: 18px;
+}
+
+/* ---------- Result page ---------- */
+.exam-result-page {
+    background: var(--ex-bg);
+}
+
+.exam-result-page .result-card {
+    background: var(--ex-card);
+    border: 1px solid var(--ex-stroke);
+    border-radius: 32px;
+    box-shadow: inset 0 1px 0 var(--ex-edge), var(--ex-shadow-lg);
+}
+
+.exam-result-page .result-score {
+    background: var(--ex-accent-soft);
+    border-color: var(--ex-stroke);
+    border-radius: 22px;
+}
+
+.exam-result-page .score-value {
+    color: var(--ex-accent);
+}
+
+/* ---------- Waiting / kicked / unavailable ---------- */
+.exam-error > div[style] {
+    border-radius: 999px !important;
+}
+
+/* ==========================================================================
+   Phones and small tablets
+   ========================================================================== */
+@media (max-width: 1024px) {
+    /* Drawer: comfortable tap targets, glass sheet */
+    /* full-screen drawer (the base rule's height: fit-content left the
+       lower part of the screen uncovered) */
+    .take-exam-page .question-navigator {
+        height: auto;
+        border-radius: 0;
+        background: var(--ex-solid);
+        padding: 16px;
+        padding-top: max(16px, env(safe-area-inset-top, 0px));
+        padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .take-exam-page .question-grid {
+        grid-template-columns: repeat(auto-fill, minmax(48px, 1fr));
+    }
+
+    .take-exam-page .navigator-close {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--ex-soft);
+        align-items: center;
+        justify-content: center;
+    }
+
+    /* Prev / next stay at the bottom of the screen, in thumb reach */
+    .take-exam-page .question-navigation {
+        position: sticky;
+        bottom: 0;
+        z-index: 20;
+        margin: 0 -16px;
+        padding: 14px 16px 10px;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+        background: linear-gradient(to bottom, transparent, var(--ex-bar) 30%);
+    }
+}
+
+@media (max-width: 640px) {
+    /* One-row top bar: exam name left, timer right */
+    .take-exam-page .exam-header {
+        flex-direction: row;
+        align-items: center;
+        text-align: left;
+        gap: 10px;
+        padding: 8px 12px;
+        padding-top: max(8px, env(safe-area-inset-top, 0px));
+    }
+
+    .take-exam-page .exam-info {
+        flex: 1 1 auto;
+        min-width: 0;
+    }
+
+    .take-exam-page .exam-info h1,
+    .take-exam-page .exam-student {
+        display: block;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .take-exam-page .exam-info h1 {
+        font-size: 0.88rem;
+        margin: 0;
+    }
+
+    .take-exam-page .exam-student {
+        font-size: 0.72rem;
+    }
+
+    .take-exam-page .exam-timer-container {
+        flex-shrink: 0;
+        gap: 6px;
+    }
+
+    .take-exam-page .exam-timer {
+        padding: 7px 12px;
+        font-size: 0.95rem;
+        gap: 6px;
+    }
+
+    .take-exam-page .security-badge {
+        padding: 5px 8px;
+    }
+
+    .take-exam-page .exam-header .btn-icon {
+        width: 36px;
+        height: 36px;
+    }
+
+    .take-exam-page .exam-content {
+        padding: 10px 10px 0;
+    }
+
+    .take-exam-page .question-navigation {
+        margin: 0 -10px;
+        padding-left: 10px;
+        padding-right: 10px;
+    }
+
+    .take-exam-page .navigator-toggle {
+        margin-bottom: 10px;
+    }
+
+    .take-exam-page .question-card {
+        padding: 18px 16px;
+        border-radius: 24px;
+        margin-bottom: 12px;
+    }
+
+    .take-exam-page .question-header {
+        flex-direction: row;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 14px;
+    }
+
+    /* number on its own line, badges under it, "Tandai" stays on the right */
+    .take-exam-page .question-header {
+        flex-wrap: nowrap;
+        align-items: flex-start;
+    }
+
+    .take-exam-page .question-meta {
+        flex: 1 1 0;
+        min-width: 0;
+        width: auto;
+        justify-content: flex-start;
+        gap: 6px;
+    }
+
+    .take-exam-page .question-number {
+        flex-basis: 100%;
+    }
+
+    .take-exam-page .flag-btn {
+        flex-shrink: 0;
+    }
+
+    .take-exam-page .question-text {
+        font-size: 1rem;
+        line-height: 1.65;
+        margin-bottom: 16px;
+    }
+
+    .take-exam-page .option-item {
+        min-height: 54px;
+        padding: 10px 12px;
+        gap: 10px;
+        border-radius: 18px;
+    }
+
+    .take-exam-page .option-letter {
+        width: 32px;
+        height: 32px;
+    }
+
+    .take-exam-page .option-text {
+        font-size: 0.95rem;
+    }
+
+    .take-exam-page .option-item:hover {
+        transform: none;
+    }
+
+    /* Benar / Salah side by side still fits a phone */
+    .take-exam-page .true-false-options {
+        grid-template-columns: 1fr 1fr;
+    }
+
+    .take-exam-page .tf-option {
+        padding: 18px 10px;
+    }
+
+    /* 16px stops iOS from zooming in when the answer box gets focus */
+    .take-exam-page .essay-input {
+        font-size: 16px;
+        min-height: 150px;
+        padding: 14px;
+        border-radius: 18px;
+    }
+
+    .take-exam-page .math-kb-key {
+        min-width: 2.6rem;
+        height: 2.6rem;
+    }
+
+    /* Prev / next side by side */
+    .take-exam-page .question-navigation {
+        flex-direction: row;
+        gap: 10px;
+    }
+
+    .take-exam-page .question-navigation .btn {
+        flex: 1 1 0;
+        width: auto;
+        min-height: 50px;
+        justify-content: center;
+    }
+
+    .take-exam-page .modal-overlay {
+        align-items: flex-end;
+        padding: 10px;
+        padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+    }
+
+    .take-exam-page .modal-footer .btn {
+        flex: 1 1 0;
+        justify-content: center;
+    }
+
+    .exam-result-page {
+        padding: 14px;
+    }
+
+    .exam-result-page .result-card {
+        padding: 28px 18px;
+        border-radius: 28px;
+    }
+
+    /* three small stats in one row instead of a tall column */
+    .exam-result-page .result-stats {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        flex-direction: row;
+        gap: 8px;
+    }
+
+    .exam-result-page .result-stat {
+        padding: 10px 4px;
+        border-radius: 16px;
+        background: var(--ex-soft);
+    }
+
+    .exam-result-page .result-stat-value {
+        font-size: 1.05rem;
+    }
+
+    .exam-result-page .result-stat-label {
+        font-size: 0.62rem;
+    }
+
+    .exam-result-page .btn {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 360px) {
+    .take-exam-page .security-badge {
+        display: none;
+    }
+}
