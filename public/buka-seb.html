@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="id">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <title>Buka Ujian di Safe Exam Browser · Si-PANDU</title>
+    <meta name="description" content="Buka ujian Si-PANDU di Safe Exam Browser">
+    <meta property="og:title" content="Ujian Si-PANDU — Buka di Safe Exam Browser">
+    <meta property="og:description" content="Ketuk untuk membuka ujian di Safe Exam Browser.">
+    <meta property="og:image" content="/logo.png">
+    <link rel="icon" type="image/png" href="/logo.png">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <!--
+        Opener page shared on WhatsApp: chat apps only make https:// links
+        clickable, not sebs://. This page (served at /seb, see vercel.json)
+        hands the sebs:// link to Safe Exam Browser, which then loads the
+        locked config /sipandu.seb (api/seb-config.js).
+    -->
+    <style>
+        * { box-sizing: border-box; }
+        html, body { margin: 0; }
+        body {
+            min-height: 100vh;
+            min-height: 100dvh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: max(20px, env(safe-area-inset-top)) 16px max(20px, env(safe-area-inset-bottom));
+            font-family: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+            color: #0f172a;
+            background:
+                radial-gradient(42rem 32rem at 8% -6%, rgba(59, 130, 246, 0.30), transparent 60%),
+                radial-gradient(36rem 30rem at 96% 4%, rgba(20, 184, 166, 0.26), transparent 62%),
+                radial-gradient(40rem 34rem at 72% 104%, rgba(212, 175, 55, 0.24), transparent 60%),
+                linear-gradient(180deg, #eef3fc 0%, #f4f6fb 100%);
+        }
+        .card {
+            width: 100%;
+            max-width: 420px;
+            padding: 28px 22px 22px;
+            text-align: center;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(99, 115, 160, 0.2);
+            border-radius: 32px;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9), 0 30px 80px -30px rgba(20, 40, 90, 0.45);
+            backdrop-filter: blur(22px) saturate(170%);
+            -webkit-backdrop-filter: blur(22px) saturate(170%);
+        }
+        .logo { width: 84px; height: 84px; object-fit: contain; filter: drop-shadow(0 10px 18px rgba(20, 40, 90, 0.25)); }
+        h1 { margin: 12px 0 2px; font-size: 1.5rem; font-weight: 800; letter-spacing: 0.02em; }
+        .tag { margin: 0; color: #2d5a9e; font-size: 0.8rem; font-weight: 600; }
+        .lead { margin: 18px 0 20px; color: #475569; font-size: 0.95rem; line-height: 1.55; }
+        .btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            width: 100%;
+            min-height: 54px;
+            padding: 0 20px;
+            border: none;
+            border-radius: 999px;
+            font: inherit;
+            font-size: 1.02rem;
+            font-weight: 700;
+            text-decoration: none;
+            cursor: pointer;
+        }
+        .btn-primary {
+            color: #fff;
+            background: linear-gradient(135deg, #1e3a5f 0%, #2d5a9e 60%, #3b82f6 100%);
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.25), 0 14px 28px -12px rgba(37, 99, 235, 0.6);
+        }
+        .btn-light {
+            margin-top: 10px;
+            color: #0f172a;
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(99, 115, 160, 0.2);
+            font-size: 0.9rem;
+            min-height: 46px;
+        }
+        .steps {
+            margin: 20px 0 0;
+            padding: 14px 16px;
+            text-align: left;
+            background: rgba(30, 58, 120, 0.05);
+            border-radius: 20px;
+            font-size: 0.84rem;
+            line-height: 1.55;
+            color: #334155;
+        }
+        .steps h2 { margin: 0 0 6px; font-size: 0.85rem; color: #0f172a; }
+        .steps ol { margin: 0; padding-left: 18px; }
+        .steps li + li { margin-top: 4px; }
+        .steps a { color: #2563eb; font-weight: 600; }
+        .note { margin: 14px 0 0; font-size: 0.75rem; color: #64748b; }
+        .android { display: none; }
+        body.is-android .android { display: block; }
+        body.is-android .not-android { display: none; }
+        code { font-size: 0.8rem; background: rgba(37, 99, 235, 0.08); padding: 1px 6px; border-radius: 6px; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <main class="card">
+        <img class="logo" src="/logo.png" alt="Logo Poltektrans SDP Palembang">
+        <h1>Si-PANDU</h1>
+        <p class="tag">Ujian dengan Safe Exam Browser</p>
+
+        <div class="not-android">
+            <p class="lead">Ketuk tombol di bawah. Jika muncul pertanyaan <strong>“Buka di SafeExamBrowser?”</strong>, pilih <strong>Buka</strong>, lalu izinkan mode ujian.</p>
+            <a id="open-seb" class="btn btn-primary" href="#">Buka di Safe Exam Browser</a>
+
+            <div class="steps">
+                <h2>Belum punya Safe Exam Browser?</h2>
+                <ol>
+                    <li><strong>iPhone / iPad:</strong> unduh dari <a href="https://apps.apple.com/app/id1155002964" rel="noopener">App Store</a>, lalu kembali ke halaman ini dan ketuk tombol di atas.</li>
+                    <li><strong>Laptop Windows / Mac:</strong> unduh dari <a href="https://safeexambrowser.org/download_en.html" rel="noopener">safeexambrowser.org</a>.</li>
+                </ol>
+            </div>
+            <p class="note">Selama ujian, iPhone/iPad terkunci di Safe Exam Browser. Setelah selesai, ketuk <strong>“Selesai &amp; Keluar dari SEB”</strong> atau <strong>“Tutup SEB”</strong> — tidak perlu password.</p>
+        </div>
+
+        <div class="android">
+            <p class="lead">Safe Exam Browser tidak tersedia untuk Android. Gunakan aplikasi <strong>Exam Browser</strong> yang ditentukan kampus, lalu buka alamat berikut di dalamnya:</p>
+            <p><code id="site-url"></code></p>
+            <button id="copy-url" class="btn btn-primary" type="button">Salin Alamat Ujian</button>
+        </div>
+    </main>
+
+    <script>
+        (function () {
+            var host = location.host
+            var sebLink = 'sebs://' + host + '/sipandu.seb'
+            var siteUrl = location.origin + '/login'
+            var isAndroid = /android/i.test(navigator.userAgent)
+
+            document.getElementById('open-seb').setAttribute('href', sebLink)
+            document.getElementById('site-url').textContent = siteUrl
+
+            if (isAndroid) {
+                document.body.classList.add('is-android')
+            }
+
+            var copyBtn = document.getElementById('copy-url')
+            copyBtn.addEventListener('click', function () {
+                var done = function () { copyBtn.textContent = 'Alamat disalin ✓' }
+                if (navigator.clipboard && navigator.clipboard.writeText) {
+                    navigator.clipboard.writeText(siteUrl).then(done, function () { prompt('Salin alamat ini:', siteUrl) })
+                } else {
+                    prompt('Salin alamat ini:', siteUrl)
+                }
+            })
+        })()
+    </script>
+</body>
+</html>

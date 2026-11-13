@@ -458,7 +458,7 @@ function SettingsPage() {
                                     )}
                                 </div>
                                 <p className="form-hint">
-                                    <span>Status: <strong>{localSettings.sebQuitHash ? 'sudah diatur — iPhone/iPad terkunci selama ujian' : 'belum diatur — SEB di iPhone/iPad TIDAK mengunci perangkat'}</strong>. Mahasiswa membuka SEB lewat tautan <code>sebs://{window.location.host}/sipandu.seb</code> (tombol "Buka di Safe Exam Browser"). Password ini hanya untuk pengawas, untuk menutup SEB secara manual. Mahasiswa bisa keluar sendiri lewat tombol "Keluar dari SEB" setelah selesai ujian.</span>
+                                    <span>Status: <strong>{localSettings.sebQuitHash ? 'sudah diatur — iPhone/iPad terkunci selama ujian' : 'belum diatur — SEB di iPhone/iPad TIDAK mengunci perangkat'}</strong>. Bagikan ke mahasiswa (bisa diklik di WhatsApp): <code>{window.location.origin}/seb</code> — membuka SEB dengan konfigurasi terkunci. Password ini hanya untuk pengawas, untuk menutup SEB secara manual. Mahasiswa bisa keluar sendiri lewat tombol "Keluar dari SEB" setelah selesai ujian.</span>
                                 </p>
                             </div>
                             <div className="form-group">
