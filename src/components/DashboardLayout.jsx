@@ -1,6 +1,7 @@
 import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../App'
 import { useSettings } from '../contexts/SettingsContext'
+import { useConfirm } from './ConfirmDialog'
 import { getActiveAcademicYear } from '../utils/academicYear'
 import {
     Home,
@@ -170,9 +171,18 @@ function DashboardLayout({ children }) {
         if (el) el.scrollBy({ top: Math.round(el.clientHeight * 0.7), behavior: 'smooth' })
     }
 
+    const { showConfirm } = useConfirm()
     const handleLogout = () => {
-        logout()
-        navigate('/login')
+        showConfirm({
+            title: 'Keluar dari Si-PANDU?',
+            message: 'Anda akan keluar dari akun ini dan perlu login lagi untuk masuk.',
+            confirmText: 'Ya, Keluar',
+            confirmVariant: 'error',
+            onConfirm: () => {
+                logout()
+                navigate('/login')
+            }
+        })
     }
 
     const navItems = NAV_ITEMS[user?.role] || []

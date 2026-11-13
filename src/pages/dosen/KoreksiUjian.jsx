@@ -17,7 +17,9 @@ import {
     FileText,
     RefreshCw,
     Trash2,
-    AlertCircle
+    AlertCircle,
+    Sparkles,
+    Loader2
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -30,9 +32,89 @@ const EXAMS_TO_CORRECT = []
 const STUDENT_ANSWERS = []
 const QUESTIONS = []
 
+const AI_PROVIDER_KEY = 'cat_ai_provider'
+
+// AI grading suggestions (see api/ai-grade.js). Returns { score, reason, provider }.
+async function requestAiGrade(payload) {
+    const resp = await fetch('/api/ai-grade', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+    })
+    const data = await resp.json().catch(() => null)
+    if (!resp.ok || !data || data.error) {
+        throw new Error(data?.error || 'Layanan Tanya AI tidak tersedia.')
+    }
+    return data
+}
+
 function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
+    const { user } = useAuth()
     const [answers, setAnswers] = useState(student?.answers || [])
     const [saving, setSaving] = useState(false)
+
+    // ---- Tanya AI ----
+    const [aiProviders, setAiProviders] = useState(null) // null = loading, [] = not configured
+    const [aiProvider, setAiProvider] = useState(() => {
+        try { return localStorage.getItem(AI_PROVIDER_KEY) || '' } catch { return '' }
+    })
+    const [aiResults, setAiResults] = useState({}) // originalIndex -> { loading, score, reason, provider, error }
+
+    useEffect(() => {
+        if (!isOpen || aiProviders !== null) return
+        fetch('/api/ai-grade')
+            .then(r => (r.ok ? r.json() : null))
+            .then(data => setAiProviders(Array.isArray(data?.providers) ? data.providers : []))
+            .catch(() => setAiProviders([]))
+    }, [isOpen, aiProviders])
+
+    // Results belong to one student
+    useEffect(() => {
+        setAiResults({})
+    }, [student])
+
+    const activeProvider = (aiProviders || []).find(p => p.id === aiProvider) || (aiProviders || [])[0] || null
+
+    const chooseProvider = (id) => {
+        setAiProvider(id)
+        try { localStorage.setItem(AI_PROVIDER_KEY, id) } catch { /* ignore */ }
+    }
+
+    const askAi = async (answer) => {
+        if (!activeProvider) return
+        const idx = answer.originalIndex
+        const question = questions.find(q => String(q.id) === String(answer.questionId))
+        setAiResults(prev => ({ ...prev, [idx]: { loading: true } }))
+        try {
+            let sessionToken = ''
+            try { sessionToken = localStorage.getItem('cat_session_token') || '' } catch { /* ignore */ }
+            const result = await requestAiGrade({
+                provider: activeProvider.id,
+                userId: user?.id,
+                sessionToken,
+                question: question?.pertanyaan || question?.text || '',
+                answerGuide: question?.pedoman_jawaban || '',
+                studentAnswer: typeof answer.answer === 'string' ? answer.answer : String(answer.answer ?? ''),
+                maxPoints: answer.maxPoints
+            })
+            setAiResults(prev => ({ ...prev, [idx]: { ...result, loading: false } }))
+        } catch (err) {
+            setAiResults(prev => ({ ...prev, [idx]: { loading: false, error: err.message } }))
+        }
+    }
+
+    const askAiForAll = async () => {
+        // One at a time: keeps within provider rate limits
+        for (const a of essayAnswers) {
+            if (aiResults[a.originalIndex]?.score !== undefined) continue
+            await askAi(a)
+        }
+    }
+
+    const applyAiScore = (answer) => {
+        const r = aiResults[answer.originalIndex]
+        if (r && typeof r.score === 'number') handlePointChange(answer.originalIndex, r.score)
+    }
 
     // Reset answers when student changes
     useEffect(() => {
@@ -132,6 +214,37 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                             <h4 style={{ marginBottom: '12px', color: 'var(--text-secondary)' }}>
                                 Soal Essay - Perlu Dikoreksi Manual ({essayAnswers.length} soal)
                             </h4>
+                            <div className="ai-toolbar">
+                                <Sparkles size={16} />
+                                <span className="ai-toolbar-label">Tanya AI</span>
+                                {aiProviders === null ? (
+                                    <span className="ai-toolbar-note">Memeriksa layanan AI…</span>
+                                ) : aiProviders.length === 0 ? (
+                                    <span className="ai-toolbar-note">Belum aktif. Admin perlu mengisi API key Claude, ChatGPT, atau Gemini di Vercel.</span>
+                                ) : (
+                                    <>
+                                        <select
+                                            className="form-input ai-provider-select"
+                                            value={activeProvider?.id || ''}
+                                            onChange={e => chooseProvider(e.target.value)}
+                                            aria-label="Pilih AI"
+                                        >
+                                            {aiProviders.map(p => (
+                                                <option key={p.id} value={p.id}>{p.label}</option>
+                                            ))}
+                                        </select>
+                                        <button
+                                            type="button"
+                                            className="btn btn-outline btn-sm"
+                                            onClick={askAiForAll}
+                                            disabled={essayAnswers.some(a => aiResults[a.originalIndex]?.loading)}
+                                        >
+                                            Tanya semua essay
+                                        </button>
+                                        <span className="ai-toolbar-note">Saran saja. Nilai akhir tetap Anda yang menentukan.</span>
+                                    </>
+                                )}
+                            </div>
                             <div className="essay-grading-list">
                                 {essayAnswers.map((answer, idx) => {
                                     const question = questions.find(q => String(q.id) === String(answer.questionId))
@@ -160,10 +273,42 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                     />
                                                 </div>
                                             )}
+                                            {question?.pedoman_jawaban && (
+                                                <div className="essay-guide-box">
+                                                    <strong>Pedoman jawaban:</strong>
+                                                    <p>{question.pedoman_jawaban}</p>
+                                                </div>
+                                            )}
                                             <div className="essay-answer-box">
                                                 <strong>Jawaban:</strong>
                                                 <p>{answer.answer || '(Tidak dijawab)'}</p>
                                             </div>
+                                            {(() => {
+                                                const r = aiResults[answer.originalIndex]
+                                                if (!r) return null
+                                                if (r.loading) {
+                                                    return (
+                                                        <div className="ai-result ai-result-loading">
+                                                            <Loader2 size={16} className="spin" />
+                                                            <span>{activeProvider?.label || 'AI'} sedang menilai…</span>
+                                                        </div>
+                                                    )
+                                                }
+                                                if (r.error) {
+                                                    return <div className="ai-result ai-result-error">{r.error}</div>
+                                                }
+                                                return (
+                                                    <div className="ai-result">
+                                                        <div className="ai-result-head">
+                                                            <span><Sparkles size={14} /> Saran {r.provider}: <strong>{r.score}/{answer.maxPoints}</strong></span>
+                                                            <button type="button" className="btn btn-primary btn-sm" onClick={() => applyAiScore(answer)}>
+                                                                Pakai nilai ini
+                                                            </button>
+                                                        </div>
+                                                        {r.reason && <p>{r.reason}</p>}
+                                                    </div>
+                                                )
+                                            })()}
                                             <div className="essay-score-input">
                                                 <label>Nilai:</label>
                                                 <input
@@ -176,6 +321,17 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                     placeholder="0"
                                                 />
                                                 <span className="points-max-label">/ {answer.maxPoints}</span>
+                                                {activeProvider && (
+                                                    <button
+                                                        type="button"
+                                                        className="btn btn-outline btn-sm ai-ask-btn"
+                                                        onClick={() => askAi(answer)}
+                                                        disabled={!!aiResults[answer.originalIndex]?.loading}
+                                                    >
+                                                        <Sparkles size={14} />
+                                                        Tanya {activeProvider.label}
+                                                    </button>
+                                                )}
                                             </div>
                                         </div>
                                     )
@@ -204,6 +360,95 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
             </div>
 
             <style>{`
+                .essay-guide-box {
+                    border: 1px dashed var(--border-color);
+                    border-radius: var(--radius-md);
+                    padding: var(--space-2) var(--space-3);
+                    margin-bottom: var(--space-3);
+                    font-size: var(--font-size-sm);
+                    color: var(--text-secondary);
+                }
+                .essay-guide-box strong {
+                    display: block;
+                    font-size: 0.78rem;
+                    margin-bottom: 2px;
+                }
+                .essay-guide-box p {
+                    margin: 0;
+                    white-space: pre-wrap;
+                    line-height: 1.5;
+                }
+                .ai-toolbar {
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    gap: 0.5rem;
+                    padding: 0.6rem 0.8rem;
+                    margin-bottom: var(--space-3);
+                    border-radius: 16px;
+                    background: linear-gradient(135deg, rgba(139, 92, 246, 0.08), rgba(59, 130, 246, 0.08));
+                    border: 1px solid rgba(139, 92, 246, 0.2);
+                    color: #7c3aed;
+                }
+                .ai-toolbar-label {
+                    font-weight: 700;
+                    font-size: 0.85rem;
+                }
+                .ai-toolbar-note {
+                    font-size: 0.75rem;
+                    color: var(--text-muted);
+                }
+                .ai-provider-select {
+                    width: auto !important;
+                    min-width: 130px;
+                    min-height: 34px !important;
+                    padding: 0.25rem 0.8rem !important;
+                    font-size: 0.85rem !important;
+                }
+                .ai-ask-btn {
+                    margin-left: auto;
+                    color: #7c3aed !important;
+                }
+                .ai-result {
+                    border-radius: 14px;
+                    padding: 0.65rem 0.8rem;
+                    margin-bottom: var(--space-3);
+                    background: rgba(139, 92, 246, 0.07);
+                    border: 1px solid rgba(139, 92, 246, 0.22);
+                    font-size: var(--font-size-sm);
+                }
+                .ai-result-head {
+                    display: flex;
+                    flex-wrap: wrap;
+                    align-items: center;
+                    justify-content: space-between;
+                    gap: 0.5rem;
+                    color: #6d28d9;
+                }
+                .ai-result-head span {
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 0.3rem;
+                }
+                .ai-result p {
+                    margin: 0.4rem 0 0;
+                    color: var(--text-secondary);
+                    line-height: 1.5;
+                }
+                .ai-result-loading {
+                    display: flex;
+                    align-items: center;
+                    gap: 0.5rem;
+                    color: #6d28d9;
+                }
+                .ai-result-error {
+                    background: var(--error-50);
+                    border-color: var(--error-500);
+                    color: var(--error-600);
+                }
+                .essay-score-input {
+                    flex-wrap: wrap;
+                }
                 .answer-summary-grid {
                     display: grid;
                     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -1398,7 +1643,10 @@ function KoreksiUjianPage() {
                     font-size: var(--font-size-sm);
                     color: var(--gray-800);
                     line-height: 1.6;
+                    white-space: pre-wrap;
+                    word-break: break-word;
                 }
+
                 .essay-score-input {
                     display: flex;
                     align-items: center;

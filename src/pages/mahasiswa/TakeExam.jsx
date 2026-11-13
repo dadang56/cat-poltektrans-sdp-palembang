@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
+import MathKeyboard from '../../components/MathKeyboard'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../App'
 import { SEBService, AntiCheat } from '../../services/SEBService'
@@ -49,6 +50,7 @@ function TakeExamPage() {
     // Exam state
     const [currentQuestion, setCurrentQuestion] = useState(0)
     const [answers, setAnswers] = useState({})
+    const essayInputRef = useRef(null)
     const [flagged, setFlagged] = useState(new Set())
     const [timeLeft, setTimeLeft] = useState(null) // null = not initialized yet, 0 = time's up
     const timeLeftRef = useRef(null)
@@ -173,7 +175,9 @@ function TakeExamPage() {
                         }),
                         correctAnswer: s.jawaban_benar ?? s.correctAnswer,
                         image: s.gambar || null,
-                        clusterId: s.cluster_id || null
+                        clusterId: s.cluster_id || null,
+                        // Dosen-enabled math symbol keyboard for essay answers
+                        mathKeyboard: s.math_keyboard === true
                     }))
 
                     // ========================================
@@ -1452,7 +1456,15 @@ function TakeExamPage() {
 
                             {(question.type === 'essay' || question.type === 'uraian') && (
                                 <div className="essay-area">
+                                    {question.mathKeyboard && (
+                                        <MathKeyboard
+                                            textareaRef={essayInputRef}
+                                            value={answers[question.id] || ''}
+                                            onChange={handleAnswer}
+                                        />
+                                    )}
                                     <textarea
+                                        ref={essayInputRef}
                                         className="essay-input"
                                         placeholder="Tulis jawaban Anda di sini..."
                                         value={answers[question.id] || ''}

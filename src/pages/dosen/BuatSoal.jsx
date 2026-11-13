@@ -191,7 +191,9 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
         ],
         examType: currentExamType || 'uts',
         clusterId: null,
-        clusterLabel: ''
+        clusterLabel: '',
+        mathKeyboard: false,
+        answerGuide: ''
     })
 
     const [formData, setFormData] = useState(question || getDefaultFormData())
@@ -673,6 +675,36 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                                 </button>
                             </div>
                         )}
+
+                        {/* Essay options */}
+                        {formData.type === 'essay' && (
+                            <>
+                                <div className="form-group">
+                                    <label className="essay-option-toggle">
+                                        <input
+                                            type="checkbox"
+                                            checked={!!formData.mathKeyboard}
+                                            onChange={e => setFormData({ ...formData, mathKeyboard: e.target.checked })}
+                                        />
+                                        <span>
+                                            <strong>Aktifkan keyboard rumus matematika</strong>
+                                            <small>Mahasiswa mendapat tombol simbol (√, x², π, ∫, ≤, α, pecahan, dll.) di atas kolom jawaban soal ini.</small>
+                                        </span>
+                                    </label>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Pedoman / Kunci Jawaban <span style={{ fontWeight: 400, color: 'var(--text-muted)' }}>(opsional)</span></label>
+                                    <textarea
+                                        className="form-input"
+                                        rows={4}
+                                        value={formData.answerGuide || ''}
+                                        onChange={e => setFormData({ ...formData, answerGuide: e.target.value })}
+                                        placeholder="Poin-poin jawaban yang diharapkan. Ditampilkan saat koreksi dan dipakai fitur Tanya AI."
+                                    />
+                                    <p className="form-hint">Tidak ditampilkan di layar ujian mahasiswa.</p>
+                                </div>
+                            </>
+                        )}
                     </div>
                     <div className="modal-footer">
                         <button type="button" className="btn btn-ghost" onClick={onClose}>Batal</button>
@@ -796,7 +828,9 @@ function BuatSoalPage() {
                     image: s.gambar || null,
                     matkul: s.matkul,
                     clusterId: s.cluster_id || null,
-                    clusterLabel: s.cluster_label || ''
+                    clusterLabel: s.cluster_label || '',
+                    mathKeyboard: s.math_keyboard === true,
+                    answerGuide: s.pedoman_jawaban || ''
                 })))
 
                 setIsInitialized(true)
@@ -985,6 +1019,13 @@ function BuatSoalPage() {
                 tahun_akademik: tahunAkademik
             }
 
+            // Essay options (columns added by MIGRATION_ESSAY_MATH_AI.sql)
+            const isEssay = questionData.type === 'essay'
+            if (isEssay || (editingQuestion && !editingQuestion._isNewVariant)) {
+                supabaseData.math_keyboard = isEssay && !!questionData.mathKeyboard
+                supabaseData.pedoman_jawaban = isEssay && questionData.answerGuide?.trim() ? questionData.answerGuide.trim() : null
+            }
+
             // These columns may not exist if migrations haven't been run
             // For UPDATES: always include to allow clearing values
             // For CREATES: only include if they have values to avoid insert errors on missing columns
@@ -1030,7 +1071,9 @@ function BuatSoalPage() {
                         image: questionData.image,
                         clusterId: resolvedClusterId,
                         clusterLabel: questionData.clusterLabel,
-                        kelasIds: supabaseData.kelas_ids || []
+                        kelasIds: supabaseData.kelas_ids || [],
+                        mathKeyboard: !!supabaseData.math_keyboard,
+                        answerGuide: supabaseData.pedoman_jawaban || ''
                     } : q
                 )
                 setQuestions(updatedQuestions)
@@ -1055,7 +1098,9 @@ function BuatSoalPage() {
                     kelasIds: created.kelas_ids || [],
                     image: created.gambar || questionData.image || null,
                     clusterId: resolvedClusterId,
-                    clusterLabel: questionData.clusterLabel || ''
+                    clusterLabel: questionData.clusterLabel || '',
+                    mathKeyboard: !!created.math_keyboard,
+                    answerGuide: created.pedoman_jawaban || ''
                 }
                 setQuestions(prev => [...prev, newQuestion])
                 console.log('[BuatSoal] Question created:', created)
@@ -1295,6 +1340,8 @@ function BuatSoalPage() {
                     dosen_id: user?.id,
                     tahun_akademik: tahunAkademik
                 }
+                if (orig.math_keyboard) supabaseData.math_keyboard = true
+                if (orig.pedoman_jawaban) supabaseData.pedoman_jawaban = orig.pedoman_jawaban
 
                 // Optional columns (may not exist if migration not run)
                 const pkgKelas = getPackageKelasIds(selectedPackage)
@@ -2967,6 +3014,34 @@ function BuatSoalPage() {
                 .matching-arrow {
                     color: var(--text-muted);
                     flex-shrink: 0;
+                }
+                .essay-option-toggle {
+                    display: flex;
+                    align-items: flex-start;
+                    gap: 0.65rem;
+                    padding: 0.75rem 0.9rem;
+                    border: 1px solid var(--border-color);
+                    border-radius: 16px;
+                    background: var(--bg-tertiary);
+                    cursor: pointer;
+                }
+                .essay-option-toggle input {
+                    width: 18px;
+                    height: 18px;
+                    margin-top: 2px;
+                    flex-shrink: 0;
+                    accent-color: var(--primary-600);
+                }
+                .essay-option-toggle span {
+                    display: flex;
+                    flex-direction: column;
+                    gap: 0.2rem;
+                    font-size: 0.9rem;
+                }
+                .essay-option-toggle small {
+                    color: var(--text-muted);
+                    font-size: 0.78rem;
+                    line-height: 1.4;
                 }
                 .form-hint {
                     font-size: var(--font-size-xs);
