@@ -862,6 +862,8 @@ html.dashboard-locked #root {
     .dashboard-layout .table-responsive:has(> table.table-cards),
     .dashboard-layout .nk-table-wrap:has(> table.table-cards) {
         overflow-x: visible;
+        margin: 0 !important;
+        padding: 0 !important;
         border: 0;
         background: transparent;
         box-shadow: none;
@@ -946,6 +948,83 @@ html.dashboard-locked #root {
     .dashboard-layout table.table-cards td[data-label="No." i],
     .dashboard-layout table.table-cards td[data-label="#"] {
         display: none;
+    }
+
+    /* ---- Folded cards: only the name until tapped (utils/tableCards.js) ---- */
+    .dashboard-layout table.table-cards tr.card-fold {
+        cursor: pointer;
+        padding-top: 0.35rem;
+        padding-bottom: 0.35rem;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .dashboard-layout table.table-cards tr.card-fold:not(.is-open) > td:not(.card-title-cell):not(.card-keep) {
+        display: none !important;
+    }
+
+    .dashboard-layout table.table-cards tr.card-fold > td.card-title-cell {
+        justify-content: flex-start;
+        min-height: 2.6rem;
+        text-align: left !important;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+
+    .dashboard-layout table.table-cards tr.card-fold > td.card-title-cell::before {
+        content: none;
+    }
+
+    .dashboard-layout table.table-cards td.card-title-cell svg {
+        flex-shrink: 0;
+    }
+
+    .dashboard-layout table.table-cards td.card-title-cell > * {
+        text-align: left;
+    }
+
+    /* chevron that turns when the card opens */
+    .dashboard-layout table.table-cards tr.card-fold > td.card-title-cell::after {
+        content: "";
+        flex: 0 0 auto;
+        width: 0.55rem;
+        height: 0.55rem;
+        margin-left: auto;
+        border-right: 2px solid var(--text-muted);
+        border-bottom: 2px solid var(--text-muted);
+        transform: rotate(45deg) translateY(-2px);
+        transition: transform 0.15s ease;
+    }
+
+    .dashboard-layout table.table-cards tr.card-fold.is-open > td.card-title-cell::after {
+        transform: rotate(-135deg) translateY(-2px);
+    }
+
+    /* the name line has no divider while folded */
+    .dashboard-layout table.table-cards tr.card-fold:not(.is-open) > td.card-title-cell {
+        border-bottom: 0 !important;
+    }
+
+    .dashboard-layout table.table-cards tr.card-fold:not(.is-open):has(> td.card-keep) > td.card-title-cell {
+        border-bottom: 1px dashed rgba(99, 115, 160, 0.14) !important;
+    }
+
+    .dashboard-layout table.table-cards tr.card-fold.is-open {
+        box-shadow: 0 8px 22px -12px rgba(30, 50, 100, 0.4);
+    }
+
+    /* the title is shown first even if its column isn't first */
+    .dashboard-layout table.table-cards tr.card-fold {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .dashboard-layout table.table-cards tr.card-fold > td.card-title-cell {
+        order: -1;
+    }
+
+    .dashboard-layout table.table-cards tbody {
+        gap: 0.5rem;
     }
 
     /* rows without labels ("Tidak ada data") stay centred */
