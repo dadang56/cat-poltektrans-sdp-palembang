@@ -16,6 +16,7 @@ import {
     ShieldCheck
 } from 'lucide-react'
 import './Login.css'
+import './LoginGlass.css'
 import { generateAcademicYearOptions } from '../utils/academicYear'
 
 const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
@@ -97,7 +98,7 @@ function Login() {
 
 
     return (
-        <div className="login-page">
+        <div className="login-page login-glass">
             {/* Animated Background */}
             <div className="login-bg">
                 <div className="wave wave-1"></div>
@@ -136,7 +137,6 @@ function Login() {
                         </div>
                         <h1 className="branding-title">{settings?.appName || 'CAT POLTEKTRANS'}</h1>
                         <p className="branding-subtitle">{settings?.institution || 'Politeknik Transportasi Sungai Danau dan Penyeberangan Palembang'}</p>
-                        <div className="branding-divider"></div>
                         <p className="branding-tagline">{settings?.appSubtitle || 'Sistem Ujian Online Berbasis Komputer'}</p>
                     </div>
                 </div>
@@ -146,7 +146,7 @@ function Login() {
                     <div className="login-form-content">
                         <div className="form-header">
                             <h2>Selamat Datang</h2>
-                            <p>Silakan masuk ke akun Anda</p>
+                            <p>Masuk untuk melanjutkan</p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="login-form" autoComplete="off">
@@ -259,7 +259,7 @@ function Login() {
 
 
                         <div className="login-footer">
-                            <p>© 2026 Politeknik Transportasi SDP Palembang (Ver 2.1 - Updated)</p>
+                            <p>© 2026 Poltektrans SDP Palembang · v2.1</p>
                             <button
                                 type="button"
                                 onClick={async () => {
@@ -278,9 +278,9 @@ function Login() {
                                         alert('Error: ' + e.message);
                                     }
                                 }}
-                                style={{ marginTop: '10px', fontSize: '11px', color: '#666', background: 'none', border: 'none', textDecoration: 'underline', cursor: 'pointer' }}
+                                className="login-troubleshoot"
                             >
-                                Cek Koneksi Database (Troubleshoot)
+                                Cek koneksi database
                             </button>
                         </div>
                     </div>
