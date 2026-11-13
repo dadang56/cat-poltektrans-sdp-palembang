@@ -672,10 +672,8 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave, onSaveNe
                     background: var(--bg-tertiary);
                 }
                 .answer-summary-item.correct {
-                    border-left: 3px solid var(--success-500);
                 }
                 .answer-summary-item.incorrect {
-                    border-left: 3px solid var(--error-500);
                 }
                 .answer-summary-header {
                     display: flex;

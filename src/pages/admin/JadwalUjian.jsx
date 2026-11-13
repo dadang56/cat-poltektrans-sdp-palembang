@@ -1226,7 +1226,6 @@ function JadwalUjianPage() {
                     background: var(--bg-tertiary);
                     border-radius: var(--radius-md);
                     margin-bottom: 0.5rem;
-                    border-left: 3px solid var(--error-400);
                 }
                 .trash-item-info h4 {
                     margin: 0 0 2px;

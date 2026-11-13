@@ -536,7 +536,6 @@ function DosenDashboard() {
                     padding: var(--space-4);
                     background: var(--bg-tertiary);
                     border-radius: var(--radius-lg);
-                    border-left: 4px solid var(--border-color);
                     cursor: pointer;
                     transition: all var(--transition-fast);
                 }
@@ -544,15 +543,12 @@ function DosenDashboard() {
                     background: var(--bg-secondary);
                 }
                 .deadline-item.urgent {
-                    border-left-color: var(--error-500);
                     background: var(--error-50);
                 }
                 .deadline-item.warning {
-                    border-left-color: var(--warning-500);
                     background: var(--warning-50);
                 }
                 .deadline-item.normal {
-                    border-left-color: var(--success-500);
                 }
                 .deadline-info {
                     flex: 1;

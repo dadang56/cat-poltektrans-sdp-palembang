@@ -1491,12 +1491,11 @@ function MonitorUjian() {
           padding: var(--space-3);
           background: var(--bg-tertiary);
           border-radius: var(--radius-lg);
-          border-left: 3px solid;
         }
         
-        .activity-item.error { border-left-color: var(--error-500); }
-        .activity-item.warning { border-left-color: var(--warning-500); }
-        .activity-item.info { border-left-color: var(--info-500); }
+        .activity-item.error { }
+        .activity-item.warning { }
+        .activity-item.info { }
         
         .activity-icon {
           flex-shrink: 0;
@@ -1570,10 +1569,8 @@ function MonitorUjian() {
           border-color: var(--primary-300);
         }
         .room-card.available {
-          border-left: 4px solid var(--success-500);
         }
         .room-card.occupied {
-          border-left: 4px solid var(--warning-500);
           background: var(--warning-50);
         }
         .room-card.locked {

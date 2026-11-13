@@ -533,11 +533,11 @@ function BeritaAcaraPage() {
                 
                 .form-textarea { resize: vertical; min-height: 80px; }
                 .attendance-recap { display: flex; flex-direction: column; gap: 0.75rem; }
-                .recap-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: var(--bg-tertiary); border-radius: 0.5rem; border-left: 3px solid var(--border-color); }
-                .recap-item.success { border-left-color: var(--success-500); }
-                .recap-item.warning { border-left-color: var(--warning-500); }
-                .recap-item.info { border-left-color: var(--info-500); }
-                .recap-item.error { border-left-color: var(--error-500); }
+                .recap-item { display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: var(--bg-tertiary); border-radius: 0.5rem; }
+                .recap-item.success { }
+                .recap-item.warning { }
+                .recap-item.info { }
+                .recap-item.error { }
                 .recap-label { font-size: 0.875rem; color: var(--text-secondary); }
                 .recap-value { font-weight: 600; color: var(--text-primary); }
                 .text-sm { font-size: 0.875rem; }

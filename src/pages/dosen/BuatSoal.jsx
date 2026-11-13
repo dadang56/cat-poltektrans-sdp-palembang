@@ -2702,7 +2702,6 @@ function BuatSoalPage() {
                     gap: var(--space-3);
                 }
                 .cluster-variants .question-card {
-                    border-left: 3px solid var(--warning-400);
                 }
                 .question-text {
                     font-size: var(--font-size-base);

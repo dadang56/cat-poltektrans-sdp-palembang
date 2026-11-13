@@ -529,7 +529,6 @@ function MahasiswaDashboard() {
           color: var(--text-secondary);
           padding: var(--space-2) var(--space-3);
           background: var(--warning-50);
-          border-left: 3px solid var(--warning-500);
           border-radius: 0 var(--radius-md) var(--radius-md) 0;
         }
         

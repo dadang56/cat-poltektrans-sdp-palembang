@@ -3,6 +3,14 @@
    ============================================ */
 
 /* CSS Variables - Design Tokens */
+/* Stop mobile browsers (Chrome Android "font boosting") from enlarging
+   text in some boxes on their own, which made card text collide. The
+   user's own text-size setting still applies. */
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
 :root {
   /* Primary Colors - Navy Blue (Professional, Trust) */
   --primary-50: #e8edf4;
@@ -1275,11 +1283,6 @@ img {
 @media (max-width: 480px) {
   html {
     font-size: 15px;
-  }
-
-  body {
-    -webkit-text-size-adjust: 100%;
-    text-size-adjust: 100%;
   }
 
   /* Better button sizing for touch */

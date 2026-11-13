@@ -595,6 +595,7 @@ function AdminProdiDashboard() {
                                                     <span>• {item.tanggal}</span>
                                                 </p>
                                             </div>
+                                            <div className="soal-readiness-meta">
                                             <div className="soal-readiness-detail">
                                                 <span className="soal-count">{item.totalSoal} soal</span>
                                                 <span className={`soal-points ${item.totalPoin === 100 ? 'complete' : item.totalPoin > 0 ? 'partial' : 'empty'}`}>
@@ -609,6 +610,7 @@ function AdminProdiDashboard() {
                                                 ) : (
                                                     <span className="badge badge-warning">Belum Lengkap</span>
                                                 )}
+                                            </div>
                                             </div>
                                         </div>
                                     ))}
@@ -764,7 +766,6 @@ function AdminProdiDashboard() {
                     padding: var(--space-3) var(--space-4);
                     background: var(--bg-tertiary);
                     border-radius: var(--radius-lg);
-                    border-left: 4px solid var(--border-color);
                     transition: all var(--transition-fast);
                     cursor: pointer;
                 }
@@ -772,11 +773,9 @@ function AdminProdiDashboard() {
                     background: var(--bg-secondary);
                 }
                 .jadwal-item.urgent {
-                    border-left-color: var(--error-500);
                     background: var(--error-50);
                 }
                 .jadwal-item.soon {
-                    border-left-color: var(--warning-500);
                     background: var(--warning-50);
                 }
                 .jadwal-date {
@@ -931,14 +930,11 @@ function AdminProdiDashboard() {
                     padding: var(--space-3) var(--space-4);
                     background: var(--bg-tertiary);
                     border-radius: var(--radius-lg);
-                    border-left: 4px solid var(--border-color);
                     transition: all 0.15s ease;
                 }
                 .soal-readiness-item.ready {
-                    border-left-color: var(--success-500);
                 }
                 .soal-readiness-item.not-ready {
-                    border-left-color: var(--error-500);
                     background: var(--error-50);
                 }
                 [data-theme="dark"] .soal-readiness-item.not-ready {
@@ -977,6 +973,50 @@ function AdminProdiDashboard() {
                 .soal-points {
                     font-size: var(--font-size-sm);
                     font-weight: var(--font-semibold);
+                }
+                /* Phones: icon | title & dosen on top; soal, poin and status
+                   on a second row, so nothing is squeezed into thin columns */
+                /* detail + badge are grouped only for the phone layout */
+                .soal-readiness-meta {
+                    display: contents;
+                }
+                @media (max-width: 640px) {
+                    .soal-readiness-item {
+                        display: grid !important;
+                        grid-template-columns: auto minmax(0, 1fr);
+                        grid-template-areas: "icon info" "icon meta";
+                        align-items: center;
+                        column-gap: 0.7rem;
+                        row-gap: 0.45rem;
+                    }
+                    .soal-readiness-status { grid-area: icon; align-self: start; padding-top: 2px; }
+                    .soal-readiness-info { grid-area: info; }
+                    .soal-readiness-info h4 {
+                        white-space: normal;
+                        overflow: visible;
+                        line-height: 1.3;
+                    }
+                    .soal-readiness-info p {
+                        flex-wrap: wrap;
+                        gap: 0.1rem 0.5rem;
+                        line-height: 1.35;
+                    }
+                    .soal-readiness-meta {
+                        grid-area: meta;
+                        display: flex;
+                        flex-wrap: wrap;
+                        align-items: center;
+                        justify-content: space-between;
+                        gap: 0.4rem 0.75rem;
+                        min-width: 0;
+                    }
+                    .soal-readiness-detail {
+                        flex-direction: row;
+                        align-items: baseline;
+                        gap: 0.6rem;
+                        min-width: 0;
+                    }
+                    .soal-readiness-badge { margin-left: auto; }
                 }
                 .soal-points.complete { color: var(--success-600); }
                 .soal-points.partial { color: var(--warning-600); }
@@ -1217,7 +1257,6 @@ function AdminProdiDashboard() {
                 .soal-readiness-item {
                     background: var(--bg-secondary) !important;
                     border: 1px solid var(--border-color) !important;
-                    border-left: 4px solid var(--border-color) !important;
                     box-shadow: 0 2px 4px rgba(0, 0, 0, 0.02) !important;
                     transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
                 }
@@ -1229,11 +1268,9 @@ function AdminProdiDashboard() {
                 }
 
                 .soal-readiness-item.ready {
-                    border-left-color: var(--success-500) !important;
                 }
 
                 .soal-readiness-item.not-ready {
-                    border-left-color: var(--error-500) !important;
                     background: rgba(239, 68, 68, 0.02) !important;
                 }
                 [data-theme="dark"] .soal-readiness-item.not-ready {
