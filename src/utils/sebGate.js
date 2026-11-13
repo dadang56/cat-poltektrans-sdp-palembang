@@ -36,6 +36,17 @@ export function sebConfigLink() {
     return `sebs://${window.location.host}/sipandu.seb`
 }
 
+// The real Safe Exam Browser (not Android "exam browser" apps, which
+// isSebBrowser also accepts): only SEB knows the quitURL
+export function isRealSeb() {
+    try {
+        const ua = navigator.userAgent.toLowerCase()
+        return typeof window.SafeExamBrowser !== 'undefined' || /\bseb\b|safeexambrowser/.test(ua)
+    } catch {
+        return false
+    }
+}
+
 // Opening this URL inside SEB closes SEB (quitURL in the config file)
 export function sebQuitUrl() {
     return `${window.location.origin}/seb-keluar`

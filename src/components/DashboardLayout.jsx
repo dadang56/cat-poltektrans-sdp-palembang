@@ -3,6 +3,7 @@ import { useAuth } from '../App'
 import { useSettings } from '../contexts/SettingsContext'
 import { useConfirm } from './ConfirmDialog'
 import { getActiveAcademicYear } from '../utils/academicYear'
+import { isRealSeb, sebQuitUrl } from '../utils/sebGate'
 import {
     Home,
     Users,
@@ -28,7 +29,8 @@ import {
     Award,
     Shield,
     Download,
-    ChevronDown
+    ChevronDown,
+    Power
 } from 'lucide-react'
 import { useState, useEffect, useRef } from 'react'
 import './DashboardLayout.css'
@@ -319,6 +321,19 @@ function DashboardLayout({ children }) {
                         </div>
 
                         {/* Logout Button */}
+                        {user?.role === 'mahasiswa' && isRealSeb() && (
+                            // quitURL in the SEB config: SEB asks "Quit Session?"
+                            // and closes without the quit password
+                            <a
+                                href={sebQuitUrl()}
+                                className="btn btn-sm header-seb-quit-btn"
+                                title="Tutup Safe Exam Browser (tanpa password)"
+                            >
+                                <Power size={18} />
+                                <span className="seb-quit-text">Tutup SEB</span>
+                            </a>
+                        )}
+
                         <button
                             className="btn btn-ghost btn-sm header-logout-btn"
                             onClick={handleLogout}

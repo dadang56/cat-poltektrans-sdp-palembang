@@ -422,6 +422,12 @@
     justify-content: center;
 }
 
+.exam-result-page .seb-quit-hint {
+    margin: 8px 0 0;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+}
+
 .exam-result-page .seb-quit-btn {
     margin-top: 10px;
     background: var(--ex-solid);

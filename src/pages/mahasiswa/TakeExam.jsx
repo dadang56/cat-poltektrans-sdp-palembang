@@ -27,7 +27,7 @@ import {
 } from 'lucide-react'
 import './TakeExam.css'
 import './TakeExamGlass.css'
-import { sebConfigLink, sebQuitUrl } from '../../utils/sebGate'
+import { sebConfigLink, sebQuitUrl, isRealSeb } from '../../utils/sebGate'
 
 // LocalStorage keys
 
@@ -1052,13 +1052,21 @@ function TakeExamPage() {
                         }
                     </p>
 
-                    <a href="/mahasiswa" className="btn btn-primary btn-lg">
-                        Kembali ke Dashboard
-                    </a>
-                    {sebDetected && (
-                        // quitURL in the SEB config: closes SEB without the password
-                        <a href={sebQuitUrl()} className="btn btn-outline btn-lg seb-quit-btn">
-                            Keluar dari Safe Exam Browser
+                    {sebDetected && isRealSeb() ? (
+                        <>
+                            {/* quitURL in the SEB config: SEB asks "Quit Session?"
+                                and closes without the quit password */}
+                            <a href={sebQuitUrl()} className="btn btn-primary btn-lg">
+                                Selesai &amp; Keluar dari SEB
+                            </a>
+                            <p className="seb-quit-hint">Tidak perlu password. Pilih <strong>Quit</strong> saat SEB meminta konfirmasi.</p>
+                            <a href="/mahasiswa" className="btn btn-outline btn-lg seb-quit-btn">
+                                Kembali ke Dashboard
+                            </a>
+                        </>
+                    ) : (
+                        <a href="/mahasiswa" className="btn btn-primary btn-lg">
+                            Kembali ke Dashboard
                         </a>
                     )}
                 </div>

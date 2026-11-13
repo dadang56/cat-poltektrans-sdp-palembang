@@ -251,6 +251,12 @@ html.dashboard-locked #root {
         justify-content: center;
     }
 
+    .dashboard-layout .header-seb-quit-btn {
+        height: 40px;
+        padding: 0 0.8rem;
+        font-size: 0.78rem;
+    }
+
     .dashboard-layout .header-right {
         gap: 0.35rem;
         flex-shrink: 0;

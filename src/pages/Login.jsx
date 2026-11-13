@@ -18,7 +18,7 @@ import {
 import './Login.css'
 import './LoginGlass.css'
 import { generateAcademicYearOptions } from '../utils/academicYear'
-import { isSebBrowser, sebQuitUrl } from '../utils/sebGate'
+import { isRealSeb, sebQuitUrl } from '../utils/sebGate'
 
 const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
 
@@ -287,7 +287,7 @@ function Login() {
                                 {dbStatus === 'ok' && 'Koneksi database aman'}
                                 {dbStatus === 'error' && 'Koneksi database terkendala'}
                             </div>
-                            {isSebBrowser() && (
+                            {isRealSeb() && (
                                 // quitURL in the SEB config: closes SEB without the password
                                 <a className="login-seb-quit" href={sebQuitUrl()}>Keluar dari Safe Exam Browser</a>
                             )}
