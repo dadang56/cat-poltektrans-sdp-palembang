@@ -9,6 +9,35 @@
    inside .dashboard-layout and is not affected.
    ========================================================================== */
 
+/* ---------- Page lock: only the content area scrolls ----------
+   DashboardLayout adds .dashboard-locked to <html>. Without it body/#root
+   (min-height 100vh) are taller than a phone's visible screen, the whole
+   page scrolls and the top bar with the menu button slides off screen. */
+html.dashboard-locked,
+html.dashboard-locked body {
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+}
+
+html.dashboard-locked body,
+html.dashboard-locked #root {
+    min-height: 0;
+}
+
+html.dashboard-locked #root {
+    height: 100%;
+}
+
+@media print {
+    html.dashboard-locked,
+    html.dashboard-locked body,
+    html.dashboard-locked #root {
+        height: auto !important;
+        overflow: visible !important;
+    }
+}
+
 /* ---------- Side menu: fills the screen, scroll hint ---------- */
 .nav-scroll-hint {
     position: absolute;

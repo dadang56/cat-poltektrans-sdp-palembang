@@ -144,6 +144,17 @@ function DashboardLayout({ children }) {
         if (mainRef.current) mainRef.current.scrollTop = 0
     }, [location.pathname])
 
+    // Lock the page itself while the dashboard is shown. body/#root use
+    // min-height 100vh, which on phone browsers is taller than the visible
+    // screen (address bar), so the whole page could scroll and push the top
+    // bar with the menu button off screen. Only .main-content scrolls now.
+    useEffect(() => {
+        const root = document.documentElement
+        root.classList.add('dashboard-locked')
+        window.scrollTo(0, 0)
+        return () => root.classList.remove('dashboard-locked')
+    }, [])
+
     // Menu scroll hint: on short screens (phones) some menu items sit below
     // the fold. Show a fade + "Menu lainnya" button until the list is
     // scrolled to the end, so users know there is more to scroll.
