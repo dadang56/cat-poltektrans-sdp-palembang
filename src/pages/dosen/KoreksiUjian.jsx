@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { hasilUjianService, jawabanMahasiswaService, soalService, jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
@@ -20,7 +20,8 @@ import {
     AlertCircle,
     Sparkles,
     ExternalLink,
-    Copy
+    Copy,
+    ClipboardPaste
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -35,9 +36,14 @@ const EXAMS_TO_CORRECT = []
 const STUDENT_ANSWERS = []
 const QUESTIONS = []
 
-function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
+function CorrectionModal({ isOpen, onClose, student, questions, onSave, onSaveNext, position, total }) {
     const [answers, setAnswers] = useState(student?.answers || [])
     const [saving, setSaving] = useState(false)
+    const bodyRef = useRef(null)
+
+    // ---- Tempel hasil AI: read "Soal 1: Skor 30/50" lines into the scores ----
+    const [pasteOpen, setPasteOpen] = useState(false)
+    const [pasteText, setPasteText] = useState('')
 
     // ---- Tanya AI (opens ChatGPT / Claude / Gemini with a grading prompt) ----
     const [openPrompt, setOpenPrompt] = useState(null) // originalIndex whose prompt is shown, or 'all'
@@ -115,7 +121,63 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
             setAnswers(student.answers)
         }
         setOpenPrompt(null)
+        setPasteOpen(false)
+        setPasteText('')
+        if (bodyRef.current) bodyRef.current.scrollTop = 0
     }, [student])
+
+    // Fills essay scores from an AI reply. Understands the bulk format
+    // ("Soal 2: Skor 30/50") and, for a single essay, a plain "Skor: 30/50".
+    const applyAiScores = (text) => {
+        text = String(text || '').replace(/[*_#`]/g, '') // AI replies often use markdown bold
+        const essays = answers
+            .map((a, idx) => ({ ...a, originalIndex: idx }))
+            .filter(a => a.type === 'essay' || a.type === 'uraian')
+        const found = new Map()
+        const numbered = /soal(?:\s+essay)?\s*(\d+)\s*[:.)\-–]?\s*(?:\r?\n\s*)?skor\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*\/\s*\d+/gi
+        let m
+        while ((m = numbered.exec(text))) found.set(Number(m[1]), m[2])
+        if (found.size === 0 && essays.length === 1) {
+            const single = /skor\s*[:=]?\s*(\d+(?:[.,]\d+)?)\s*\/\s*\d+/i.exec(text)
+            if (single) found.set(1, single[1])
+        }
+        if (found.size === 0) {
+            toast.warning('Tidak menemukan skor. Pastikan balasan AI berisi baris seperti "Soal 1: Skor 30/50".')
+            return
+        }
+        const next = [...answers]
+        let filled = 0
+        found.forEach((value, no) => {
+            const target = essays[no - 1]
+            if (!target) return
+            const max = next[target.originalIndex].maxPoints
+            const score = Math.max(0, Math.min(Math.round(parseFloat(String(value).replace(',', '.'))), max))
+            next[target.originalIndex] = { ...next[target.originalIndex], earnedPoints: score }
+            filled++
+        })
+        if (filled === 0) {
+            toast.warning('Nomor soal pada hasil AI tidak cocok dengan soal essay di sini.')
+            return
+        }
+        setAnswers(next)
+        toast.success(`${filled} nilai essay terisi dari hasil AI. Periksa lalu simpan.`)
+        setPasteOpen(false)
+        setPasteText('')
+    }
+
+    const pasteFromClipboard = async () => {
+        try {
+            const text = await navigator.clipboard.readText()
+            if (text?.trim()) {
+                setPasteText(text)
+                applyAiScores(text)
+            } else {
+                toast.info('Clipboard kosong. Salin dulu balasan AI, atau tempel manual di kotak.')
+            }
+        } catch {
+            toast.info('Browser tidak mengizinkan membaca clipboard. Tempel manual (Ctrl+V) di kotak.')
+        }
+    }
 
     const handlePointChange = (index, points) => {
         const newAnswers = [...answers]
@@ -123,7 +185,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
         setAnswers(newAnswers)
     }
 
-    const handleSave = () => {
+    const handleSave = (andNext = false) => {
         // Automatically default any null or undefined earnedPoints in essay/uraian answers to 0
         const gradedAnswers = answers.map(a => {
             if (isEssayType(a.type) && (a.earnedPoints === null || a.earnedPoints === undefined)) {
@@ -135,8 +197,11 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
         if (saving) return
         setSaving(true)
         // Close only after the save succeeded, so typed scores aren't lost
-        Promise.resolve(onSave({ ...student, answers: gradedAnswers, totalScore }))
-            .then(ok => { if (ok !== false) onClose() })
+        const payload = { ...student, answers: gradedAnswers, totalScore }
+        // "Simpan & Lanjut" keeps the window open on the next student
+        const run = andNext && onSaveNext ? onSaveNext(payload) : onSave(payload)
+        Promise.resolve(run)
+            .then(ok => { if (ok !== false && !(andNext && onSaveNext)) onClose() })
             .finally(() => setSaving(false))
     }
 
@@ -161,17 +226,20 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
 
     return (
         <div className="modal-overlay" onClick={onClose}>
-            <div className="modal modal-lg" onClick={e => e.stopPropagation()}>
+            <div className="modal modal-lg correction-modal" onClick={e => e.stopPropagation()}>
                 <div className="modal-header">
                     <div>
-                        <h3>Koreksi Jawaban</h3>
+                        <h3>
+                            Koreksi Jawaban
+                            {total > 1 && <span className="correction-position">{position} dari {total}</span>}
+                        </h3>
                         <p className="modal-subtitle">{student.studentName} - {student.nim}</p>
                     </div>
                     <button className="btn btn-icon btn-ghost" onClick={onClose}>
                         <X size={20} />
                     </button>
                 </div>
-                <div className="modal-body correction-body-simple" style={{ maxHeight: '60vh', overflowY: 'auto' }}>
+                <div className="modal-body correction-body-simple" ref={bodyRef}>
                     {/* Auto-graded answers summary */}
                     {autoGradedAnswers.length > 0 && (
                         <div className="auto-graded-section">
@@ -247,6 +315,35 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                         value={allEssayPrompt()}
                                         onFocus={e => e.target.select()}
                                     />
+                                )}
+                                <div className="ai-ask-row ai-ask-all">
+                                    <span className="ai-ask-label">Sudah dapat jawaban AI?</span>
+                                    <button type="button" className="btn btn-outline btn-sm ai-paste-btn" onClick={pasteFromClipboard}>
+                                        <ClipboardPaste size={13} /> Tempel hasil AI
+                                    </button>
+                                    <button type="button" className="btn btn-ghost btn-sm" onClick={() => setPasteOpen(o => !o)}>
+                                        {pasteOpen ? 'Tutup' : 'Tempel manual'}
+                                    </button>
+                                </div>
+                                {pasteOpen && (
+                                    <div className="ai-paste-box">
+                                        <textarea
+                                            className="form-input ai-prompt-preview"
+                                            rows={6}
+                                            value={pasteText}
+                                            onChange={e => setPasteText(e.target.value)}
+                                            placeholder={'Tempel balasan AI di sini, contoh:\nSoal 1: Skor 30/50\nSoal 2: Skor 45/50'}
+                                            autoFocus
+                                        />
+                                        <button
+                                            type="button"
+                                            className="btn btn-primary btn-sm"
+                                            disabled={!pasteText.trim()}
+                                            onClick={() => applyAiScores(pasteText)}
+                                        >
+                                            Isi nilai dari teks ini
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                             <div className="essay-grading-list">
@@ -333,6 +430,24 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                     placeholder="0"
                                                 />
                                                 <span className="points-max-label">/ {answer.maxPoints}</span>
+                                                <div className="quick-scores" role="group" aria-label="Nilai cepat">
+                                                    {[
+                                                        ['0', 0],
+                                                        ['½', Math.round(answer.maxPoints / 2)],
+                                                        ['¾', Math.round(answer.maxPoints * 0.75)],
+                                                        ['Penuh', answer.maxPoints]
+                                                    ].map(([label, value]) => (
+                                                        <button
+                                                            key={label}
+                                                            type="button"
+                                                            className={`quick-score ${answer.earnedPoints === value ? 'is-on' : ''}`}
+                                                            onClick={() => handlePointChange(answer.originalIndex, value)}
+                                                            title={`${value} poin`}
+                                                        >
+                                                            {label}
+                                                        </button>
+                                                    ))}
+                                                </div>
                                             </div>
                                         </div>
                                     )
@@ -352,10 +467,20 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                     </div>
                     <div className="modal-actions">
                         <button className="btn btn-ghost" onClick={onClose}>Batal</button>
-                        <button className="btn btn-primary" onClick={handleSave} disabled={saving}>
+                        <button
+                            className={`btn ${onSaveNext && position < total ? 'btn-outline' : 'btn-primary'}`}
+                            onClick={() => handleSave(false)}
+                            disabled={saving}
+                        >
                             <Save size={16} />
-                            {saving ? 'Menyimpan...' : 'Simpan Koreksi'}
+                            {saving ? 'Menyimpan...' : 'Simpan'}
                         </button>
+                        {onSaveNext && position < total && (
+                            <button className="btn btn-primary" onClick={() => handleSave(true)} disabled={saving}>
+                                {saving ? 'Menyimpan...' : 'Simpan & Lanjut'}
+                                <ChevronRight size={16} />
+                            </button>
+                        )}
                     </div>
                 </div>
             </div>
@@ -417,6 +542,99 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                 }
                 .ai-chat-btn {
                     gap: 0.3rem;
+                }
+                .correction-modal {
+                    width: min(1100px, 96vw) !important;
+                    max-width: none !important;
+                    max-height: calc(100vh - 32px);
+                    display: flex;
+                    flex-direction: column;
+                }
+                .correction-modal .correction-body-simple {
+                    flex: 1 1 auto;
+                    min-height: 0;
+                    max-height: calc(100vh - 220px);
+                    overflow-y: auto;
+                    padding-top: 1rem;
+                }
+                .correction-position {
+                    display: inline-block;
+                    margin-left: 0.6rem;
+                    padding: 2px 10px;
+                    border-radius: 999px;
+                    background: rgba(37, 99, 235, 0.1);
+                    color: #1d4ed8;
+                    font-size: 0.75rem;
+                    font-weight: 700;
+                    vertical-align: middle;
+                }
+                .quick-scores {
+                    display: inline-flex;
+                    gap: 0.3rem;
+                    margin-left: 0.5rem;
+                    flex-wrap: wrap;
+                }
+                .quick-score {
+                    min-width: 40px;
+                    height: 34px;
+                    padding: 0 0.6rem;
+                    border-radius: 999px;
+                    border: 1px solid var(--border-color);
+                    background: rgba(255, 255, 255, 0.85);
+                    color: var(--text-secondary);
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    cursor: pointer;
+                }
+                .quick-score:hover {
+                    border-color: #2563eb;
+                    color: #1d4ed8;
+                }
+                .quick-score.is-on {
+                    background: #2563eb;
+                    border-color: #2563eb;
+                    color: #fff;
+                }
+                .ai-paste-box {
+                    flex-basis: 100%;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: flex-start;
+                    gap: 0.5rem;
+                }
+                .ai-paste-btn {
+                    gap: 0.3rem;
+                    color: #7c3aed !important;
+                }
+                @media (max-width: 640px) {
+                    .correction-modal {
+                        width: 100vw !important;
+                        height: 100dvh;
+                        max-height: 100dvh;
+                        border-radius: 0 !important;
+                    }
+                    .correction-modal .correction-body-simple {
+                        max-height: none;
+                    }
+                    .quick-scores {
+                        margin: 0.4rem 0 0;
+                        width: 100%;
+                    }
+                    .correction-modal .modal-footer {
+                        flex-wrap: wrap;
+                        gap: 0.5rem;
+                    }
+                    .correction-modal .modal-actions {
+                        width: 100%;
+                        display: flex;
+                        gap: 0.4rem;
+                    }
+                    .correction-modal .modal-actions .btn {
+                        flex: 1 1 0;
+                        justify-content: center;
+                        padding-left: 0.5rem;
+                        padding-right: 0.5rem;
+                    }
                 }
                 .ai-toolbar .ai-ask-all {
                     flex-basis: 100%;
@@ -788,6 +1006,23 @@ function KoreksiUjianPage() {
 
     const handleOpenCorrection = (student) => {
         setCorrectionModal({ open: true, student })
+    }
+
+    // Save, then open the next student in the list (preferring one not yet
+    // graded) without closing the window
+    const handleSaveAndNext = async (updatedStudent) => {
+        const ok = await handleSaveCorrection(updatedStudent)
+        if (!ok) return false
+        const list = selectedExam?.students || []
+        const i = list.findIndex(s => s.id === updatedStudent.id)
+        const after = list.slice(i + 1)
+        const next = after.find(s => s.totalScore === null && s.hasilStatus !== 'in_progress') || after[0]
+        if (next) setCorrectionModal({ open: true, student: next })
+        else {
+            setCorrectionModal({ open: false, student: null })
+            toast.success('Semua mahasiswa di daftar ini sudah dibuka.')
+        }
+        return true
     }
 
     const handleSaveCorrection = async (updatedStudent) => {
@@ -1282,6 +1517,9 @@ function KoreksiUjianPage() {
                     student={correctionModal.student}
                     questions={soalList}
                     onSave={handleSaveCorrection}
+                    onSaveNext={handleSaveAndNext}
+                    position={correctionModal.student && selectedExam ? selectedExam.students.findIndex(s => s.id === correctionModal.student.id) + 1 : 0}
+                    total={selectedExam?.students?.length || 0}
                 />
             </div>
 
