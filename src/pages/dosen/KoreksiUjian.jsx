@@ -19,101 +19,57 @@ import {
     Trash2,
     AlertCircle,
     Sparkles,
-    Loader2
+    ExternalLink,
+    Copy
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { useSettings } from '../../contexts/SettingsContext'
 import { toPercentScore } from '../../utils/gradeUtils'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { toast, errorMessage } from '../../components/Toast'
+import { AI_CHATS, buildGradingPrompt, openAiChat, copyText } from '../../utils/aiGradingPrompt'
 
 // Data kosong - akan diisi dari data nyata
 const EXAMS_TO_CORRECT = []
 const STUDENT_ANSWERS = []
 const QUESTIONS = []
 
-const AI_PROVIDER_KEY = 'cat_ai_provider'
-
-// AI grading suggestions (see api/ai-grade.js). Returns { score, reason, provider }.
-async function requestAiGrade(payload) {
-    const resp = await fetch('/api/ai-grade', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-    })
-    const data = await resp.json().catch(() => null)
-    if (!resp.ok || !data || data.error) {
-        throw new Error(data?.error || 'Layanan Tanya AI tidak tersedia.')
-    }
-    return data
-}
-
 function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
-    const { user } = useAuth()
     const [answers, setAnswers] = useState(student?.answers || [])
     const [saving, setSaving] = useState(false)
 
-    // ---- Tanya AI ----
-    const [aiProviders, setAiProviders] = useState(null) // null = loading, [] = not configured
-    const [aiProvider, setAiProvider] = useState(() => {
-        try { return localStorage.getItem(AI_PROVIDER_KEY) || '' } catch { return '' }
-    })
-    const [aiResults, setAiResults] = useState({}) // originalIndex -> { loading, score, reason, provider, error }
+    // ---- Tanya AI (opens ChatGPT / Claude / Gemini with a grading prompt) ----
+    const [openPrompt, setOpenPrompt] = useState(null) // originalIndex whose prompt is shown
 
-    useEffect(() => {
-        if (!isOpen || aiProviders !== null) return
-        fetch('/api/ai-grade')
-            .then(r => (r.ok ? r.json() : null))
-            .then(data => setAiProviders(Array.isArray(data?.providers) ? data.providers : []))
-            .catch(() => setAiProviders([]))
-    }, [isOpen, aiProviders])
-
-    // Results belong to one student
-    useEffect(() => {
-        setAiResults({})
-    }, [student])
-
-    const activeProvider = (aiProviders || []).find(p => p.id === aiProvider) || (aiProviders || [])[0] || null
-
-    const chooseProvider = (id) => {
-        setAiProvider(id)
-        try { localStorage.setItem(AI_PROVIDER_KEY, id) } catch { /* ignore */ }
-    }
-
-    const askAi = async (answer) => {
-        if (!activeProvider) return
-        const idx = answer.originalIndex
+    const promptFor = (answer) => {
         const question = questions.find(q => String(q.id) === String(answer.questionId))
-        setAiResults(prev => ({ ...prev, [idx]: { loading: true } }))
-        try {
-            let sessionToken = ''
-            try { sessionToken = localStorage.getItem('cat_session_token') || '' } catch { /* ignore */ }
-            const result = await requestAiGrade({
-                provider: activeProvider.id,
-                userId: user?.id,
-                sessionToken,
-                question: question?.pertanyaan || question?.text || '',
-                answerGuide: question?.pedoman_jawaban || '',
-                studentAnswer: typeof answer.answer === 'string' ? answer.answer : String(answer.answer ?? ''),
-                maxPoints: answer.maxPoints
-            })
-            setAiResults(prev => ({ ...prev, [idx]: { ...result, loading: false } }))
-        } catch (err) {
-            setAiResults(prev => ({ ...prev, [idx]: { loading: false, error: err.message } }))
+        return buildGradingPrompt({
+            question: question?.pertanyaan || question?.text || '',
+            answerGuide: question?.pedoman_jawaban || '',
+            maxPoints: answer.maxPoints,
+            studentAnswer: typeof answer.answer === 'string' ? answer.answer : String(answer.answer ?? '')
+        })
+    }
+
+    const askAi = async (chat, answer) => {
+        const { prefilled, copied } = await openAiChat(chat.id, promptFor(answer))
+        if (prefilled) {
+            toast.info(`${chat.label} dibuka di tab baru dengan prompt penilaian.${copied ? ' Prompt juga disalin.' : ''}`)
+        } else if (copied) {
+            toast.info(`${chat.label} dibuka. Prompt sudah disalin: tempel (Ctrl+V) di kolom chat lalu kirim.`)
+        } else {
+            setOpenPrompt(answer.originalIndex)
+            toast.warning(`${chat.label} dibuka, tetapi prompt gagal disalin otomatis. Salin dari kotak prompt di bawah jawaban.`)
         }
     }
 
-    const askAiForAll = async () => {
-        // One at a time: keeps within provider rate limits
-        for (const a of essayAnswers) {
-            if (aiResults[a.originalIndex]?.score !== undefined) continue
-            await askAi(a)
+    const copyPrompt = async (answer) => {
+        const ok = await copyText(promptFor(answer))
+        if (ok) toast.success('Prompt penilaian disalin.')
+        else {
+            setOpenPrompt(answer.originalIndex)
+            toast.warning('Gagal menyalin otomatis. Salin manual dari kotak prompt.')
         }
-    }
-
-    const applyAiScore = (answer) => {
-        const r = aiResults[answer.originalIndex]
-        if (r && typeof r.score === 'number') handlePointChange(answer.originalIndex, r.score)
     }
 
     // Reset answers when student changes
@@ -121,6 +77,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
         if (student?.answers) {
             setAnswers(student.answers)
         }
+        setOpenPrompt(null)
     }, [student])
 
     const handlePointChange = (index, points) => {
@@ -217,33 +174,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                             <div className="ai-toolbar">
                                 <Sparkles size={16} />
                                 <span className="ai-toolbar-label">Tanya AI</span>
-                                {aiProviders === null ? (
-                                    <span className="ai-toolbar-note">Memeriksa layanan AI…</span>
-                                ) : aiProviders.length === 0 ? (
-                                    <span className="ai-toolbar-note">Belum aktif. Admin perlu mengisi API key Claude, ChatGPT, atau Gemini di Vercel.</span>
-                                ) : (
-                                    <>
-                                        <select
-                                            className="form-input ai-provider-select"
-                                            value={activeProvider?.id || ''}
-                                            onChange={e => chooseProvider(e.target.value)}
-                                            aria-label="Pilih AI"
-                                        >
-                                            {aiProviders.map(p => (
-                                                <option key={p.id} value={p.id}>{p.label}</option>
-                                            ))}
-                                        </select>
-                                        <button
-                                            type="button"
-                                            className="btn btn-outline btn-sm"
-                                            onClick={askAiForAll}
-                                            disabled={essayAnswers.some(a => aiResults[a.originalIndex]?.loading)}
-                                        >
-                                            Tanya semua essay
-                                        </button>
-                                        <span className="ai-toolbar-note">Saran saja. Nilai akhir tetap Anda yang menentukan.</span>
-                                    </>
-                                )}
+                                <span className="ai-toolbar-note">Buka ChatGPT, Claude, atau Gemini dengan prompt penilaian otomatis. Nama & NIM tidak ikut. Nilai akhir tetap Anda yang menentukan.</span>
                             </div>
                             <div className="essay-grading-list">
                                 {essayAnswers.map((answer, idx) => {
@@ -283,32 +214,40 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                 <strong>Jawaban:</strong>
                                                 <p>{answer.answer || '(Tidak dijawab)'}</p>
                                             </div>
-                                            {(() => {
-                                                const r = aiResults[answer.originalIndex]
-                                                if (!r) return null
-                                                if (r.loading) {
-                                                    return (
-                                                        <div className="ai-result ai-result-loading">
-                                                            <Loader2 size={16} className="spin" />
-                                                            <span>{activeProvider?.label || 'AI'} sedang menilai…</span>
-                                                        </div>
-                                                    )
-                                                }
-                                                if (r.error) {
-                                                    return <div className="ai-result ai-result-error">{r.error}</div>
-                                                }
-                                                return (
-                                                    <div className="ai-result">
-                                                        <div className="ai-result-head">
-                                                            <span><Sparkles size={14} /> Saran {r.provider}: <strong>{r.score}/{answer.maxPoints}</strong></span>
-                                                            <button type="button" className="btn btn-primary btn-sm" onClick={() => applyAiScore(answer)}>
-                                                                Pakai nilai ini
-                                                            </button>
-                                                        </div>
-                                                        {r.reason && <p>{r.reason}</p>}
-                                                    </div>
-                                                )
-                                            })()}
+                                            <div className="ai-ask-row">
+                                                <span className="ai-ask-label"><Sparkles size={14} /> Tanya AI:</span>
+                                                {AI_CHATS.map(chat => (
+                                                    <button
+                                                        key={chat.id}
+                                                        type="button"
+                                                        className={`btn btn-outline btn-sm ai-chat-btn ai-chat-${chat.id}`}
+                                                        onClick={() => askAi(chat, answer)}
+                                                        title={`Buka ${chat.label} dengan prompt penilaian`}
+                                                    >
+                                                        {chat.label}
+                                                        <ExternalLink size={12} />
+                                                    </button>
+                                                ))}
+                                                <button type="button" className="btn btn-ghost btn-sm" onClick={() => copyPrompt(answer)}>
+                                                    <Copy size={13} /> Salin prompt
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-sm"
+                                                    onClick={() => setOpenPrompt(openPrompt === answer.originalIndex ? null : answer.originalIndex)}
+                                                >
+                                                    {openPrompt === answer.originalIndex ? 'Tutup prompt' : 'Lihat prompt'}
+                                                </button>
+                                            </div>
+                                            {openPrompt === answer.originalIndex && (
+                                                <textarea
+                                                    className="form-input ai-prompt-preview"
+                                                    readOnly
+                                                    rows={10}
+                                                    value={promptFor(answer)}
+                                                    onFocus={e => e.target.select()}
+                                                />
+                                            )}
                                             <div className="essay-score-input">
                                                 <label>Nilai:</label>
                                                 <input
@@ -321,17 +260,6 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                                     placeholder="0"
                                                 />
                                                 <span className="points-max-label">/ {answer.maxPoints}</span>
-                                                {activeProvider && (
-                                                    <button
-                                                        type="button"
-                                                        className="btn btn-outline btn-sm ai-ask-btn"
-                                                        onClick={() => askAi(answer)}
-                                                        disabled={!!aiResults[answer.originalIndex]?.loading}
-                                                    >
-                                                        <Sparkles size={14} />
-                                                        Tanya {activeProvider.label}
-                                                    </button>
-                                                )}
                                             </div>
                                         </div>
                                     )
@@ -398,53 +326,35 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                     font-size: 0.75rem;
                     color: var(--text-muted);
                 }
-                .ai-provider-select {
-                    width: auto !important;
-                    min-width: 130px;
-                    min-height: 34px !important;
-                    padding: 0.25rem 0.8rem !important;
-                    font-size: 0.85rem !important;
-                }
-                .ai-ask-btn {
-                    margin-left: auto;
-                    color: #7c3aed !important;
-                }
-                .ai-result {
-                    border-radius: 14px;
-                    padding: 0.65rem 0.8rem;
-                    margin-bottom: var(--space-3);
-                    background: rgba(139, 92, 246, 0.07);
-                    border: 1px solid rgba(139, 92, 246, 0.22);
-                    font-size: var(--font-size-sm);
-                }
-                .ai-result-head {
+                .ai-ask-row {
                     display: flex;
                     flex-wrap: wrap;
                     align-items: center;
-                    justify-content: space-between;
-                    gap: 0.5rem;
-                    color: #6d28d9;
+                    gap: 0.4rem;
+                    margin-bottom: var(--space-3);
                 }
-                .ai-result-head span {
+                .ai-ask-label {
                     display: inline-flex;
                     align-items: center;
                     gap: 0.3rem;
+                    font-size: 0.8rem;
+                    font-weight: 700;
+                    color: #7c3aed;
+                    margin-right: 0.15rem;
                 }
-                .ai-result p {
-                    margin: 0.4rem 0 0;
-                    color: var(--text-secondary);
-                    line-height: 1.5;
+                .ai-chat-btn {
+                    gap: 0.3rem;
                 }
-                .ai-result-loading {
-                    display: flex;
-                    align-items: center;
-                    gap: 0.5rem;
-                    color: #6d28d9;
-                }
-                .ai-result-error {
-                    background: var(--error-50);
-                    border-color: var(--error-500);
-                    color: var(--error-600);
+                .ai-chat-chatgpt { color: #0f766e !important; }
+                .ai-chat-claude { color: #c2410c !important; }
+                .ai-chat-gemini { color: #2563eb !important; }
+                .ai-prompt-preview {
+                    width: 100%;
+                    margin-bottom: var(--space-3);
+                    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+                    font-size: 0.75rem !important;
+                    line-height: 1.45;
+                    border-radius: 14px !important;
                 }
                 .essay-score-input {
                     flex-wrap: wrap;
