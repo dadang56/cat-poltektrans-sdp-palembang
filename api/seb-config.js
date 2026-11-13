@@ -27,15 +27,18 @@ const xml = s => String(s)
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
 
+// { hash } or { reason } ('no-env' | 'db-error' | 'no-password')
 async function loadQuitHash() {
-    if (!SUPABASE_URL || !SUPABASE_KEY) return null
+    if (!SUPABASE_URL || !SUPABASE_KEY) return { reason: 'no-env' }
     const r = await fetch(`${SUPABASE_URL}/rest/v1/app_settings?key=eq.app_config&select=value`, {
         headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${SUPABASE_KEY}` }
     })
-    if (!r.ok) return null
+    if (!r.ok) return { reason: 'db-error' }
     const rows = await r.json()
     const hash = rows?.[0]?.value?.sebQuitHash
-    return typeof hash === 'string' && /^[0-9A-F]{64}$/i.test(hash) ? hash.toUpperCase() : null
+    return typeof hash === 'string' && /^[0-9A-F]{64}$/i.test(hash)
+        ? { hash: hash.toUpperCase() }
+        : { reason: 'no-password' }
 }
 
 export function buildSebConfig({ origin, quitHash }) {
@@ -82,12 +85,15 @@ export default async function handler(req, res) {
     }
     const origin = `https://${host}`
 
-    let quitHash = null
+    let loaded
     try {
-        quitHash = await loadQuitHash()
+        loaded = await loadQuitHash()
     } catch {
-        quitHash = null
+        loaded = { reason: 'db-error' }
     }
+    const quitHash = loaded.hash
+    // for checking the deployment without exposing anything
+    res.setHeader('X-SEB-Config', quitHash ? 'ok' : loaded.reason)
 
     if (!quitHash) {
         // Not a config file: SEB shows this text as a page
