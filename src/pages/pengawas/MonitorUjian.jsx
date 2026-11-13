@@ -34,6 +34,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { jam } from '../../utils/timeFormat'
+import { watchMonitor } from '../../services/monitorSignal'
 
 function MonitorUjian() {
   const { user } = useAuth()
@@ -319,15 +320,23 @@ function MonitorUjian() {
     setSelectedRoom(null)
   }
 
-  // Real-time polling: refresh participants every 30 seconds (optimized from 5s)
+  // Students' browsers signal start / violation / submit (services/
+  // monitorSignal.js): reload right away. Polling every 30 s stays as the
+  // fallback in case a signal is lost.
+  const refreshRef = useRef(null)
   useEffect(() => {
-    if (!selectedRoom) return
-    const interval = setInterval(() => {
-      handleRefresh()
-    }, 30000)
-
-    return () => clearInterval(interval)
-  }, [selectedRoom])
+    refreshRef.current = handleRefresh
+  })
+  const roomJadwalKey = (selectedRoom?.jadwalIds || (selectedRoom?.jadwalId ? [selectedRoom.jadwalId] : [])).join(',')
+  useEffect(() => {
+    if (!roomJadwalKey) return
+    const stop = watchMonitor(roomJadwalKey.split(','), () => refreshRef.current?.())
+    const interval = setInterval(() => refreshRef.current?.(), 30000)
+    return () => {
+      stop()
+      clearInterval(interval)
+    }
+  }, [roomJadwalKey])
 
   const handleRefresh = async () => {
     setIsRefreshing(true)

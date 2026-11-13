@@ -30,6 +30,7 @@ import './TakeExamGlass.css'
 import { sebConfigLink, sebQuitUrl, isRealSeb } from '../../utils/sebGate'
 import { toast } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { signalMonitor } from '../../services/monitorSignal'
 
 // LocalStorage keys
 
@@ -419,6 +420,7 @@ function TakeExamPage() {
                                     waktu_mulai: startNow.toISOString()
                                 })
                                 if (result?.id) setExistingHasilId(result.id)
+                                signalMonitor(jadwal.id, 'start')
                                 // Mark active session so page refresh doesn't trigger re-approval
                                 sessionStorage.setItem(`active_exam_${jadwal.id}_${user.id}`, 'true')
                                 console.log('[TakeExam] New exam session recorded')
@@ -493,7 +495,9 @@ function TakeExamPage() {
                         hasilUjianService.update(hasilId, {
                             jumlah_pelanggaran: count,
                             violation_log: JSON.stringify(violationsRef.current)
-                        }).catch(err => console.error('[TakeExam] Failed to save violation:', err))
+                        })
+                            .then(() => signalMonitor(id, 'violation'))
+                            .catch(err => console.error('[TakeExam] Failed to save violation:', err))
                     }
 
                     // Auto-submit if max warnings reached
@@ -876,6 +880,7 @@ function TakeExamPage() {
                 }
 
                 await hasilUjianService.saveFinalResult(hasilData)
+                signalMonitor(id, 'submit')
                 console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
             } catch (error) {
                 console.error('[TakeExam] Error saving to Supabase:', error)
