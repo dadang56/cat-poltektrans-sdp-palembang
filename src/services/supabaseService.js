@@ -1622,3 +1622,60 @@ export const backupService = {
         return { inserted, errors }
     }
 }
+
+// ============================================
+// Short-lived cache for master data
+// ============================================
+// Prodi, kelas, mata kuliah and ruang lists rarely change but almost every
+// page asks for them, so moving between menu items waited on the same
+// queries again and again. Reads are kept for 2 minutes (per filter set);
+// any write through the same service clears that service's cache. Callers
+// get their own copy, so sorting or editing a result can't leak to others.
+const MASTER_CACHE_MS = 2 * 60 * 1000
+
+function cacheReads(service, readMethods) {
+    const store = new Map() // key -> { at, promise }
+    for (const [name, fn] of Object.entries(service)) {
+        if (typeof fn !== 'function') continue
+        if (readMethods.includes(name)) {
+            service[name] = function (...args) {
+                const key = name + ':' + JSON.stringify(args)
+                const hit = store.get(key)
+                if (!hit || Date.now() - hit.at > MASTER_CACHE_MS) {
+                    const promise = fn.apply(service, args)
+                    store.set(key, { at: Date.now(), promise })
+                    // failed reads are not kept
+                    promise.catch(() => { if (store.get(key)?.promise === promise) store.delete(key) })
+                }
+                return store.get(key).promise.then(data => (data == null ? data : structuredClone(data)))
+            }
+        } else {
+            service[name] = async function (...args) {
+                store.clear()
+                try {
+                    return await fn.apply(service, args)
+                } finally {
+                    store.clear()
+                }
+            }
+        }
+    }
+    return () => store.clear()
+}
+
+const clearMasterCaches = [
+    cacheReads(prodiService, ['getAll', 'getById']),
+    cacheReads(kelasService, ['getAll']),
+    cacheReads(matkulService, ['getAll']),
+    cacheReads(ruangService, ['getAll'])
+]
+
+// A restore can rewrite any table
+const restoreTable = backupService.restoreTable
+backupService.restoreTable = async function (...args) {
+    try {
+        return await restoreTable.apply(backupService, args)
+    } finally {
+        clearMasterCaches.forEach(clear => clear())
+    }
+}
