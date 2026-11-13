@@ -91,7 +91,8 @@ function ProtectedRoute({ children, allowedRoles }) {
 function App() {
   const [user, setUser] = useState(null)
   const [isLoading, setIsLoading] = useState(true)
-  const [theme, setTheme] = useState('dark')
+  // Light theme only (user decision 2026-11-13): no dark mode, no toggle
+  const [theme] = useState('light')
   const [sessionMessage, setSessionMessage] = useState(null)
 
   // Check for existing session on mount using authService
@@ -104,10 +105,9 @@ function App() {
           setUser(currentUser)
         }
 
-        // Load theme preference
-        const savedTheme = localStorage.getItem('cat_theme') || 'dark'
-        setTheme(savedTheme)
-        document.documentElement.setAttribute('data-theme', savedTheme)
+        // Always light; drop any dark preference saved earlier
+        try { localStorage.removeItem('cat_theme') } catch { /* storage blocked */ }
+        document.documentElement.setAttribute('data-theme', 'light')
       } catch (error) {
         console.error('[App] Auth init error:', error)
       } finally {
@@ -221,11 +221,9 @@ function App() {
     setUser(null)
   }
 
+  // Kept for callers; the app is light-only
   const toggleTheme = () => {
-    const newTheme = theme === 'light' ? 'dark' : 'light'
-    setTheme(newTheme)
-    localStorage.setItem('cat_theme', newTheme)
-    document.documentElement.setAttribute('data-theme', newTheme)
+    document.documentElement.setAttribute('data-theme', 'light')
   }
 
   const authValue = {

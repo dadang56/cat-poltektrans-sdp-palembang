@@ -11,8 +11,6 @@ import {
     Settings,
     LogOut,
     GraduationCap,
-    Moon,
-    Sun,
     Menu,
     X,
     ClipboardList,
@@ -131,7 +129,7 @@ const ROLE_LABELS = {
 }
 
 function DashboardLayout({ children }) {
-    const { user, logout, theme, toggleTheme } = useAuth()
+    const { user, logout } = useAuth()
     const { settings } = useSettings()
     const activeAcademicYear = getActiveAcademicYear(settings, user)
     const navigate = useNavigate()
@@ -319,16 +317,6 @@ function DashboardLayout({ children }) {
                                 <span className="header-user-role">{ROLE_LABELS[user?.role]}</span>
                             </div>
                         </div>
-
-                        {/* Theme Toggle */}
-                        <button
-                            className="btn btn-icon btn-ghost"
-                            onClick={toggleTheme}
-                            title={theme === 'light' ? 'Mode Gelap' : 'Mode Terang'}
-                            aria-label={theme === 'light' ? 'Aktifkan mode gelap' : 'Aktifkan mode terang'}
-                        >
-                            {theme === 'light' ? <Moon size={20} /> : <Sun size={20} />}
-                        </button>
 
                         {/* Logout Button */}
                         <button
