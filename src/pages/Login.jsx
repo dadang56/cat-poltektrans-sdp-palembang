@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '../App'
 import { useSettings } from '../contexts/SettingsContext'
 import { isSupabaseConfigured } from '../services/supabaseService'
@@ -124,6 +124,35 @@ function Login() {
         } catch { /* old browser: just play */ }
         return true
     })()
+    // Start the video only once the page has finished loading and the
+    // whole clip is buffered, so it doesn't stutter while the app is still
+    // starting up. If a browser never reports "ready" (iOS often doesn't
+    // preload), start anyway after 2.5 s.
+    const videoRef = useRef(null)
+    useEffect(() => {
+        const v = videoRef.current
+        if (!v) return
+        let started = false
+        const play = () => {
+            if (started) return
+            started = true
+            v.muted = true
+            requestAnimationFrame(() => { v.play().catch(() => { /* stays on the poster */ }) })
+        }
+        const maybeStart = () => {
+            if (v.readyState >= 4 && document.readyState === 'complete') play()
+        }
+        v.addEventListener('canplaythrough', maybeStart)
+        window.addEventListener('load', maybeStart)
+        maybeStart()
+        const fallback = setTimeout(play, 2500)
+        return () => {
+            clearTimeout(fallback)
+            v.removeEventListener('canplaythrough', maybeStart)
+            window.removeEventListener('load', maybeStart)
+        }
+    }, [])
+
     const appName = settings?.appName || 'Si-PANDU'
     const tagline = settings?.appSubtitle || 'Sistem Penilaian Terpadu'
     // Caps Lock on is the usual reason a correct password "doesn't work"
@@ -141,10 +170,10 @@ function Login() {
                         asks for less motion or to save data. */}
                     {playVideo ? (
                         <video
+                            ref={videoRef}
                             className="login-hero-video"
                             src="/media/kapten-kemudi.mp4"
                             poster="/media/kapten-kemudi-awal.webp"
-                            autoPlay
                             muted
                             playsInline
                             preload="auto"
