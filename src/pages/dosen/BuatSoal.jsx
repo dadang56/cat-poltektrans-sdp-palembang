@@ -723,7 +723,7 @@ function BuatSoalPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
     const tahunAkademik = getActiveAcademicYear(settings, user)
-    const { showConfirm } = useConfirm()
+    const { showConfirm, ask } = useConfirm()
     const [questions, setQuestions] = useState([])
     const [matkulList, setMatkulList] = useState([])
     const [kelasList, setKelasList] = useState([])
@@ -1049,7 +1049,7 @@ function BuatSoalPage() {
             if (!(editingQuestion && !editingQuestion._isNewVariant) && selectedPackage) {
                 const key = normalizeSoalText(questionData.text)
                 if (key && getPackageQuestions().some(q => normalizeSoalText(q.text) === key) &&
-                    !window.confirm('Soal dengan teks yang sama sudah ada di paket ini. Tetap simpan sebagai soal baru?')) {
+                    !(await ask({ title: 'Soal Sudah Ada', message: 'Soal dengan teks yang sama sudah ada di paket ini. Tetap simpan sebagai soal baru?', confirmText: 'Tetap Simpan' }))) {
                     return false
                 }
             }
@@ -1484,9 +1484,9 @@ function BuatSoalPage() {
         const sourceYearMatch = file.name.match(/(20\d{2})-(20\d{2})-(Ganjil|Genap)/i)
         if (sourceYearMatch) {
             const sourceTahunAkademik = `${sourceYearMatch[1]}/${sourceYearMatch[2]} ${sourceYearMatch[3][0].toUpperCase()}${sourceYearMatch[3].slice(1).toLowerCase()}`
-            if (tahunAkademik && sourceTahunAkademik !== tahunAkademik && !confirm(
+            if (tahunAkademik && sourceTahunAkademik !== tahunAkademik && !await ask({ title: 'Periode Berbeda', message:
                 `File ini dibuat untuk ${sourceTahunAkademik}, sedangkan periode aktif adalah ${tahunAkademik}. Soal akan disimpan ke periode aktif. Lanjutkan?`
-            )) return
+            })) return
         }
 
         let rows

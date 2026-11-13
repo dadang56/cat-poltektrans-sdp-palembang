@@ -28,6 +28,7 @@ import { toPercentScore } from '../../utils/gradeUtils'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { toast, errorMessage } from '../../components/Toast'
 import { AI_CHATS, buildGradingPrompt, buildBulkGradingPrompt, openAiChat, copyText } from '../../utils/aiGradingPrompt'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 // Data kosong - akan diisi dari data nyata
 const EXAMS_TO_CORRECT = []
@@ -502,6 +503,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
 }
 
 function KoreksiUjianPage() {
+    const { ask } = useConfirm()
     const { user } = useAuth()
     const { settings } = useSettings()
     const tahunAkademik = getActiveAcademicYear(settings, user)
@@ -752,18 +754,16 @@ function KoreksiUjianPage() {
     const handleDeleteExamResults = async (exam, e) => {
         if (e) e.stopPropagation()
         
-        const confirmName = prompt(
-            `⚠️ PERINGATAN: Semua hasil ujian "${exam.name}" (${exam.totalStudents} mahasiswa) akan DIHAPUS!\n\n` +
-            `Mahasiswa dapat mengerjakan ujian kembali dari awal.\n\n` +
-            `Untuk konfirmasi, ketik nama ujian: "${exam.name}"`
-        )
-        
-        if (confirmName !== exam.name) {
-            if (confirmName !== null) { // null = user cancelled
-                toast.warning('Nama ujian tidak cocok. Penghapusan dibatalkan.')
-            }
-            return
-        }
+        const confirmed = await ask({
+            title: 'Hapus Semua Hasil Ujian',
+            message: `Semua hasil ujian "${exam.name}" (${exam.totalStudents} mahasiswa) akan DIHAPUS. ` +
+                `Mahasiswa dapat mengerjakan ujian kembali dari awal.\n\n` +
+                `Untuk konfirmasi, ketik nama ujian: ${exam.name}`,
+            requireText: exam.name,
+            confirmText: 'Hapus Semua',
+            confirmVariant: 'error'
+        })
+        if (!confirmed) return
         
         try {
             // 1. Delete all jawaban for this jadwal
@@ -953,7 +953,7 @@ function KoreksiUjianPage() {
     }
 
     const handleRegradeAll = async () => {
-        if (!confirm('Regrade semua hasil ujian? Ini akan menghitung ulang nilai berdasarkan kunci jawaban terbaru.')) return
+        if (!(await ask({ title: 'Hitung Ulang Nilai', message: 'Regrade semua hasil ujian? Ini akan menghitung ulang nilai berdasarkan kunci jawaban terbaru.', confirmText: 'Hitung Ulang' }))) return
         setRegrading(true)
         try {
             // Fetch ALL soal for correct answers
@@ -1048,7 +1048,7 @@ function KoreksiUjianPage() {
             }
 
             const skippedNote = skippedRunning ? ` ${skippedRunning} peserta yang masih mengerjakan ujian dilewati.` : ''
-            alert(`Regrade selesai! ${changedCount} hasil ujian diperbarui.${skippedNote}`)
+            toast.success(`Regrade selesai: ${changedCount} hasil ujian diperbarui.${skippedNote}`)
             // Reload page to see changes (alert kept: a toast would vanish with the reload)
             window.location.reload()
         } catch (error) {

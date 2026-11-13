@@ -28,6 +28,8 @@ import {
 import './TakeExam.css'
 import './TakeExamGlass.css'
 import { sebConfigLink, sebQuitUrl, isRealSeb } from '../../utils/sebGate'
+import { toast } from '../../components/Toast'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 // LocalStorage keys
 
@@ -39,6 +41,7 @@ const DEFAULT_ANTICHEAT_SETTINGS = {
 }
 
 function TakeExamPage() {
+    const { notify } = useConfirm()
     const { user } = useAuth()
     const { settings } = useSettings()
     const { id } = useParams()
@@ -144,14 +147,14 @@ function TakeExamPage() {
                 // Block entry if exam is not activated by pengawas/admin
                 if (jadwal && jadwal.status !== 'ongoing') {
                     console.log('[TakeExam] Exam not activated. Status:', jadwal.status)
-                    alert('Ujian belum diaktifkan oleh pengawas/admin prodi. Silakan tunggu hingga ujian dibuka.')
+                    toast.warning('Ujian belum diaktifkan oleh pengawas/admin prodi. Silakan tunggu hingga ujian dibuka.')
                     setLoading(false)
                     navigate('/mahasiswa/ujian')
                     return
                 }
 
                 if (jadwal && allSoal.length === 0) {
-                    alert(`Soal untuk ${jadwal.tipe || 'ujian'} ${jadwal.tahun_akademik || getActiveAcademicYear(settings, user)} belum tersedia.`)
+                    toast.warning(`Soal untuk ${jadwal.tipe || 'ujian'} ${jadwal.tahun_akademik || getActiveAcademicYear(settings, user)} belum tersedia.`)
                     setLoading(false)
                     navigate('/mahasiswa/ujian')
                     return
@@ -876,7 +879,7 @@ function TakeExamPage() {
                 console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
             } catch (error) {
                 console.error('[TakeExam] Error saving to Supabase:', error)
-                alert('Jawaban ujian GAGAL tersimpan ke server. Jangan tutup halaman ini dan segera lapor ke pengawas.')
+                notify({ title: 'Jawaban Gagal Tersimpan', message: 'Jawaban ujian GAGAL tersimpan ke server. Jangan tutup halaman ini dan segera lapor ke pengawas.' })
             }
         }
 
@@ -1145,7 +1148,7 @@ function TakeExamPage() {
                                     // Copy sebs:// link to clipboard
                                     const sebLink = sebConfigLink()
                                     navigator.clipboard?.writeText(sebLink)
-                                    alert('Link SEB disalin: ' + sebLink)
+                                    toast.success('Link SEB disalin: ' + sebLink)
                                 }}
                             >
                                 📋 Salin Link SEB

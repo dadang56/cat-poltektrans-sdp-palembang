@@ -459,7 +459,7 @@ function JadwalModal({ isOpen, onClose, jadwal, onSave, matkulList = [], kelasLi
 function JadwalUjianPage() {
     const { user } = useAuth()
     const { settings } = useSettings()
-    const { showConfirm } = useConfirm()
+    const { showConfirm, ask } = useConfirm()
 
     // State
     const [jadwalList, setJadwalList] = useState([])
@@ -578,11 +578,11 @@ function JadwalUjianPage() {
         // exam date (e.g. Genap still active for a November exam).
         if (!editingJadwal && data.tanggal && settings?.tahunAkademik) {
             const dateYear = getCurrentAcademicYear(new Date(`${data.tanggal}T12:00:00`))
-            if (dateYear !== settings.tahunAkademik && !window.confirm(
+            if (dateYear !== settings.tahunAkademik && !await ask({ title: 'Tahun Akademik Berbeda', message:
                 `Tanggal ujian ${data.tanggal} termasuk ${dateYear}, tetapi Tahun Akademik aktif adalah ${settings.tahunAkademik}.\n\n` +
                 `Jadwal akan disimpan ke ${settings.tahunAkademik}. Soal dosen dan peserta harus di tahun yang sama.\n\n` +
                 `Lanjutkan? (Batal untuk mengganti Tahun Akademik aktif dulu di Pengaturan)`
-            )) return
+            })) return
         }
         // A class can't sit two exams at the same time: reject overlapping
         // windows on the same date (checked against the database).

@@ -164,6 +164,15 @@ html.dashboard-locked #root {
         display: none; /* "MENU UTAMA" adds nothing on a phone */
     }
 
+    /* Admin group names do help find things in a long menu */
+    .dashboard-layout .nav-section-title.nav-group-title,
+    .dashboard-layout .nav-section > .nav-section-title:first-child:not(:only-of-type) {
+        display: block;
+        margin: 0.7rem 0 0.15rem;
+        padding: 0 0.4rem;
+        font-size: 0.66rem;
+    }
+
     .dashboard-layout .sidebar-nav {
         padding: 0.75rem 0.75rem 4.5rem;
     }
@@ -283,6 +292,15 @@ html.dashboard-locked #root {
     .dashboard-layout .page-title svg {
         width: 22px;
         height: 22px;
+    }
+
+    /* Same words as the header bar above it */
+    .dashboard-layout .page-title.dup-title {
+        display: none;
+    }
+
+    .dashboard-layout .page-header:has(.dup-title) {
+        margin-bottom: 0.6rem;
     }
 
     /* Descriptions under the title repeat what the menu already says.
@@ -822,5 +840,107 @@ html.dashboard-locked #root {
     .confirm-dialog,
     .app-toast {
         background: #fff !important;
+    }
+}
+
+/* ---------- Tables as cards (phones) ----------
+   utils/tableCards.js labels each cell with its column heading and adds
+   .table-cards; here every row becomes a card of "label ... value" lines,
+   so no column is hidden off the right edge. */
+@media screen and (max-width: 640px) {
+    .dashboard-layout .table-container:has(> table.table-cards),
+    .dashboard-layout .table-responsive:has(> table.table-cards),
+    .dashboard-layout .nk-table-wrap:has(> table.table-cards) {
+        overflow-x: visible;
+        border: 0;
+        background: transparent;
+        box-shadow: none;
+    }
+
+    .dashboard-layout table.table-cards {
+        display: block;
+        width: 100% !important;
+        min-width: 0 !important;
+        border: 0;
+        background: transparent;
+    }
+
+    .dashboard-layout table.table-cards thead {
+        display: none;
+    }
+
+    .dashboard-layout table.table-cards tbody {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+    }
+
+    .dashboard-layout table.table-cards tr {
+        display: block;
+        padding: 0.55rem 0.85rem;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid var(--glass-stroke, rgba(99, 115, 160, 0.18));
+        border-radius: 18px;
+        box-shadow: 0 4px 14px -10px rgba(30, 50, 100, 0.3);
+    }
+
+    .dashboard-layout table.table-cards td {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+        min-height: 2rem;
+        padding: 0.3rem 0 !important;
+        border: 0 !important;
+        border-bottom: 1px dashed rgba(99, 115, 160, 0.14) !important;
+        text-align: right !important;
+        white-space: normal !important;
+        font-size: 0.84rem;
+        background: transparent !important;
+        width: auto !important;
+        max-width: none !important;
+    }
+
+    .dashboard-layout table.table-cards td:last-child {
+        border-bottom: 0 !important;
+    }
+
+    .dashboard-layout table.table-cards td::before {
+        content: attr(data-label);
+        flex: 0 0 auto;
+        max-width: 42%;
+        text-align: left;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+        color: var(--text-muted);
+    }
+
+    .dashboard-layout table.table-cards td[data-label=""]::before,
+    .dashboard-layout table.table-cards td:not([data-label])::before {
+        content: none;
+    }
+
+    /* the value side: let long names wrap, keep inputs/buttons together */
+    .dashboard-layout table.table-cards td > * {
+        min-width: 0;
+    }
+
+    .dashboard-layout table.table-cards td input,
+    .dashboard-layout table.table-cards td select {
+        max-width: 9rem;
+    }
+
+    /* row numbers add nothing on a card */
+    .dashboard-layout table.table-cards td[data-label="No" i],
+    .dashboard-layout table.table-cards td[data-label="No." i],
+    .dashboard-layout table.table-cards td[data-label="#"] {
+        display: none;
+    }
+
+    /* rows without labels ("Tidak ada data") stay centred */
+    .dashboard-layout table.table-cards td:not([data-label]) {
+        justify-content: center;
+        text-align: center !important;
     }
 }

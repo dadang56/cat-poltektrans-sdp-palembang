@@ -246,10 +246,10 @@ function NilaiKondite() {
         <DashboardLayout>
             <div className="nk-container animate-fadeIn">
                 {/* Header */}
-                <div className="nk-header">
+                <div className="page-header nk-header">
                     <div>
-                        <h1 className="nk-title">📋 Nilai Kondite</h1>
-                        <p className="nk-subtitle">Input dan kelola nilai kondite mahasiswa (skala 0-4)</p>
+                        <h1 className="page-title nk-title">Nilai Kondite</h1>
+                        <p className="page-subtitle nk-subtitle">Input dan kelola nilai kondite mahasiswa (skala 0-4)</p>
                     </div>
                     <div className="nk-header-actions">
                         <button className="nk-btn nk-btn-outline" onClick={handleDownloadTemplate}><FileSpreadsheet size={16} /> Template</button>

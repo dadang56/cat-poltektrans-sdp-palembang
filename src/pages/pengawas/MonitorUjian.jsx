@@ -34,6 +34,7 @@ import {
   Timer
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { jam } from '../../utils/timeFormat'
 
 function MonitorUjian() {
   const { user } = useAuth()
@@ -855,7 +856,7 @@ function MonitorUjian() {
                     <div className="room-exam" style={{ fontSize: '0.85rem' }}>{room.exam}</div>
                     <div className="room-time">
                       <Clock size={14} />
-                      {room.startTime} - {room.endTime}
+                      {jam(room.startTime)} - {jam(room.endTime)}
                     </div>
                     <div className="room-participants">
                       <Users size={14} />
@@ -910,7 +911,7 @@ function MonitorUjian() {
                 </button>
                 <h1 className="page-title">{selectedRoom.exam}</h1>
                 <p className="page-subtitle keep-mobile">
-                  {selectedRoom.name} • {selectedRoom.startTime} - {selectedRoom.endTime}
+                  {selectedRoom.name} • {jam(selectedRoom.startTime)} - {jam(selectedRoom.endTime)}
                 </p>
               </div>
               <div className="monitor-header-actions">

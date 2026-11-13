@@ -18,9 +18,11 @@ import {
     Calendar
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { supabase } from '../../lib/supabase'
 
 function DosenDashboard() {
     const { user } = useAuth()
+    const [nimCheck, setNimCheck] = useState({ query: '', loading: false, result: null })
     const { settings } = useSettings()
     const tahunAkademik = getActiveAcademicYear(settings, user)
     const navigate = useNavigate()
@@ -434,45 +436,74 @@ function DosenDashboard() {
                             </div>
                         </div>
                         <div className="card-body">
-                            <div className="flex gap-2">
+                            <form
+                                className="flex gap-2"
+                                onSubmit={async (e) => {
+                                    e.preventDefault()
+                                    const nim = nimCheck.query.trim()
+                                    if (!nim) return
+                                    setNimCheck(prev => ({ ...prev, loading: true, result: null }))
+                                    try {
+                                        // only what the dosen needs to see
+                                        const { data, error } = await supabase
+                                            .from('users')
+                                            .select('nama, nim_nip, status, role')
+                                            .ilike('nim_nip', nim)
+                                            .maybeSingle()
+                                        if (error) throw error
+                                        setNimCheck(prev => ({ ...prev, loading: false, result: data ? { found: true, ...data } : { found: false, nim } }))
+                                    } catch (err) {
+                                        setNimCheck(prev => ({ ...prev, loading: false, result: { error: err.message || 'Gagal memeriksa' } }))
+                                    }
+                                }}
+                            >
                                 <input
                                     type="text"
-                                    id="checkNim"
-                                    placeholder="Masukkan NIM/Username (ex: DILA)"
+                                    placeholder="Masukkan NIM / username"
                                     className="form-input"
                                     style={{ flex: 1 }}
+                                    value={nimCheck.query}
+                                    onChange={e => setNimCheck({ query: e.target.value, loading: false, result: null })}
                                 />
-                                <button
-                                    className="btn btn-primary btn-sm"
-                                    onClick={async () => {
-                                        const nim = document.getElementById('checkNim').value;
-                                        if (!nim) return alert('Masukkan NIM!');
-
-                                        try {
-                                            const { data, error } = await import('../../lib/supabase').then(m => m.supabase)
-                                                .from('users')
-                                                .select('*')
-                                                .ilike('nim_nip', nim.trim())
-                                                .maybeSingle();
-
-                                            if (error) {
-                                                alert('ERROR DB: ' + error.message);
-                                            } else if (!data) {
-                                                alert(`❌ User '${nim}' TIDAK DITEMUKAN di Database.\nPastikan siswa sudah mendaftar/didaftarkan.`);
-                                            } else {
-                                                alert(`✅ DITEMUKAN!\nNama: ${data.nama}\nNIM: ${data.nim_nip}\nStatus: ${data.status}\nRole: ${data.role}\n\nLogin harusnya AMAN (Case Insensitive).`);
-                                            }
-                                        } catch (e) {
-                                            alert('Error: ' + e.message);
-                                        }
-                                    }}
-                                >
-                                    Cek
+                                <button type="submit" className="btn btn-primary btn-sm" disabled={nimCheck.loading || !nimCheck.query.trim()}>
+                                    {nimCheck.loading ? 'Memeriksa…' : 'Cek'}
                                 </button>
-                            </div>
-                            <p style={{ fontSize: '11px', color: '#666', marginTop: '8px' }}>
-                                Gunakan ini untuk memastikan akun siswa sudah terdaftar di database.
+                            </form>
+                            {nimCheck.result && (
+                                <div className={`nim-check-result ${nimCheck.result.found ? 'ok' : 'bad'}`}>
+                                    {nimCheck.result.error ? (
+                                        <span>Gagal memeriksa: {nimCheck.result.error}</span>
+                                    ) : nimCheck.result.found ? (
+                                        <>
+                                            <strong>Terdaftar</strong>
+                                            <span>{nimCheck.result.nama} · {nimCheck.result.nim_nip}</span>
+                                            <span>Peran: {nimCheck.result.role} · Status: {nimCheck.result.status || '-'}</span>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <strong>Tidak ditemukan</strong>
+                                            <span>NIM/username "{nimCheck.result.nim}" belum terdaftar. Hubungi admin prodi.</span>
+                                        </>
+                                    )}
+                                </div>
+                            )}
+                            <p className="nim-check-hint">
+                                Gunakan ini untuk memastikan akun mahasiswa sudah terdaftar.
                             </p>
+                            <style>{`
+                                .nim-check-result {
+                                    display: flex;
+                                    flex-direction: column;
+                                    gap: 2px;
+                                    margin-top: 10px;
+                                    padding: 10px 14px;
+                                    border-radius: 14px;
+                                    font-size: 0.85rem;
+                                }
+                                .nim-check-result.ok { background: rgba(34, 197, 94, 0.1); color: #166534; }
+                                .nim-check-result.bad { background: rgba(239, 68, 68, 0.08); color: #991b1b; }
+                                .nim-check-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 8px; }
+                            `}</style>
                         </div>
                     </div>
                 </div>

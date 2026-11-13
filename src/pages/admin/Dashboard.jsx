@@ -20,6 +20,7 @@ import {
 import './Dashboard.css'
 import { generateAcademicYearOptions } from '../../utils/academicYear'
 import { toast } from '../../components/Toast'
+import { jam } from '../../utils/timeFormat'
 
 const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
 
@@ -334,7 +335,7 @@ function AdminDashboard() {
                                             <div className="exam-ongoing-info">
                                                 <h4>{exam.name}</h4>
                                                 <div className="exam-ongoing-meta">
-                                                    <span><Clock size={12} /> {exam.startTime} - {exam.endTime}</span>
+                                                    <span><Clock size={12} /> {jam(exam.startTime)} - {jam(exam.endTime)}</span>
                                                     <span>• {exam.room}</span>
                                                 </div>
                                             </div>

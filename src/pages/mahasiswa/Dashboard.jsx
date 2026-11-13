@@ -17,6 +17,7 @@ import {
   AlertTriangle
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { jam } from '../../utils/timeFormat'
 
 
 function MahasiswaDashboard() {
@@ -161,7 +162,7 @@ function MahasiswaDashboard() {
                         </div>
                         <div className="exam-detail">
                           <Clock size={14} />
-                          <span>{exam.waktuMulai} | {exam.durasi || '-'} menit</span>
+                          <span>{jam(exam.waktuMulai)} | {exam.durasi || '-'} menit</span>
                         </div>
                       </div>
                       <button

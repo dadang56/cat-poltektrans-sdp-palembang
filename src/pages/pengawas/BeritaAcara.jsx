@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
+import { jam } from '../../utils/timeFormat'
 
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] ?? obj?.[camelCase]
@@ -255,7 +256,7 @@ function BeritaAcaraPage() {
                                     <option value="">-- Pilih Mata Ujian Hari Ini --</option>
                                     {rooms.map(room => (
                                         <option key={room.id} value={room.id}>
-                                            {room.name} — {room.exams[0]} ({room.waktuMulai})
+                                            {room.name} — {room.exams[0]} ({jam(room.waktuMulai)})
                                         </option>
                                     ))}
                                 </select>
@@ -268,7 +269,7 @@ function BeritaAcaraPage() {
                                     </div>
                                     <div className="selector-item">
                                         <Clock size={16} />
-                                        <span className="session-info">{selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</span>
+                                        <span className="session-info">{jam(selectedRoom.waktuMulai)} - {jam(selectedRoom.waktuSelesai)}</span>
                                     </div>
                                 </>
                             )}
@@ -319,7 +320,7 @@ function BeritaAcaraPage() {
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Waktu</label>
-                                        <input type="text" className="form-input" value={`${selectedRoom.waktuMulai} - ${selectedRoom.waktuSelesai}`} readOnly style={{ background: 'var(--bg-tertiary)' }} />
+                                        <input type="text" className="form-input" value={`${jam(selectedRoom.waktuMulai)} - ${jam(selectedRoom.waktuSelesai)}`} readOnly style={{ background: 'var(--bg-tertiary)' }} />
                                     </div>
                                 </div>
                             </div>
@@ -466,7 +467,7 @@ function BeritaAcaraPage() {
                                         <tr><td>Mata Ujian</td><td>: {selectedRoom.exams[0]}</td></tr>
                                         <tr><td>Kelas</td><td>: {kelasNames}</td></tr>
                                         <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
-                                        <tr><td>Waktu Pelaksanaan</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai} WIB</td></tr>
+                                        <tr><td>Waktu Pelaksanaan</td><td>: {jam(selectedRoom.waktuMulai)} - {jam(selectedRoom.waktuSelesai)} WIB</td></tr>
                                     </tbody>
                                 </table>
                             </div>

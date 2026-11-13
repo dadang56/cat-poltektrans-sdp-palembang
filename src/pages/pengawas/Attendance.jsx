@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
+import { jam } from '../../utils/timeFormat'
 
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
@@ -365,7 +366,7 @@ function AttendancePage() {
                                     <option value="">-- Pilih Mata Ujian Hari Ini --</option>
                                     {rooms.map(room => (
                                         <option key={room.id} value={room.id}>
-                                            {room.name} — {room.exams[0]} ({room.waktuMulai})
+                                            {room.name} — {room.exams[0]} ({jam(room.waktuMulai)})
                                         </option>
                                     ))}
                                 </select>
@@ -378,7 +379,7 @@ function AttendancePage() {
                                     </div>
                                     <div className="selector-item">
                                         <Clock size={16} />
-                                        <span className="session-info">{selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</span>
+                                        <span className="session-info">{jam(selectedRoom.waktuMulai)} - {jam(selectedRoom.waktuSelesai)}</span>
                                     </div>
                                 </>
                             )}
@@ -578,7 +579,7 @@ function AttendancePage() {
                                         <tr><td>Mata Ujian</td><td>: {selectedRoom.exams[0]}</td></tr>
                                         <tr><td>Kelas</td><td>: {roomStudents.length > 0 ? [...new Set(roomStudents.map(s => s.kelas).filter(k => k && k !== '-'))].join(', ') || '-' : '-'}</td></tr>
                                         <tr><td>Hari/Tanggal</td><td>: {new Date(selectedRoom.tanggal).toLocaleDateString('id-ID', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</td></tr>
-                                        <tr><td>Waktu</td><td>: {selectedRoom.waktuMulai} - {selectedRoom.waktuSelesai}</td></tr>
+                                        <tr><td>Waktu</td><td>: {jam(selectedRoom.waktuMulai)} - {jam(selectedRoom.waktuSelesai)}</td></tr>
                                     </tbody>
                                 </table>
                             </div>

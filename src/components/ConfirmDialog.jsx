@@ -14,7 +14,11 @@ export function ConfirmProvider({ children }) {
     })
 
     // hideCancel: information-only popup with a single button (e.g. a rejected save)
-    const showConfirm = useCallback(({ title = 'Konfirmasi', message, onConfirm, onCancel, confirmText = 'Hapus', confirmVariant = 'error', hideCancel = false }) => {
+    const [typed, setTyped] = useState('')
+
+    // requireText: the user must type this exact text before confirming
+    const showConfirm = useCallback(({ title = 'Konfirmasi', message, onConfirm, onCancel, confirmText = 'Hapus', confirmVariant = 'error', hideCancel = false, requireText = null }) => {
+        setTyped('')
         setConfirmState({
             isOpen: true,
             title,
@@ -23,11 +27,37 @@ export function ConfirmProvider({ children }) {
             onCancel,
             confirmText,
             confirmVariant,
-            hideCancel
+            hideCancel,
+            requireText
         })
     }, [])
+    // Awaitable version for code that used window.confirm():
+    //   if (!(await ask({ message }))) return
+    const ask = useCallback((options) => new Promise(resolve => {
+        showConfirm({
+            confirmText: 'Lanjutkan',
+            confirmVariant: 'primary',
+            ...options,
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(false)
+        })
+    }), [showConfirm])
+
+    // Information pop-up with one button (replaces window.alert)
+    const notify = useCallback((options) => new Promise(resolve => {
+        showConfirm({
+            title: 'Informasi',
+            confirmText: 'OK',
+            confirmVariant: 'primary',
+            hideCancel: true,
+            ...options,
+            onConfirm: () => resolve(true),
+            onCancel: () => resolve(true)
+        })
+    }), [showConfirm])
 
     const handleConfirm = () => {
+        if (confirmState.requireText && typed.trim() !== confirmState.requireText) return
         confirmState.onConfirm?.()
         setConfirmState(prev => ({ ...prev, isOpen: false }))
     }
@@ -38,7 +68,7 @@ export function ConfirmProvider({ children }) {
     }
 
     return (
-        <ConfirmContext.Provider value={{ showConfirm }}>
+        <ConfirmContext.Provider value={{ showConfirm, ask, notify }}>
             {children}
             {confirmState.isOpen && (
                 <div className="confirm-overlay" onClick={handleCancel}>
@@ -47,7 +77,18 @@ export function ConfirmProvider({ children }) {
                             <h3>{confirmState.title}</h3>
                         </div>
                         <div className="confirm-body">
-                            <p>{confirmState.message}</p>
+                            <p style={{ whiteSpace: 'pre-line' }}>{confirmState.message}</p>
+                            {confirmState.requireText && (
+                                <input
+                                    className="form-input"
+                                    style={{ marginTop: '0.75rem', width: '100%' }}
+                                    value={typed}
+                                    onChange={e => setTyped(e.target.value)}
+                                    onKeyDown={e => { if (e.key === 'Enter') handleConfirm() }}
+                                    placeholder={confirmState.requireText}
+                                    autoFocus
+                                />
+                            )}
                         </div>
                         <div className="confirm-footer">
                             {!confirmState.hideCancel && (
@@ -61,6 +102,7 @@ export function ConfirmProvider({ children }) {
                             <button
                                 className={`btn btn-${confirmState.confirmVariant || 'error'}`}
                                 onClick={handleConfirm}
+                                disabled={!!confirmState.requireText && typed.trim() !== confirmState.requireText}
                                 style={confirmState.confirmVariant === 'success' ? {
                                     background: 'var(--success-500, #22c55e)',
                                     color: 'white',

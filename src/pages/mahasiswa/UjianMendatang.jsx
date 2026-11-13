@@ -22,6 +22,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { syncServerClock, serverNowMs } from '../../utils/serverTime'
+import { jam } from '../../utils/timeFormat'
 
 // Exam times are WIB wall-clock times. Parse them as +07:00 so a phone set
 // to the wrong timezone still compares correctly.
@@ -648,7 +649,7 @@ function UjianPage() {
                                             <Clock size={16} />
                                             <div>
                                                 <span className="detail-label">Waktu</span>
-                                                <span className="detail-value">{exam.time} - {exam.endTime} ({exam.durasi} menit)</span>
+                                                <span className="detail-value">{jam(exam.time)} - {jam(exam.endTime)} ({exam.durasi} menit)</span>
                                             </div>
                                         </div>
                                         <div className="exam-detail-item">

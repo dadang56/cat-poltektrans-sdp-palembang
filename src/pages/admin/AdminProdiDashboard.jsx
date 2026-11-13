@@ -27,11 +27,14 @@ import {
 import './Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 import { generateAcademicYearOptions } from '../../utils/academicYear'
+import { jam } from '../../utils/timeFormat'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 
 const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
 
 function AdminProdiDashboard() {
+    const { ask } = useConfirm()
     const { user } = useAuth()
     const navigate = useNavigate()
     const { settings, saveSettings } = useSettings()
@@ -510,7 +513,7 @@ function AdminProdiDashboard() {
                                             <div className="exam-ongoing-info">
                                                 <h4>{exam.name}</h4>
                                                 <div className="exam-ongoing-meta">
-                                                    <span><Clock size={12} /> {exam.startTime} - {exam.endTime}</span>
+                                                    <span><Clock size={12} /> {jam(exam.startTime)} - {jam(exam.endTime)}</span>
                                                     <span>• {exam.room}</span>
                                                 </div>
                                             </div>
@@ -519,7 +522,7 @@ function AdminProdiDashboard() {
                                                 onClick={async () => {
                                                     const newStatus = exam.isActivated ? 'scheduled' : 'ongoing'
                                                     const actionText = exam.isActivated ? 'menonaktifkan' : 'mengaktifkan'
-                                                    if (!window.confirm(`Apakah Anda yakin ingin ${actionText} ujian "${exam.name}"?`)) return
+                                                    if (!(await ask({ title: exam.isActivated ? 'Nonaktifkan Ujian' : 'Aktifkan Ujian', message: `Apakah Anda yakin ingin ${actionText} ujian "${exam.name}"?`, confirmText: exam.isActivated ? 'Nonaktifkan' : 'Aktifkan' }))) return
                                                     try {
                                                         await jadwalService.update(exam.id, { status: newStatus })
                                                         setUjianBerlangsung(prev => prev.map(e => {

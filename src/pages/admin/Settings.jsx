@@ -17,8 +17,10 @@ import {
 import { toast, errorMessage } from '../../components/Toast'
 import { hashBypassPassword, hashSebQuitPassword } from '../../utils/sebGate'
 import { shrinkImageFile } from '../../utils/shrinkImage'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 function SettingsPage() {
+    const { ask } = useConfirm()
     const { settings, updateSettings, resetSettings, isLoaded } = useSettings()
     const [localSettings, setLocalSettings] = useState(settings)
     const [bypassInput, setBypassInput] = useState('')
@@ -131,8 +133,8 @@ function SettingsPage() {
         setTimeout(() => setSaveStatus(null), 3000)
     }
 
-    const handleReset = () => {
-        if (confirm('Yakin ingin mengembalikan semua pengaturan ke default?')) {
+    const handleReset = async () => {
+        if (await ask({ title: 'Kembalikan ke Default', message: 'Yakin ingin mengembalikan semua pengaturan ke default?', confirmText: 'Kembalikan', confirmVariant: 'error' })) {
             resetSettings()
             setLocalSettings({
                 appName: 'CAT POLTEKTRANS',

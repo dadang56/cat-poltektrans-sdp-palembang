@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 // Helper for field compatibility
 const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
@@ -37,6 +38,7 @@ function shuffleArray(array) {
 }
 
 function ExamRoomPage() {
+    const { ask } = useConfirm()
     const { settings } = useSettings()
     const { user: currentUser } = useAuth()
     const [rooms, setRooms] = useState([])
@@ -185,7 +187,7 @@ function ExamRoomPage() {
     }
 
     const handleDeleteRuang = async (ruangId) => {
-        if (!confirm('Hapus ruangan ini?')) return
+        if (!(await ask({ title: 'Hapus Ruangan', message: 'Hapus ruangan ini?', confirmText: 'Hapus', confirmVariant: 'error' }))) return
         try {
             if (isSupabaseConfigured()) {
                 await ruangService.delete(ruangId)

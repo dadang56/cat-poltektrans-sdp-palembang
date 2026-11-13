@@ -32,8 +32,9 @@ import {
     ChevronDown,
     Power
 } from 'lucide-react'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, Fragment } from 'react'
 import './DashboardLayout.css'
+import { useTableCards } from '../utils/tableCards'
 
 // Navigation items per role
 // Icon tile colors for the boxed sidebar menu (cycled per item)
@@ -52,46 +53,46 @@ const NAV_TILE_COLORS = [
 
 const NAV_ITEMS = {
     superadmin: [
-        { path: '/superadmin', icon: Home, label: 'Dashboard', end: true },
-        { path: '/superadmin/users', icon: Users, label: 'Manajemen User' },
-        { path: '/superadmin/prodi', icon: Building2, label: 'Program Studi' },
-        { path: '/superadmin/kelas', icon: Layers, label: 'Kelas' },
-        { path: '/superadmin/matkul', icon: BookMarked, label: 'Mata Kuliah' },
-        { path: '/superadmin/jadwal-ujian', icon: Calendar, label: 'Jadwal Ujian' },
-        { path: '/superadmin/student-card', icon: CreditCard, label: 'Cetak Kartu' },
-        { path: '/superadmin/exam-room', icon: Layout, label: 'Ruang Ujian' },
-        { path: '/superadmin/rekap-nilai', icon: Award, label: 'Rekap Nilai Ujian' },
-        { path: '/superadmin/rekap-kehadiran', icon: ClipboardCheck, label: 'Rekap Kehadiran' },
-        { path: '/superadmin/rekap-nilai-mahasiswa', icon: BarChart3, label: 'Kartu Hasil Semester (KHS)' },
-        { path: '/superadmin/ekspor-data', icon: Download, label: 'Ekspor Data' },
-        { path: '/superadmin/settings', icon: Settings, label: 'Pengaturan' }
+        { path: '/superadmin', icon: Home, label: 'Dashboard', end: true, group: 'Utama' },
+        { path: '/superadmin/users', icon: Users, label: 'Manajemen User', group: 'Data Master' },
+        { path: '/superadmin/prodi', icon: Building2, label: 'Program Studi', group: 'Data Master' },
+        { path: '/superadmin/kelas', icon: Layers, label: 'Kelas', group: 'Data Master' },
+        { path: '/superadmin/matkul', icon: BookMarked, label: 'Mata Kuliah', group: 'Data Master' },
+        { path: '/superadmin/jadwal-ujian', icon: Calendar, label: 'Jadwal Ujian', group: 'Ujian' },
+        { path: '/superadmin/student-card', icon: CreditCard, label: 'Cetak Kartu', group: 'Ujian' },
+        { path: '/superadmin/exam-room', icon: Layout, label: 'Ruang Ujian', group: 'Ujian' },
+        { path: '/superadmin/rekap-nilai', icon: Award, label: 'Rekap Nilai Ujian', group: 'Rekap & Laporan' },
+        { path: '/superadmin/rekap-kehadiran', icon: ClipboardCheck, label: 'Rekap Kehadiran', group: 'Rekap & Laporan' },
+        { path: '/superadmin/rekap-nilai-mahasiswa', icon: BarChart3, label: 'Kartu Hasil Semester (KHS)', group: 'Rekap & Laporan' },
+        { path: '/superadmin/ekspor-data', icon: Download, label: 'Ekspor Data', group: 'Rekap & Laporan' },
+        { path: '/superadmin/settings', icon: Settings, label: 'Pengaturan', group: 'Sistem' }
     ],
     admin_prodi: [
-        { path: '/admin-prodi', icon: Home, label: 'Dashboard', end: true },
-        { path: '/admin-prodi/users', icon: Users, label: 'Manajemen User' },
-        { path: '/admin-prodi/kelas', icon: Layers, label: 'Kelas' },
-        { path: '/admin-prodi/matkul', icon: BookMarked, label: 'Mata Kuliah' },
-        { path: '/admin-prodi/jadwal-ujian', icon: Calendar, label: 'Jadwal Ujian' },
-        { path: '/admin-prodi/student-card', icon: CreditCard, label: 'Cetak Kartu' },
-        { path: '/admin-prodi/exam-room', icon: Layout, label: 'Ruang Ujian' },
-        { path: '/admin-prodi/rekap-nilai', icon: Award, label: 'Rekap Nilai Ujian' },
-        { path: '/admin-prodi/rekap-kehadiran', icon: ClipboardCheck, label: 'Rekap Kehadiran' },
-        { path: '/admin-prodi/rekap-berita-acara', icon: FileText, label: 'Rekap Berita Acara' },
-        { path: '/admin-prodi/nilai-akhir', icon: Award, label: 'Nilai Akhir' },
-        { path: '/admin-prodi/rekap-nilai-mahasiswa', icon: BarChart3, label: 'Kartu Hasil Semester (KHS)' },
-        { path: '/admin-prodi/ekspor-data', icon: Download, label: 'Ekspor Data' },
-        { path: '/admin-prodi/settings', icon: Settings, label: 'Pengaturan' }
+        { path: '/admin-prodi', icon: Home, label: 'Dashboard', end: true, group: 'Utama' },
+        { path: '/admin-prodi/users', icon: Users, label: 'Manajemen User', group: 'Data Master' },
+        { path: '/admin-prodi/kelas', icon: Layers, label: 'Kelas', group: 'Data Master' },
+        { path: '/admin-prodi/matkul', icon: BookMarked, label: 'Mata Kuliah', group: 'Data Master' },
+        { path: '/admin-prodi/jadwal-ujian', icon: Calendar, label: 'Jadwal Ujian', group: 'Ujian' },
+        { path: '/admin-prodi/student-card', icon: CreditCard, label: 'Cetak Kartu', group: 'Ujian' },
+        { path: '/admin-prodi/exam-room', icon: Layout, label: 'Ruang Ujian', group: 'Ujian' },
+        { path: '/admin-prodi/rekap-nilai', icon: Award, label: 'Rekap Nilai Ujian', group: 'Rekap & Nilai' },
+        { path: '/admin-prodi/rekap-kehadiran', icon: ClipboardCheck, label: 'Rekap Kehadiran', group: 'Rekap & Nilai' },
+        { path: '/admin-prodi/rekap-berita-acara', icon: FileText, label: 'Rekap Berita Acara', group: 'Rekap & Nilai' },
+        { path: '/admin-prodi/nilai-akhir', icon: Award, label: 'Nilai Akhir', group: 'Rekap & Nilai' },
+        { path: '/admin-prodi/rekap-nilai-mahasiswa', icon: BarChart3, label: 'Kartu Hasil Semester (KHS)', group: 'Rekap & Nilai' },
+        { path: '/admin-prodi/ekspor-data', icon: Download, label: 'Ekspor Data', group: 'Rekap & Nilai' },
+        { path: '/admin-prodi/settings', icon: Settings, label: 'Pengaturan', group: 'Sistem' }
     ],
     admin: [
-        { path: '/admin', icon: Home, label: 'Dashboard', end: true },
-        { path: '/admin/users', icon: Users, label: 'Manajemen User' },
-        { path: '/admin/prodi', icon: Building2, label: 'Program Studi' },
-        { path: '/admin/kelas', icon: Layers, label: 'Kelas' },
-        { path: '/admin/matkul', icon: BookMarked, label: 'Mata Kuliah' },
-        { path: '/admin/student-card', icon: CreditCard, label: 'Cetak Kartu' },
-        { path: '/admin/exam-room', icon: Layout, label: 'Ruang Ujian' },
-        { path: '/admin/reports', icon: BarChart3, label: 'Laporan' },
-        { path: '/admin/settings', icon: Settings, label: 'Pengaturan' }
+        { path: '/admin', icon: Home, label: 'Dashboard', end: true, group: 'Utama' },
+        { path: '/admin/users', icon: Users, label: 'Manajemen User', group: 'Data Master' },
+        { path: '/admin/prodi', icon: Building2, label: 'Program Studi', group: 'Data Master' },
+        { path: '/admin/kelas', icon: Layers, label: 'Kelas', group: 'Data Master' },
+        { path: '/admin/matkul', icon: BookMarked, label: 'Mata Kuliah', group: 'Data Master' },
+        { path: '/admin/student-card', icon: CreditCard, label: 'Cetak Kartu', group: 'Ujian' },
+        { path: '/admin/exam-room', icon: Layout, label: 'Ruang Ujian', group: 'Ujian' },
+        { path: '/admin/reports', icon: BarChart3, label: 'Laporan', group: 'Laporan' },
+        { path: '/admin/settings', icon: Settings, label: 'Pengaturan', group: 'Sistem' }
     ],
     dosen: [
         { path: '/dosen', icon: Home, label: 'Dashboard', end: true },
@@ -117,6 +118,14 @@ const NAV_ITEMS = {
         { path: '/pusbangkatar/nilai-kondite', icon: ClipboardList, label: 'Nilai Kondite' },
         { path: '/pusbangkatar/nilai-semapta', icon: Award, label: 'Nilai Semapta' }
     ]
+}
+
+// Titles for pages that are not in the menu
+const EXTRA_PAGE_TITLES = {
+    '/monitor-ujian': 'Monitor Ujian',
+    '/reports': 'Laporan',
+    '/take-exam': 'Ujian',
+    '/ujian/': 'Ujian'
 }
 
 // Role labels
@@ -200,6 +209,11 @@ function DashboardLayout({ children }) {
     const activeItem = navItems
         .filter(item => location.pathname === item.path || (!item.end && location.pathname.startsWith(`${item.path}/`)))
         .sort((a, b) => b.path.length - a.path.length)[0]
+    // Pages reached from a button, not the menu, still get a proper title
+    const pageTitle = activeItem?.label
+        || Object.entries(EXTRA_PAGE_TITLES).find(([suffix]) => location.pathname.includes(suffix))?.[1]
+        || 'Si-PANDU'
+    useTableCards(mainRef, pageTitle)
 
     return (
         <div className="dashboard-layout">
@@ -241,12 +255,17 @@ function DashboardLayout({ children }) {
                     onScroll={updateNavHint}
                 >
                     <div className="nav-section">
-                        <span className="nav-section-title">Menu Utama</span>
+                        {!navItems[0]?.group && <span className="nav-section-title">Menu Utama</span>}
                         {navItems.map((item, i) => {
                             const [c1, c2] = NAV_TILE_COLORS[i % NAV_TILE_COLORS.length]
+                            // Long admin menus are split into labelled groups
+                            const groupTitle = item.group && item.group !== navItems[i - 1]?.group ? item.group : null
                             return (
+                                <Fragment key={item.path}>
+                                {groupTitle && (
+                                    <span className={`nav-section-title ${i > 0 ? 'nav-group-title' : ''}`}>{groupTitle}</span>
+                                )}
                                 <NavLink
-                                    key={item.path}
                                     to={item.path}
                                     end={item.end}
                                     className={({ isActive }) =>
@@ -260,6 +279,7 @@ function DashboardLayout({ children }) {
                                     </span>
                                     <span className="nav-label">{item.label}</span>
                                 </NavLink>
+                                </Fragment>
                             )
                         })}
                     </div>
@@ -304,7 +324,7 @@ function DashboardLayout({ children }) {
                         </div>
                         <div className="header-page-context" aria-live="polite">
                             <span className="header-page-eyebrow">{ROLE_LABELS[user?.role] || 'Portal Akademik'}</span>
-                            <span className="header-page-title">{activeItem?.label || 'Portal Akademik'}</span>
+                            <span className="header-page-title">{pageTitle}</span>
                             <span className="header-page-year"><span className="header-year-prefix">Tahun Akademik · </span>{activeAcademicYear || 'belum dipilih'}</span>
                         </div>
                     </div>

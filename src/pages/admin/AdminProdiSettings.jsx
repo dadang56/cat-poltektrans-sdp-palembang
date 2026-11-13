@@ -19,10 +19,12 @@ import {
 import './Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
 import { generateAcademicYearOptions } from '../../utils/academicYear'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 const TAHUN_AJARAN_OPTIONS = generateAcademicYearOptions()
 
 function AdminProdiSettings() {
+    const { ask } = useConfirm()
     const { user } = useAuth()
     const { settings: appSettings, saveSettings } = useSettings()
 
@@ -146,7 +148,7 @@ function AdminProdiSettings() {
         if (!file) return
         e.target.value = '' // Reset input
 
-        if (!confirm('⚠️ PERINGATAN: Restore akan menimpa data yang sudah ada dengan data dari file backup.\n\nLanjutkan?')) return
+        if (!(await ask({ title: 'Restore Data', message: 'Restore akan menimpa data yang sudah ada dengan data dari file backup.\n\nLanjutkan?', confirmText: 'Restore', confirmVariant: 'error' }))) return
 
         setRestoreLoading(true)
         setBackupStatus(null)

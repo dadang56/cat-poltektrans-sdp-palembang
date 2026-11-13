@@ -20,6 +20,7 @@ import {
 import '../admin/Dashboard.css'
 
 import { jadwalService, matkulService, ruangService, hasilUjianService } from '../../services/supabaseService'
+import { jam } from '../../utils/timeFormat'
 
 function PengawasDashboard() {
   const { user } = useAuth()
@@ -284,7 +285,7 @@ function PengawasDashboard() {
                     <div key={jadwal.id} className="card animate-slideUp" style={{ padding: '12px', background: 'var(--bg-tertiary)' }}>
                       <div style={{ fontWeight: 600, fontSize: '0.95rem', marginBottom: '6px' }}>{matkulName}</div>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: '8px' }}>
-                        {jadwal.tipe || 'UTS'} • {jadwal.ruangan?.nama || 'Ruang'} • {jadwal.waktu_mulai}
+                        {jadwal.tipe || 'UTS'} • {jadwal.ruangan?.nama || 'Ruang'} • {jam(jadwal.waktu_mulai)}
                       </div>
                       <div style={{ display: 'flex', gap: '12px', fontSize: '0.85rem' }}>
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px', color: hasAttendance ? 'var(--success-600)' : 'var(--error-600)', fontWeight: 500 }}>

@@ -21,6 +21,7 @@ import {
   BookOpen
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import { jam } from '../../utils/timeFormat'
 
 
 function ExamModal({ isOpen, onClose, exam, onSave, availableQuestions = [] }) {
@@ -390,7 +391,7 @@ function SesiUjianPage() {
                     </div>
                     <div className="exam-info-item">
                       <Clock size={14} />
-                      <span>{exam.startTime} ({exam.duration} menit)</span>
+                      <span>{jam(exam.startTime)} ({exam.duration} menit)</span>
                     </div>
                     <div className="exam-info-item">
                       <BookOpen size={14} />
