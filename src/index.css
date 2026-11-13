@@ -1611,3 +1611,16 @@ img {
   font-size: var(--font-size-xs);
   color: var(--text-muted);
 }
+
+/* Shown while a page file downloads (App.jsx lazy pages) */
+.page-loading {
+  min-height: 60vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem 1rem;
+  text-align: center;
+  color: var(--text-secondary);
+}

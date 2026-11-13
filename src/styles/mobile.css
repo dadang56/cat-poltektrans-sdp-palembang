@@ -794,3 +794,33 @@ html.dashboard-locked #root {
         padding-right: 0.6rem;
     }
 }
+
+/* ---------- Phones & touch tablets: no live blur ----------
+   backdrop-filter re-blurs what is behind an element on every scroll frame;
+   on low-end Android phones that makes scrolling stutter and drains the
+   battery. Here the glass is drawn as near-solid white instead, which looks
+   almost the same over the soft background. */
+@media (max-width: 640px), (max-width: 1024px) and (pointer: coarse) {
+    *,
+    *::before,
+    *::after {
+        -webkit-backdrop-filter: none !important;
+        backdrop-filter: none !important;
+    }
+
+    .dashboard-layout {
+        --glass-2: rgba(255, 255, 255, 0.97);
+        --glass-3: rgba(255, 255, 255, 0.99);
+        --glass-blur: none;
+    }
+
+    .modal-overlay,
+    .confirm-overlay {
+        background: rgba(10, 18, 36, 0.5) !important;
+    }
+
+    .confirm-dialog,
+    .app-toast {
+        background: #fff !important;
+    }
+}

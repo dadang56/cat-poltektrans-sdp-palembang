@@ -16,6 +16,7 @@ import {
 } from 'lucide-react'
 import { toast, errorMessage } from '../../components/Toast'
 import { hashBypassPassword, hashSebQuitPassword } from '../../utils/sebGate'
+import { shrinkImageFile } from '../../utils/shrinkImage'
 
 function SettingsPage() {
     const { settings, updateSettings, resetSettings, isLoaded } = useSettings()
@@ -90,12 +91,12 @@ function SettingsPage() {
                 toast.warning('Ukuran file maksimal 2MB')
                 return
             }
-            const reader = new FileReader()
-            reader.onloadend = () => {
-                setLogoPreview(reader.result)
-                setLocalSettings(prev => ({ ...prev, logoUrl: reader.result }))
-            }
-            reader.readAsDataURL(file)
+            shrinkImageFile(file)
+                .then(dataUrl => {
+                    setLogoPreview(dataUrl)
+                    setLocalSettings(prev => ({ ...prev, logoUrl: dataUrl }))
+                })
+                .catch(() => toast.error('Gambar tidak bisa dibaca'))
         }
     }
 

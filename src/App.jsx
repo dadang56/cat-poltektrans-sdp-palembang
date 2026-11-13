@@ -1,5 +1,5 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { useState, useEffect, createContext, useContext } from 'react'
+import { useState, useEffect, createContext, useContext, lazy, Suspense, Component } from 'react'
 import { SettingsProvider } from './contexts/SettingsContext'
 import { ConfirmProvider } from './components/ConfirmDialog'
 import { ToastContainer, toast } from './components/Toast'
@@ -7,56 +7,114 @@ import { useSettings } from './contexts/SettingsContext'
 import { isBlockedHere } from './utils/sebGate'
 import authService from './services/authService'
 
-// Pages
 import Login from './pages/Login'
 
-// Admin Pages
-import AdminDashboard from './pages/admin/Dashboard'
-import AdminUsers from './pages/admin/Users'
-import AdminProdi from './pages/admin/Prodi'
-import AdminKelas from './pages/admin/Kelas'
-import AdminMataKuliah from './pages/admin/MataKuliah'
-import AdminReports from './pages/admin/Reports'
-import AdminSettings from './pages/admin/Settings'
-import AdminStudentCard from './pages/admin/StudentCard'
-import AdminExamRoom from './pages/admin/ExamRoom'
-import RekapNilai from './pages/admin/RekapNilai'
-import RekapKehadiran from './pages/admin/RekapKehadiran'
-import RekapBeritaAcara from './pages/admin/RekapBeritaAcara'
-import AdminProdiDashboard from './pages/admin/AdminProdiDashboard'
-import AdminProdiSettings from './pages/admin/AdminProdiSettings'
-import AdminNilaiAkhir from './pages/admin/AdminNilaiAkhir'
-import JadwalUjian from './pages/admin/JadwalUjian'
-import EksporData from './pages/admin/EksporData'
-import KHS from './pages/admin/KHS'
+// Every other page is its own file, downloaded only when opened, so a
+// student on a phone doesn't download the admin pages. lazyPage reloads
+// once if a file is gone after a new deploy (old hashed files are removed).
+const pageLoaders = []
+function lazyPage(load, folder) {
+  pageLoaders.push({ load, folder })
+  const key = 'cat_chunk_reload'
+  return lazy(() => load().then(mod => {
+    sessionStorage.removeItem(key)
+    return mod
+  }, err => {
+    if (!sessionStorage.getItem(key)) {
+      sessionStorage.setItem(key, '1')
+      window.location.reload()
+      return new Promise(() => {})
+    }
+    throw err
+  }))
+}
 
-// Dosen Pages
-import DosenDashboard from './pages/dosen/Dashboard'
-import BuatSoal from './pages/dosen/BuatSoal'
-import KoreksiUjian from './pages/dosen/KoreksiUjian'
-import NilaiUAS from './pages/dosen/NilaiUAS'
-import NilaiAkhir from './pages/dosen/NilaiAkhir'
+const AdminDashboard = lazyPage(() => import('./pages/admin/Dashboard'), 'admin')
+const AdminUsers = lazyPage(() => import('./pages/admin/Users'), 'admin')
+const AdminProdi = lazyPage(() => import('./pages/admin/Prodi'), 'admin')
+const AdminKelas = lazyPage(() => import('./pages/admin/Kelas'), 'admin')
+const AdminMataKuliah = lazyPage(() => import('./pages/admin/MataKuliah'), 'admin')
+const AdminReports = lazyPage(() => import('./pages/admin/Reports'), 'admin')
+const AdminSettings = lazyPage(() => import('./pages/admin/Settings'), 'admin')
+const AdminStudentCard = lazyPage(() => import('./pages/admin/StudentCard'), 'admin')
+const AdminExamRoom = lazyPage(() => import('./pages/admin/ExamRoom'), 'admin')
+const RekapNilai = lazyPage(() => import('./pages/admin/RekapNilai'), 'admin')
+const RekapKehadiran = lazyPage(() => import('./pages/admin/RekapKehadiran'), 'admin')
+const RekapBeritaAcara = lazyPage(() => import('./pages/admin/RekapBeritaAcara'), 'admin')
+const AdminProdiDashboard = lazyPage(() => import('./pages/admin/AdminProdiDashboard'), 'admin')
+const AdminProdiSettings = lazyPage(() => import('./pages/admin/AdminProdiSettings'), 'admin')
+const AdminNilaiAkhir = lazyPage(() => import('./pages/admin/AdminNilaiAkhir'), 'admin')
+const JadwalUjian = lazyPage(() => import('./pages/admin/JadwalUjian'), 'admin')
+const EksporData = lazyPage(() => import('./pages/admin/EksporData'), 'admin')
+const KHS = lazyPage(() => import('./pages/admin/KHS'), 'admin')
+const DosenDashboard = lazyPage(() => import('./pages/dosen/Dashboard'), 'dosen')
+const BuatSoal = lazyPage(() => import('./pages/dosen/BuatSoal'), 'dosen')
+const KoreksiUjian = lazyPage(() => import('./pages/dosen/KoreksiUjian'), 'dosen')
+const NilaiUAS = lazyPage(() => import('./pages/dosen/NilaiUAS'), 'dosen')
+const NilaiAkhir = lazyPage(() => import('./pages/dosen/NilaiAkhir'), 'dosen')
+const MahasiswaDashboard = lazyPage(() => import('./pages/mahasiswa/Dashboard'), 'mahasiswa')
+const TakeExam = lazyPage(() => import('./pages/mahasiswa/TakeExam'), 'mahasiswa')
+const UjianPage = lazyPage(() => import('./pages/mahasiswa/UjianMendatang'), 'mahasiswa')
+const HasilUjian = lazyPage(() => import('./pages/mahasiswa/HasilUjian'), 'mahasiswa')
+const SEBInstructions = lazyPage(() => import('./pages/mahasiswa/SEBInstructions'), 'mahasiswa')
+const PengawasDashboard = lazyPage(() => import('./pages/pengawas/Dashboard'), 'pengawas')
+const MonitorUjian = lazyPage(() => import('./pages/pengawas/MonitorUjian'), 'pengawas')
+const PengawasAttendance = lazyPage(() => import('./pages/pengawas/Attendance'), 'pengawas')
+const PengawasBeritaAcara = lazyPage(() => import('./pages/pengawas/BeritaAcara'), 'pengawas')
+const PusbangkatarDashboard = lazyPage(() => import('./pages/pusbangkatar/Dashboard'), 'pusbangkatar')
+const NilaiKondite = lazyPage(() => import('./pages/pusbangkatar/NilaiKondite'), 'pusbangkatar')
+const NilaiSemapta = lazyPage(() => import('./pages/pusbangkatar/NilaiSemapta'), 'pusbangkatar')
 
-// Mahasiswa Pages
-import MahasiswaDashboard from './pages/mahasiswa/Dashboard'
-import TakeExam from './pages/mahasiswa/TakeExam'
-import UjianPage from './pages/mahasiswa/UjianMendatang'
-import HasilUjian from './pages/mahasiswa/HasilUjian'
-import SEBInstructions from './pages/mahasiswa/SEBInstructions'
-
-// Pengawas Pages
-import PengawasDashboard from './pages/pengawas/Dashboard'
-import MonitorUjian from './pages/pengawas/MonitorUjian'
-import PengawasAttendance from './pages/pengawas/Attendance'
-import PengawasBeritaAcara from './pages/pengawas/BeritaAcara'
-
-// Pusbangkatar Pages
-import PusbangkatarDashboard from './pages/pusbangkatar/Dashboard'
-import NilaiKondite from './pages/pusbangkatar/NilaiKondite'
-import NilaiSemapta from './pages/pusbangkatar/NilaiSemapta'
+// Page styles are loaded here, up front and in this order, so the theme
+// below still overrides them now that the pages themselves load lazily
+import './components/DashboardLayout.css'
+import './pages/admin/Dashboard.css'
+import './pages/mahasiswa/TakeExam.css'
+import './pages/mahasiswa/TakeExamGlass.css'
 // Theme loaded last so it overrides page-level styles (see file header)
 import './styles/glass.css'
 import './styles/mobile.css'
+
+// After login, quietly download the user's own pages so moving between
+// menu items is instant (no loading spinner)
+const ROLE_FOLDERS = {
+  superadmin: ['admin'], admin: ['admin'], admin_prodi: ['admin'],
+  dosen: ['dosen'], mahasiswa: ['mahasiswa'], pengawas: ['pengawas'], pusbangkatar: ['pusbangkatar']
+}
+function prefetchRolePages(role) {
+  const folders = ROLE_FOLDERS[role] || []
+  const todo = pageLoaders.filter(p => folders.includes(p.folder))
+  const run = () => todo.forEach(p => p.load().catch(() => {}))
+  if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 4000 })
+  else setTimeout(run, 1500)
+}
+
+class PageErrorBoundary extends Component {
+  constructor(props) {
+    super(props)
+    this.state = { failed: false }
+  }
+  static getDerivedStateFromError() {
+    return { failed: true }
+  }
+  render() {
+    if (!this.state.failed) return this.props.children
+    return (
+      <div className="page-loading">
+        <p>Halaman gagal dimuat. Periksa koneksi internet lalu muat ulang.</p>
+        <button className="btn btn-primary" onClick={() => window.location.reload()}>Muat Ulang</button>
+      </div>
+    )
+  }
+}
+
+function PageLoading() {
+  return (
+    <div className="page-loading" role="status" aria-label="Memuat halaman">
+      <div className="spinner-lg"></div>
+    </div>
+  )
+}
 
 // Auth Context
 export const AuthContext = createContext(null)
@@ -94,6 +152,11 @@ function App() {
   // Light theme only (user decision 2026-11-13): no dark mode, no toggle
   const [theme] = useState('light')
   const [sessionMessage, setSessionMessage] = useState(null)
+
+  // Download this role's pages in the background once logged in
+  useEffect(() => {
+    if (user?.role) prefetchRolePages(user.role)
+  }, [user?.role])
 
   // Check for existing session on mount using authService
   useEffect(() => {
@@ -243,6 +306,8 @@ function App() {
         <AuthContext.Provider value={authValue}>
           <SebGuard />
           <ModalDragGuard />
+          <PageErrorBoundary>
+          <Suspense fallback={<PageLoading />}>
           <Routes>
             {/* Public Routes */}
             <Route path="/login" element={
@@ -557,6 +622,8 @@ function App() {
             <Route path="/" element={<Navigate to="/login" replace />} />
             <Route path="*" element={<Navigate to="/login" replace />} />
           </Routes>
+          </Suspense>
+          </PageErrorBoundary>
 
           {/* Session Invalidation Toast */}
           {sessionMessage && (

@@ -37,9 +37,22 @@ export function useSettings() {
     return useContext(SettingsContext)
 }
 
+const SETTINGS_CACHE_KEY = 'cat_settings_cache'
+
 export function SettingsProvider({ children }) {
-    const [settings, setSettings] = useState(DEFAULT_SETTINGS)
-    const [isLoaded, setIsLoaded] = useState(false)
+    // Last settings seen are kept in the browser, so the logo, name and
+    // colours show at once; the database copy replaces them a moment later
+    const [settings, setSettings] = useState(() => {
+        try {
+            const cached = JSON.parse(localStorage.getItem(SETTINGS_CACHE_KEY) || 'null')
+            return cached ? { ...DEFAULT_SETTINGS, ...cached } : DEFAULT_SETTINGS
+        } catch {
+            return DEFAULT_SETTINGS
+        }
+    })
+    const [isLoaded, setIsLoaded] = useState(() => {
+        try { return !!localStorage.getItem(SETTINGS_CACHE_KEY) } catch { return false }
+    })
     const [isSaving, setIsSaving] = useState(false)
 
     // Load settings from Supabase on mount
@@ -50,6 +63,7 @@ export function SettingsProvider({ children }) {
                     const supabaseSettings = await appSettingsService.get('app_config')
                     if (supabaseSettings) {
                         setSettings({ ...DEFAULT_SETTINGS, ...supabaseSettings })
+                        try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(supabaseSettings)) } catch { /* full or blocked */ }
                     }
                     // If null, use DEFAULT_SETTINGS (already set as initial state)
                 }
@@ -118,6 +132,7 @@ export function SettingsProvider({ children }) {
                 const merged = { ...DEFAULT_SETTINGS, ...latestFromDb, ...newSettings }
                 await appSettingsService.set('app_config', merged)
                 setSettings(merged) // Sync local state with what was actually saved
+                try { localStorage.setItem(SETTINGS_CACHE_KEY, JSON.stringify(merged)) } catch { /* full or blocked */ }
                 console.log('[Settings] Saved to Supabase (merged with DB)', Object.keys(newSettings))
             } catch (e) {
                 console.error('Failed to save settings to Supabase:', e)
