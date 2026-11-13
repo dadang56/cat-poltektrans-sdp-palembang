@@ -44,6 +44,7 @@ function AdminProdiDashboard() {
     const [koreksiSearch, setKoreksiSearch] = useState('')
     const [koreksiFilter, setKoreksiFilter] = useState('all')
 
+    const [statsLoaded, setStatsLoaded] = useState(false)
     const [stats, setStats] = useState([
         { label: 'Total User', value: '0', icon: Users, color: 'primary', trend: '-' },
         { label: 'Ujian Aktif', value: '0', icon: FileText, color: 'accent', trend: '-' },
@@ -351,6 +352,8 @@ function AdminProdiDashboard() {
                     { label: 'Selesai Hari Ini', value: '0', icon: CheckCircle, color: 'success', trend: '-' },
                     { label: 'Perlu Perhatian', value: '0', icon: AlertTriangle, color: 'warning', trend: '-' }
                 ])
+            } finally {
+                setStatsLoaded(true)
             }
         }
 
@@ -418,7 +421,7 @@ function AdminProdiDashboard() {
                                 <stat.icon size={24} />
                             </div>
                             <div className="stat-content">
-                                <span className="stat-value">{stat.value}</span>
+                                <span className="stat-value">{statsLoaded ? stat.value : <span className="skeleton skeleton-num" aria-label="Memuat" />}</span>
                                 <span className="stat-label">{stat.label}</span>
                             </div>
                             {/* Only when there is a real trend (was always "-", squeezing the label) */}

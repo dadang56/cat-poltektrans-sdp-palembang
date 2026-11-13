@@ -4,7 +4,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { getActiveAcademicYear } from '../../utils/academicYear'
-import { jadwalService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
+import { jadwalService, matkulService, hasilUjianService } from '../../services/supabaseService'
 import {
   ClipboardList,
   Clock,
@@ -28,28 +28,39 @@ function MahasiswaDashboard() {
 
   const [jadwalList, setJadwalList] = useState([])
   const [matkulList, setMatkulList] = useState([])
+  const [hasilList, setHasilList] = useState([])
+  const [loaded, setLoaded] = useState(false)
+  // re-render every 30 s so the countdown and "sedang berlangsung" stay current
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 30000)
+    return () => clearInterval(t)
+  }, [])
 
   useEffect(() => {
     const loadData = async () => {
       try {
-        const [jadwalData, matkulData] = await Promise.all([
+        const [jadwalData, matkulData, hasilData] = await Promise.all([
           jadwalService.getAll({ tahun_akademik: tahunAkademik }),
-          matkulService.getAll()
+          matkulService.getAll(),
+          user?.id ? hasilUjianService.getByMahasiswa(user.id, tahunAkademik).catch(() => []) : []
         ])
         setJadwalList(jadwalData || [])
         setMatkulList(matkulData || [])
+        setHasilList((hasilData || []).filter(h => h.status !== 'in_progress'))
       } catch (err) {
         console.error('[MahasiswaDashboard] Error loading data:', err)
+      } finally {
+        setLoaded(true)
       }
     }
     loadData()
-  }, [tahunAkademik])
+  }, [tahunAkademik, user?.id])
 
   const getField = (obj, snakeCase, camelCase) => obj?.[snakeCase] || obj?.[camelCase]
 
   // Filter jadwal untuk kelas mahasiswa
   const mahasiswaKelasId = user?.kelasId || user?.kelas_id
-  const now = new Date()
   const oneDayMs = 24 * 60 * 60 * 1000
 
   // Get upcoming exams (not expired more than 1 day)
@@ -85,6 +96,8 @@ function MahasiswaDashboard() {
 
       return {
         ...j,
+        examStart,
+        examEnd,
         waktuMulai,
         waktuSelesai,
         durasi,
@@ -103,12 +116,34 @@ function MahasiswaDashboard() {
   const activeExams = upcomingExams.filter(e => e.status === 'active').length
   const pendingExams = upcomingExams.filter(e => e.status === 'upcoming').length
 
+  const doneCount = hasilList.length
+  const waitingCount = hasilList.filter(h => h.status !== 'graded').length
   const STATS = [
-    { label: 'Ujian Selesai', value: '0', icon: CheckCircle, color: 'success' },
+    { label: 'Ujian Selesai', value: String(doneCount), icon: CheckCircle, color: 'success' },
     { label: 'Ujian Mendatang', value: String(pendingExams), icon: Calendar, color: 'primary' },
     { label: 'Sedang Aktif', value: String(activeExams), icon: Clock, color: 'accent' },
-    { label: 'Menunggu Hasil', value: '0', icon: Award, color: 'warning' }
+    { label: 'Menunggu Hasil', value: String(waitingCount), icon: Award, color: 'warning' }
   ]
+
+  // The exam that matters most right now: one in progress, else the next one
+  const nextExam = upcomingExams.find(e => e.status === 'active') || upcomingExams.find(e => e.status === 'upcoming')
+  const untilText = (ms) => {
+    const mins = Math.max(0, Math.round(ms / 60000))
+    const d = Math.floor(mins / 1440)
+    const h = Math.floor((mins % 1440) / 60)
+    const m = mins % 60
+    if (d > 0) return `${d} hari ${h} jam`
+    if (h > 0) return `${h} jam ${m} menit`
+    return `${m} menit`
+  }
+  const tanggalText = (t) => {
+    try {
+      return new Date(`${t}T12:00:00`).toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' })
+    } catch {
+      return t
+    }
+  }
+  const recentHasil = hasilList.slice(0, 3)
 
   return (
     <DashboardLayout>
@@ -118,6 +153,41 @@ function MahasiswaDashboard() {
           <p className="page-subtitle">Selamat datang, {user?.name}! NIM: {user?.nim}</p>
         </div>
 
+        {/* Next exam first: what a student opens the app for */}
+        {!loaded ? (
+          <span className="skeleton skeleton-card next-exam-skeleton" aria-label="Memuat" />
+        ) : nextExam ? (
+          <div className={`next-exam ${nextExam.status === 'active' ? 'is-active' : ''}`}>
+            <div className="next-exam-info">
+              <span className="next-exam-eyebrow">
+                {nextExam.status === 'active' ? 'Sedang berlangsung' : 'Ujian berikutnya'}
+              </span>
+              <h2 className="next-exam-title">{nextExam.tipeUjian} {nextExam.matkulName}</h2>
+              <div className="next-exam-meta">
+                <span><Calendar size={14} /> {tanggalText(nextExam.tanggal)}</span>
+                <span><Clock size={14} /> {jam(nextExam.waktuMulai)} – {jam(nextExam.waktuSelesai)}</span>
+              </div>
+              <span className="next-exam-countdown">
+                {nextExam.status === 'active'
+                  ? `Sisa waktu ${untilText(nextExam.examEnd - now)}`
+                  : `Dimulai dalam ${untilText(nextExam.examStart - now)}`}
+              </span>
+            </div>
+            <button className="btn btn-lg next-exam-btn" onClick={() => navigate('/mahasiswa/ujian')}>
+              {nextExam.status === 'active' ? 'Masuk Ujian' : 'Lihat Ujian'}
+              <ArrowRight size={18} />
+            </button>
+          </div>
+        ) : (
+          <div className="next-exam is-empty">
+            <div className="next-exam-info">
+              <span className="next-exam-eyebrow">Jadwal ujian</span>
+              <h2 className="next-exam-title">Belum ada ujian terjadwal</h2>
+              <span className="next-exam-countdown">Ujian akan muncul di sini begitu dijadwalkan.</span>
+            </div>
+          </div>
+        )}
+
         {/* Stats Grid */}
         <div className="stats-grid">
           {STATS.map((stat, index) => (
@@ -126,7 +196,7 @@ function MahasiswaDashboard() {
                 <stat.icon size={24} />
               </div>
               <div className="stat-content">
-                <span className="stat-value">{stat.value}</span>
+                <span className="stat-value">{loaded ? stat.value : <span className="skeleton skeleton-num" aria-label="Memuat" />}</span>
                 <span className="stat-label">{stat.label}</span>
               </div>
             </div>
@@ -144,7 +214,12 @@ function MahasiswaDashboard() {
               </div>
             </div>
             <div className="card-body">
-              {upcomingExams.length > 0 ? (
+              {!loaded ? (
+                <>
+                  <span className="skeleton skeleton-card" />
+                  <span className="skeleton skeleton-card" />
+                </>
+              ) : upcomingExams.length > 0 ? (
                 <div className="exam-cards">
                   {upcomingExams.map(exam => (
                     <div key={exam.id} className={`exam-card ${exam.status === 'active' ? 'exam-active' : ''}`}>
@@ -194,10 +269,31 @@ function MahasiswaDashboard() {
               <button className="btn btn-ghost btn-sm" onClick={() => navigate('/mahasiswa/hasil')}>Lihat Semua</button>
             </div>
             <div className="card-body">
-              <div className="empty-state" style={{ padding: '32px' }}>
-                <FileText size={32} style={{ opacity: 0.5, marginBottom: '8px' }} />
-                <p>Belum ada hasil ujian</p>
-              </div>
+              {!loaded ? (
+                <>
+                  <span className="skeleton skeleton-line" />
+                  <span className="skeleton skeleton-line" />
+                  <span className="skeleton skeleton-line" />
+                </>
+              ) : recentHasil.length > 0 ? (
+                <ul className="recent-results">
+                  {recentHasil.map(h => (
+                    <li key={h.id}>
+                      <span className="recent-result-name">
+                        {(h.jadwal?.tipe || 'Ujian').toUpperCase()} {h.jadwal?.matkul?.nama || ''}
+                      </span>
+                      <span className={`badge ${h.status === 'graded' ? 'badge-success' : 'badge-warning'}`}>
+                        {h.status === 'graded' ? 'Sudah dinilai' : 'Menunggu nilai'}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <div className="empty-state" style={{ padding: '32px' }}>
+                  <FileText size={32} style={{ opacity: 0.5, marginBottom: '8px' }} />
+                  <p>Belum ada hasil ujian</p>
+                </div>
+              )}
             </div>
           </div>
 
@@ -223,6 +319,121 @@ function MahasiswaDashboard() {
       </div>
 
       <style>{`
+        .next-exam {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+          padding: 1.25rem 1.5rem;
+          margin-bottom: var(--space-5);
+          border-radius: 26px;
+          color: #fff;
+          background: linear-gradient(135deg, #1e3a5f 0%, #2d5a9e 60%, #3b82f6 100%);
+          box-shadow: 0 18px 40px -20px rgba(30, 58, 120, 0.7);
+        }
+        .next-exam.is-active {
+          background: linear-gradient(135deg, #065f46 0%, #059669 60%, #14b8a6 100%);
+        }
+        .next-exam.is-empty {
+          color: var(--text-primary);
+          background: rgba(255, 255, 255, 0.7);
+          border: 1px solid var(--border-color);
+          box-shadow: none;
+        }
+        .next-exam-info {
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+          min-width: 0;
+        }
+        .next-exam-eyebrow {
+          font-size: 0.72rem;
+          font-weight: 700;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          opacity: 0.85;
+        }
+        .next-exam-title {
+          margin: 0;
+          font-size: 1.3rem;
+          font-weight: 800;
+          line-height: 1.25;
+        }
+        .next-exam-meta {
+          display: flex;
+          flex-wrap: wrap;
+          gap: 0.4rem 1rem;
+          font-size: 0.88rem;
+          opacity: 0.92;
+        }
+        .next-exam-meta span {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+        .next-exam-countdown {
+          margin-top: 0.2rem;
+          font-size: 0.9rem;
+          font-weight: 700;
+        }
+        .next-exam.is-empty .next-exam-countdown {
+          font-weight: 500;
+          color: var(--text-muted);
+        }
+        .next-exam-btn {
+          flex-shrink: 0;
+          min-height: 48px;
+          padding: 0 1.4rem;
+          border: none;
+          border-radius: 999px;
+          background: #fff !important;
+          color: #1e3a5f !important;
+          font-weight: 800;
+          gap: 0.4rem;
+        }
+        .next-exam.is-active .next-exam-btn {
+          color: #065f46 !important;
+        }
+        .next-exam-skeleton {
+          height: 7.5rem;
+          margin-bottom: var(--space-5);
+        }
+        .recent-results {
+          list-style: none;
+          margin: 0;
+          padding: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.5rem;
+        }
+        .recent-results li {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 0.75rem;
+          padding: 0.6rem 0.8rem;
+          border-radius: 14px;
+          background: var(--bg-tertiary);
+          font-size: 0.88rem;
+        }
+        .recent-result-name {
+          min-width: 0;
+          font-weight: 600;
+        }
+        @media (max-width: 640px) {
+          .next-exam {
+            padding: 1rem 1.1rem;
+            border-radius: 22px;
+          }
+          .next-exam-title {
+            font-size: 1.1rem;
+          }
+          .next-exam-btn {
+            width: 100%;
+            justify-content: center;
+          }
+        }
         .exam-cards {
           display: grid;
           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));

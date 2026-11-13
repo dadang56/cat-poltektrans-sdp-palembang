@@ -22,6 +22,7 @@ import { supabase } from '../../lib/supabase'
 
 function DosenDashboard() {
     const { user } = useAuth()
+    const [loaded, setLoaded] = useState(false)
     const [nimCheck, setNimCheck] = useState({ query: '', loading: false, result: null })
     const { settings } = useSettings()
     const tahunAkademik = getActiveAcademicYear(settings, user)
@@ -190,6 +191,8 @@ function DosenDashboard() {
                 }
             } catch (err) {
                 console.error('[DosenDashboard] Error loading data:', err)
+            } finally {
+                setLoaded(true)
             }
         }
 
@@ -232,7 +235,7 @@ function DosenDashboard() {
                                 <stat.icon size={24} />
                             </div>
                             <div className="stat-content">
-                                <span className="stat-value">{stat.value}</span>
+                                <span className="stat-value">{loaded ? stat.value : <span className="skeleton skeleton-num" aria-label="Memuat" />}</span>
                                 <span className="stat-label">{stat.label}</span>
                             </div>
                         </div>
@@ -257,7 +260,12 @@ function DosenDashboard() {
                         </div>
                         <div className="card-body">
                             <div className="deadline-list">
-                                {examDeadlines.length === 0 ? (
+                                {!loaded ? (
+                                    <>
+                                        <span className="skeleton skeleton-card" />
+                                        <span className="skeleton skeleton-card" />
+                                    </>
+                                ) : examDeadlines.length === 0 ? (
                                     <div className="text-center" style={{ padding: '24px', opacity: 0.6 }}>
                                         <Calendar size={40} style={{ marginBottom: '12px' }} />
                                         <p>Tidak ada deadline koreksi saat ini</p>
@@ -309,7 +317,12 @@ function DosenDashboard() {
                             <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{jadwalDosen.length} jadwal</span>
                         </div>
                         <div className="card-body">
-                            {jadwalDosen.length === 0 ? (
+                            {!loaded ? (
+                                <>
+                                    <span className="skeleton skeleton-card" />
+                                    <span className="skeleton skeleton-card" />
+                                </>
+                            ) : jadwalDosen.length === 0 ? (
                                 <div className="text-center" style={{ padding: '24px', opacity: 0.6 }}>
                                     <Calendar size={40} style={{ marginBottom: '12px' }} />
                                     <p>Belum ada jadwal ujian untuk mata kuliah Anda</p>

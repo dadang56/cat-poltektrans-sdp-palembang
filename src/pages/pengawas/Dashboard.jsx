@@ -183,7 +183,7 @@ function PengawasDashboard() {
                     <stat.icon size={24} />
                   </div>
                   <div className="stat-content">
-                    <span className="stat-value">{stat.value}</span>
+                    <span className="stat-value">{loading ? <span className="skeleton skeleton-num" aria-label="Memuat" /> : stat.value}</span>
                     <span className="stat-label">{stat.label}</span>
                   </div>
                 </div>

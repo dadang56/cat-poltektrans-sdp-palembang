@@ -569,3 +569,49 @@
 .dashboard-layout .nav-section-title.nav-group-title {
     margin-top: 0.9rem;
 }
+
+/* ---------- Loading placeholders ----------
+   Grey shimmering blocks in place of numbers/lists still loading, so a
+   page never flashes "0" or "belum ada data" before the data arrives. */
+.skeleton {
+    display: inline-block;
+    border-radius: 8px;
+    background: linear-gradient(90deg, rgba(30, 58, 120, 0.07) 0%, rgba(30, 58, 120, 0.14) 50%, rgba(30, 58, 120, 0.07) 100%);
+    background-size: 200% 100%;
+    animation: skeleton-shimmer 1.2s ease-in-out infinite;
+    vertical-align: middle;
+}
+
+.skeleton-num {
+    width: 2.4em;
+    height: 0.9em;
+}
+
+.skeleton-line {
+    display: block;
+    height: 0.85rem;
+    margin: 0.45rem 0;
+}
+
+.skeleton-card {
+    display: block;
+    height: 4.5rem;
+    margin-bottom: 0.75rem;
+    border-radius: 18px;
+}
+
+@keyframes skeleton-shimmer {
+    from { background-position: 100% 0; }
+    to { background-position: -100% 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .skeleton { animation: none; }
+}
+
+/* Action button just clicked (utils/doubleClickGuard.js) */
+.btn.is-busy {
+    cursor: progress;
+    filter: saturate(0.85) brightness(0.96);
+    transform: scale(0.98);
+}

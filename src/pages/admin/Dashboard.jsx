@@ -225,7 +225,7 @@ function AdminDashboard() {
                                 <stat.icon size={24} />
                             </div>
                             <div className="stat-content">
-                                <span className="stat-value">{stat.value}</span>
+                                <span className="stat-value">{isLoading ? <span className="skeleton skeleton-num" aria-label="Memuat" /> : stat.value}</span>
                                 <span className="stat-label">{stat.label}</span>
                             </div>
                             {/* Only when there is a real trend (was always "-", squeezing the label) */}

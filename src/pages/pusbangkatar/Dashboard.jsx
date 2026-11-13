@@ -111,7 +111,7 @@ function PusbangkatarDashboard() {
                                 <stat.icon size={22} />
                             </div>
                             <div className="pb-stat-body">
-                                <span className="pb-stat-value">{loading ? '...' : stat.value}</span>
+                                <span className="pb-stat-value">{loading ? <span className="skeleton skeleton-num" aria-label="Memuat" /> : stat.value}</span>
                                 <span className="pb-stat-label">{stat.label}</span>
                                 {stat.pct !== undefined && !loading && (
                                     <div className="pb-stat-progress">

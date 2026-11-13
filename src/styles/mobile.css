@@ -944,3 +944,24 @@ html.dashboard-locked #root {
         text-align: center !important;
     }
 }
+
+/* ---------- Touch targets ----------
+   Small icon buttons in tables (edit / hapus) were easy to mis-tap on
+   phones: give them a finger-sized hit area and some space. */
+@media (pointer: coarse) {
+    .dashboard-layout .table .btn-icon,
+    .dashboard-layout table .btn-icon,
+    .dashboard-layout .table .btn-sm.btn-icon {
+        width: 40px !important;
+        height: 40px !important;
+        min-width: 40px;
+        min-height: 40px !important;
+    }
+
+    .dashboard-layout td .flex.gap-1,
+    .dashboard-layout td .flex.gap-2,
+    .dashboard-layout td .action-buttons,
+    .dashboard-layout td .table-actions {
+        gap: 0.5rem !important;
+    }
+}
