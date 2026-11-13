@@ -27,7 +27,7 @@ import { useSettings } from '../../contexts/SettingsContext'
 import { toPercentScore } from '../../utils/gradeUtils'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { toast, errorMessage } from '../../components/Toast'
-import { AI_CHATS, buildGradingPrompt, openAiChat, copyText } from '../../utils/aiGradingPrompt'
+import { AI_CHATS, buildGradingPrompt, buildBulkGradingPrompt, openAiChat, copyText } from '../../utils/aiGradingPrompt'
 
 // Data kosong - akan diisi dari data nyata
 const EXAMS_TO_CORRECT = []
@@ -39,7 +39,7 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
     const [saving, setSaving] = useState(false)
 
     // ---- Tanya AI (opens ChatGPT / Claude / Gemini with a grading prompt) ----
-    const [openPrompt, setOpenPrompt] = useState(null) // originalIndex whose prompt is shown
+    const [openPrompt, setOpenPrompt] = useState(null) // originalIndex whose prompt is shown, or 'all'
 
     const promptFor = (answer) => {
         const question = questions.find(q => String(q.id) === String(answer.questionId))
@@ -49,6 +49,42 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
             maxPoints: answer.maxPoints,
             studentAnswer: typeof answer.answer === 'string' ? answer.answer : String(answer.answer ?? '')
         })
+    }
+
+    // All essay answers of this student in one prompt
+    const allEssayPrompt = () => buildBulkGradingPrompt({
+        items: answers
+            .filter(a => a.type === 'essay' || a.type === 'uraian')
+            .map(a => {
+                const question = questions.find(q => String(q.id) === String(a.questionId))
+                return {
+                    question: question?.pertanyaan || question?.text || '',
+                    answerGuide: question?.pedoman_jawaban || '',
+                    maxPoints: a.maxPoints,
+                    studentAnswer: typeof a.answer === 'string' ? a.answer : String(a.answer ?? '')
+                }
+            })
+    })
+
+    const askAiAll = async (chat) => {
+        const { prefilled, copied } = await openAiChat(chat.id, allEssayPrompt())
+        if (prefilled) {
+            toast.info(`${chat.label} dibuka dengan prompt semua soal essay.${copied ? ' Prompt juga disalin.' : ''}`)
+        } else if (copied) {
+            toast.info(`${chat.label} dibuka. Prompt semua soal sudah disalin: tempel (Ctrl+V) di kolom chat lalu kirim.`)
+        } else {
+            setOpenPrompt('all')
+            toast.warning(`${chat.label} dibuka, tetapi prompt gagal disalin otomatis. Salin dari kotak prompt di atas.`)
+        }
+    }
+
+    const copyAllPrompt = async () => {
+        const ok = await copyText(allEssayPrompt())
+        if (ok) toast.success('Prompt semua soal essay disalin.')
+        else {
+            setOpenPrompt('all')
+            toast.warning('Gagal menyalin otomatis. Salin manual dari kotak prompt.')
+        }
     }
 
     const askAi = async (chat, answer) => {
@@ -175,6 +211,42 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                                 <Sparkles size={16} />
                                 <span className="ai-toolbar-label">Tanya AI</span>
                                 <span className="ai-toolbar-note">Buka ChatGPT, Claude, atau Gemini dengan prompt penilaian otomatis. Nama & NIM tidak ikut. Nilai akhir tetap Anda yang menentukan.</span>
+                                {essayAnswers.length > 1 && (
+                                    <div className="ai-ask-row ai-ask-all">
+                                        <span className="ai-ask-label">Semua {essayAnswers.length} soal sekaligus:</span>
+                                        {AI_CHATS.map(chat => (
+                                            <button
+                                                key={chat.id}
+                                                type="button"
+                                                className={`btn btn-outline btn-sm ai-chat-btn ai-chat-${chat.id}`}
+                                                onClick={() => askAiAll(chat)}
+                                                title={`Buka ${chat.label} dengan prompt semua soal essay`}
+                                            >
+                                                {chat.label}
+                                                <ExternalLink size={12} />
+                                            </button>
+                                        ))}
+                                        <button type="button" className="btn btn-ghost btn-sm" onClick={copyAllPrompt}>
+                                            <Copy size={13} /> Salin prompt
+                                        </button>
+                                        <button
+                                            type="button"
+                                            className="btn btn-ghost btn-sm"
+                                            onClick={() => setOpenPrompt(openPrompt === 'all' ? null : 'all')}
+                                        >
+                                            {openPrompt === 'all' ? 'Tutup prompt' : 'Lihat prompt'}
+                                        </button>
+                                    </div>
+                                )}
+                                {openPrompt === 'all' && (
+                                    <textarea
+                                        className="form-input ai-prompt-preview"
+                                        readOnly
+                                        rows={12}
+                                        value={allEssayPrompt()}
+                                        onFocus={e => e.target.select()}
+                                    />
+                                )}
                             </div>
                             <div className="essay-grading-list">
                                 {essayAnswers.map((answer, idx) => {
@@ -344,6 +416,16 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave }) {
                 }
                 .ai-chat-btn {
                     gap: 0.3rem;
+                }
+                .ai-toolbar .ai-ask-all {
+                    flex-basis: 100%;
+                    margin: 0.35rem 0 0;
+                    padding-top: 0.6rem;
+                    border-top: 1px dashed rgba(139, 92, 246, 0.25);
+                }
+                .ai-toolbar .ai-prompt-preview {
+                    margin: 0.4rem 0 0;
+                    color: var(--text-primary);
                 }
                 .ai-chat-chatgpt { color: #0f766e !important; }
                 .ai-chat-claude { color: #c2410c !important; }
