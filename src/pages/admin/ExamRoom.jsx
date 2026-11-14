@@ -598,11 +598,12 @@ function ExamRoomPage() {
                                     <span className="room-info">{currentRoom.students.length} Peserta</span>
                                 </div>
                                 <div className="card-body">
+                                    <div className="seating-scroll-hint">Geser ke samping untuk melihat semua kursi →</div>
                                     <div className="seating-chart">
                                         <div className="board-indicator">
                                             <span>📋 PAPAN TULIS / LAYAR</span>
                                         </div>
-                                        <div className="seats-grid" style={{ gridTemplateColumns: `repeat(${currentRoom.cols}, 1fr)` }}>
+                                        <div className="seats-grid" style={{ gridTemplateColumns: `repeat(${currentRoom.cols}, minmax(0, 1fr))`, '--seat-cols': currentRoom.cols }}>
                                             {generateSeatGrid(currentRoom).flat().map((seat, idx) => (
                                                 <div
                                                     key={idx}
@@ -869,7 +870,20 @@ function ExamRoomPage() {
                 .seat-empty { color: var(--text-muted); font-size: 1.5rem; }
                 .prodi-badge { display: inline-block; padding: 0.25rem 0.75rem; border-radius: 0.5rem; font-size: 0.75rem; font-weight: 600; }
                 .student-list { margin-top: 1.5rem; }
-                @media (max-width: 768px) {    .config-row { flex-direction: column; gap: 1rem; align-items: flex-start; } .seats-grid { grid-template-columns: repeat(3, 1fr) !important; } }
+                .seating-scroll-hint { display: none; }
+                .seat { min-width: 0; }
+                /* Phones: keep the room's real columns (it is a seating plan) and let the
+                   plan scroll sideways inside its card instead of being cut off */
+                @media (max-width: 768px) {
+                    .config-row { flex-direction: column; gap: 1rem; align-items: flex-start; }
+                    .seating-section .card-body { padding: 0; }
+                    .seating-chart { padding: 1rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+                    .seats-grid { grid-template-columns: repeat(var(--seat-cols, 3), minmax(118px, 1fr)) !important; width: max-content; min-width: 100%; gap: 0.6rem; }
+                    .board-indicator { position: sticky; left: 0; }
+                    .seat { min-height: 92px; padding: 0.6rem 0.5rem; }
+                    .seat-name { white-space: normal; overflow-wrap: anywhere; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+                    .seating-scroll-hint { display: block; padding: 0.6rem 1rem 0; font-size: 0.75rem; font-weight: 600; color: var(--text-muted); }
+                }
             `}</style>
         </DashboardLayout>
     )
