@@ -61,6 +61,10 @@ export function buildSebConfig({ origin, quitHash }) {
         ['mobilePreventAutoLock', bool(true)],
         ['browserWindowAllowReload', bool(true)],
         ['showReloadButton', bool(true)],
+        // Windows: Wi-Fi button in the SEB taskbar, so a student can switch
+        // to another network during the exam without leaving SEB
+        ['allowWlan', bool(true)],
+        ['showTaskBar', bool(true)],
         ['URLFilterEnable', bool(false)],
         ['examSessionClearCookiesOnStart', bool(true)],
         ['sendBrowserExamKey', bool(false)]

@@ -25,7 +25,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { useSettings } from '../../contexts/SettingsContext'
-import { toPercentScore } from '../../utils/gradeUtils'
+import { toPercentScore, gradeAnswerDetails } from '../../utils/gradeUtils'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { toast, errorMessage } from '../../components/Toast'
 import { AI_CHATS, buildGradingPrompt, buildBulkGradingPrompt, openAiChat, copyText } from '../../utils/aiGradingPrompt'
@@ -718,6 +718,89 @@ function CorrectionModal({ isOpen, onClose, student, questions, onSave, onSaveNe
     )
 }
 
+// A student who leaves the exam (connection or laptop trouble, SEB closed)
+// and never comes back keeps status in_progress: no score, no submit time.
+// Once their time is over, finish the attempt from the answers saved during
+// the exam, as the exam page would have done on time-out. Also repairs
+// results that were finished without a submit time (shown as N/A) or with a
+// score of 0 although answers earned points.
+const FINISH_GRACE_MS = 5 * 60 * 1000
+const STALE_START_MS = 12 * 60 * 60 * 1000
+async function finishUnsubmittedAttempts(hasilData, soalData) {
+    const soalById = {}
+    soalData.forEach(s => { soalById[String(s.id)] = s })
+    const now = Date.now()
+    let finished = 0
+    for (const hasil of hasilData) {
+        const jadwal = hasil.jadwal
+        if (!jadwal || !hasil.waktu_mulai || hasil.waktu_selesai) continue
+        const finishedStatus = ['submitted', 'graded', 'cheating_submitted'].includes(hasil.status)
+        if (hasil.status !== 'in_progress' && !finishedStatus) continue
+        const start = new Date(hasil.waktu_mulai).getTime()
+        if (Number.isNaN(start)) continue
+        const minutes = (Number(jadwal.durasi) || 90) + (Number(hasil.tambahan_waktu) || 0)
+        const deadline = start + minutes * 60 * 1000
+        const windowStart = jadwal.tanggal && jadwal.waktu_mulai ? new Date(`${jadwal.tanggal}T${jadwal.waktu_mulai}`).getTime() : NaN
+        const windowEnd = jadwal.tanggal && jadwal.waktu_selesai ? new Date(`${jadwal.tanggal}T${jadwal.waktu_selesai}`).getTime() : NaN
+        if (hasil.status === 'in_progress') {
+            // Still working, or the exam window is still open
+            if (now < deadline + FINISH_GRACE_MS) continue
+            if (!Number.isNaN(windowEnd) && windowEnd > windowStart && now < windowEnd) continue
+            // Attempt from before a reschedule: the exam page restarts it
+            if (!Number.isNaN(windowStart) && start < windowStart - STALE_START_MS) continue
+        }
+        let answers = []
+        try {
+            answers = typeof hasil.answers_detail === 'string' ? JSON.parse(hasil.answers_detail) : (hasil.answers_detail || [])
+        } catch { answers = [] }
+        if (!Array.isArray(answers)) answers = []
+        const g = gradeAnswerDetails(answers, soalById)
+        const endAt = new Date(Number.isNaN(windowEnd) || windowEnd <= start ? deadline : Math.min(deadline, Math.max(windowEnd, start))).toISOString()
+        let payload
+        if (hasil.status === 'in_progress') {
+            const nilai = toPercentScore(g.raw, g.max)
+            payload = {
+                answers_detail: JSON.stringify(g.answers),
+                nilai_total: nilai,
+                nilai_final: hasil.is_ulang ? Math.min(nilai, 70) : nilai,
+                jumlah_benar: g.benar,
+                jumlah_salah: g.salah,
+                jumlah_kosong: g.kosong,
+                status: g.essayPending ? 'submitted' : 'graded',
+                submit_type: 'auto',
+                waktu_selesai: endAt
+            }
+        } else {
+            payload = { waktu_selesai: endAt, submit_type: hasil.submit_type || 'auto' }
+            // Finished without points stored although answers earned some
+            const nilai = toPercentScore(g.raw, g.max)
+            if (!Number(hasil.nilai_total) && nilai > 0 && hasil.status === 'graded' && !g.essayPending) {
+                payload.nilai_total = nilai
+                payload.nilai_final = hasil.is_ulang ? Math.min(nilai, 70) : nilai
+                payload.answers_detail = JSON.stringify(g.answers)
+            }
+        }
+        try {
+            // Only if nothing changed meanwhile (e.g. the student came back)
+            const { data, error } = await supabase
+                .from('hasil_ujian')
+                .update(payload)
+                .eq('id', hasil.id)
+                .eq('status', hasil.status)
+                .is('waktu_selesai', null)
+                .select('id')
+            if (error) throw error
+            if (data?.length) {
+                Object.assign(hasil, payload)
+                finished++
+            }
+        } catch (err) {
+            console.error('[KoreksiUjian] Could not finish attempt', hasil.id, err)
+        }
+    }
+    return finished
+}
+
 function KoreksiUjianPage() {
     const { ask } = useConfirm()
     const { user } = useAuth()
@@ -752,6 +835,11 @@ function KoreksiUjianPage() {
                     const soalData = await soalService.getAll({ tahun_akademik: tahunAkademik })
 
                     setSoalList(soalData)
+
+                    const finishedCount = await finishUnsubmittedAttempts(hasilData || [], soalData || [])
+                    if (finishedCount) {
+                        toast.info(`${finishedCount} peserta yang tidak sempat submit (keluar sebelum selesai) sudah diselesaikan otomatis dari jawaban yang tersimpan.`)
+                    }
 
                     console.log('[KoreksiUjian] Raw hasilData count:', hasilData?.length || 0)
                     if (hasilData?.length > 0) {
@@ -886,7 +974,7 @@ function KoreksiUjianPage() {
                             resultId: hasil.id,
                             studentName: mahasiswa?.nama || 'N/A',
                             nim: mahasiswa?.nim_nip || 'N/A',
-                            submittedAt: hasil.waktu_selesai ? new Date(hasil.waktu_selesai).toLocaleString('id-ID') : 'N/A',
+                            submittedAt: hasil.waktu_selesai ? new Date(hasil.waktu_selesai).toLocaleString('id-ID') : (hasil.status === 'in_progress' ? 'Belum submit' : 'Tidak submit'),
                             answers: cleanDosenAnswers, // Only this dosen's soal for correction modal
                             fullAnswers: cleanAnswers,  // ALL answers for save merging
                             allAnswersCount: answers.length,
@@ -1268,7 +1356,7 @@ function KoreksiUjianPage() {
                 })
 
                 if (changed) {
-                    const maxTotal = newAnswers.reduce((sum, a) => sum + (a.maxPoints || 0), 0)
+                    const maxTotal = newAnswers.reduce((sum, a) => sum + (Number(a.maxPoints ?? soalMap[a.questionId]?.bobot ?? 10) || 0), 0)
                     const regradedScore = toPercentScore(newTotal, maxTotal)
                     await hasilUjianService.update(hasil.id, {
                         answers_detail: newAnswers,

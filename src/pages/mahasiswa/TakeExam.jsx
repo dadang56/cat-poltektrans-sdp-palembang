@@ -41,6 +41,33 @@ const DEFAULT_ANTICHEAT_SETTINGS = {
     antiCheatLevel: 'medium' // low, medium, high
 }
 
+
+// A copy of the answers on this device, written on every change. It survives
+// a lost connection, a page reload or SEB restarting, so answers given after
+// the last successful server save are not lost. Tied to the attempt's start
+// time: after a Reset Ujian (new start time) the old copy is ignored.
+const answerBackupKey = (jadwalId, userId) => `exam_answers_${jadwalId}_${userId}`
+function writeAnswerBackup(jadwalId, userId, startedAt, answers) {
+    try {
+        localStorage.setItem(answerBackupKey(jadwalId, userId), JSON.stringify({
+            startedAt: new Date(startedAt).getTime(),
+            answers
+        }))
+    } catch { /* storage full or blocked: the server save still runs */ }
+}
+function readAnswerBackup(jadwalId, userId, startedAt) {
+    try {
+        const b = JSON.parse(localStorage.getItem(answerBackupKey(jadwalId, userId)) || 'null')
+        if (!b || !b.answers || b.startedAt !== new Date(startedAt).getTime()) return null
+        return b.answers
+    } catch {
+        return null
+    }
+}
+function clearAnswerBackup(jadwalId, userId) {
+    try { localStorage.removeItem(answerBackupKey(jadwalId, userId)) } catch { /* ignore */ }
+}
+
 function TakeExamPage() {
     const { notify } = useConfirm()
     const { user } = useAuth()
@@ -56,6 +83,14 @@ function TakeExamPage() {
     // Exam state
     const [currentQuestion, setCurrentQuestion] = useState(0)
     const [answers, setAnswers] = useState({})
+    // Latest answers/questions for timers and listeners registered once
+    const answersRef = useRef({})
+    answersRef.current = answers
+    const questionsRef = useRef([])
+    questionsRef.current = questions
+    const lastSavedRef = useRef('') // last answers_detail the server accepted
+    const savingRef = useRef(false)
+    const [saveState, setSaveState] = useState('idle') // idle | saving | saved | offline
     const essayInputRef = useRef(null)
     const [flagged, setFlagged] = useState(new Set())
     const [timeLeft, setTimeLeft] = useState(null) // null = not initialized yet, 0 = time's up
@@ -327,6 +362,13 @@ function TakeExamPage() {
                                             console.error('[TakeExam] Error parsing saved answers:', e)
                                         }
                                     }
+                                    // Answers kept on this device win: they are at least as new
+                                    // as the last server save.
+                                    const localAnswers = readAnswerBackup(jadwal.id, user.id, existingHasil.waktu_mulai)
+                                    if (localAnswers) {
+                                        resumedAnswers = { ...resumedAnswers, ...localAnswers }
+                                        console.log('[TakeExam] Restored', Object.keys(localAnswers).length, 'answers from this device')
+                                    }
                                 }
                             }
                         } catch (err) {
@@ -544,31 +586,66 @@ function TakeExamPage() {
         return () => clearInterval(timer)
     }, [submitted, timeLeft, loading])
 
-    // Auto-save answers to Supabase every 30 seconds
+    // Keep a copy of the answers on this device on every change
     useEffect(() => {
-        if (submitted || loading || !examData?.id || !user?.id || questions.length === 0) return
-        if (!isSupabaseConfigured()) return
+        if (submitted || !examData?.id || !user?.id || !examStartTime) return
+        writeAnswerBackup(examData.id, user.id, examStartTime, answers)
+    }, [answers, submitted, examData?.id, user?.id, examStartTime])
 
-        const autoSaveInterval = setInterval(async () => {
-            if (submittingRef.current) return
-            try {
-                const answerSnapshot = questions.map(q => ({
-                    questionId: q.id,
-                    type: q.type,
-                    answer: answers[q.id] ?? null
-                }))
+    // Save answers to the server. Before, a 30 s timer was restarted on every
+    // change, so a student who kept typing was never saved at all.
+    const saveAnswersNow = useCallback(async () => {
+        if (submittingRef.current || savingRef.current) return
+        const qs = questionsRef.current
+        if (!examData?.id || !user?.id || qs.length === 0 || !isSupabaseConfigured()) return
+        const snapshot = JSON.stringify(qs.map(q => ({
+            questionId: q.id,
+            type: q.type,
+            answer: answersRef.current[q.id] ?? null
+        })))
+        if (snapshot === lastSavedRef.current) return
+        savingRef.current = true
+        setSaveState('saving')
+        try {
+            // Only touches a row that is still in_progress, so a late
+            // save can never overwrite a graded/submitted result.
+            await hasilUjianService.autosaveAnswers(examData.id, user.id, snapshot)
+            lastSavedRef.current = snapshot
+            setSaveState('saved')
+        } catch (err) {
+            console.error('[TakeExam] Auto-save failed:', err)
+            setSaveState('offline')
+        } finally {
+            savingRef.current = false
+        }
+    }, [examData?.id, user?.id])
 
-                // Only touches a row that is still in_progress, so a late
-                // auto-save can never overwrite a graded/submitted result.
-                await hasilUjianService.autosaveAnswers(examData.id, user.id, JSON.stringify(answerSnapshot))
-                console.log('[TakeExam] Auto-saved', Object.keys(answers).length, 'answers')
-            } catch (err) {
-                console.error('[TakeExam] Auto-save failed:', err)
-            }
-        }, 30000) // Auto-save every 30 seconds (was 60s)
+    // 3 s after the last change
+    useEffect(() => {
+        if (submitted || loading || !examData?.id) return
+        const t = setTimeout(saveAnswersNow, 3000)
+        return () => clearTimeout(t)
+    }, [answers, submitted, loading, examData?.id, saveAnswersNow])
 
-        return () => clearInterval(autoSaveInterval)
-    }, [submitted, loading, examData, user, questions, answers])
+    // Every 15 s (catches long typing and failed saves), when the connection
+    // comes back, and when the page is hidden or closed
+    useEffect(() => {
+        if (submitted || loading || !examData?.id) return
+        const interval = setInterval(saveAnswersNow, 15000)
+        const onHidden = () => { if (document.visibilityState === 'hidden') saveAnswersNow() }
+        const onOffline = () => setSaveState('offline')
+        window.addEventListener('online', saveAnswersNow)
+        window.addEventListener('offline', onOffline)
+        window.addEventListener('pagehide', saveAnswersNow)
+        document.addEventListener('visibilitychange', onHidden)
+        return () => {
+            clearInterval(interval)
+            window.removeEventListener('online', saveAnswersNow)
+            window.removeEventListener('offline', onOffline)
+            window.removeEventListener('pagehide', saveAnswersNow)
+            document.removeEventListener('visibilitychange', onHidden)
+        }
+    }, [submitted, loading, examData?.id, saveAnswersNow])
 
     // Check for kicked status (pengawas can kick students during exam)
     useEffect(() => {
@@ -589,11 +666,11 @@ function TakeExamPage() {
                     setSubmitted(true)
                     
                     // Auto-save current answers before showing kicked screen
-                    if (existingHasilId && questions.length > 0) {
-                        const answerSnapshot = questions.map(q => ({
+                    if (existingHasilId && questionsRef.current.length > 0) {
+                        const answerSnapshot = questionsRef.current.map(q => ({
                             questionId: q.id,
                             type: q.type,
-                            answer: answers[q.id] ?? null
+                            answer: answersRef.current[q.id] ?? null
                         }))
                         try {
                             await hasilUjianService.update(existingHasilId, {
@@ -643,7 +720,7 @@ function TakeExamPage() {
         const kickCheckInterval = setInterval(checkKickedStatus, 15000)
 
         return () => clearInterval(kickCheckInterval)
-    }, [submitted, user, id, isKicked, existingHasilId, questions, answers])
+    }, [submitted, user, id, isKicked, existingHasilId])
 
     // Poll for reactivation (pengawas can reactivate a submitted exam)
     useEffect(() => {
@@ -846,6 +923,7 @@ function TakeExamPage() {
             const jumlahSalah = answerDetails.filter(a => a.isCorrect === false).length
             const jumlahKosong = answerDetails.filter(a => a.answer === null).length
 
+            let hasilData = null
             try {
                 // Normalize raw points to 0-100 (bobot soal bisa tidak berjumlah 100)
                 const nilaiTotal = toPercentScore(totalScore, maxScore)
@@ -859,7 +937,7 @@ function TakeExamPage() {
                 }
 
                 // Save to hasil_ujian table
-                const hasilData = {
+                hasilData = {
                     jadwal_id: examData.id,
                     mahasiswa_id: user?.id,
                     nilai_total: nilaiTotal,
@@ -880,11 +958,33 @@ function TakeExamPage() {
                 }
 
                 await hasilUjianService.saveFinalResult(hasilData)
+                clearAnswerBackup(examData.id, user?.id)
                 signalMonitor(id, 'submit')
                 console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
             } catch (error) {
                 console.error('[TakeExam] Error saving to Supabase:', error)
-                notify({ title: 'Jawaban Gagal Tersimpan', message: 'Jawaban ujian GAGAL tersimpan ke server. Jangan tutup halaman ini dan segera lapor ke pengawas.' })
+                if (!hasilData) return
+                notify({ title: 'Jawaban Belum Terkirim', message: 'Koneksi internet bermasalah, jawaban belum terkirim ke server. Jawaban tetap tersimpan di perangkat ini dan akan dikirim ulang otomatis saat internet tersambung. Jangan tutup halaman ini dan lapor ke pengawas.' })
+                // Keep trying while the page is open: every 10 s and as soon
+                // as the connection comes back.
+                let busy = false
+                const retry = async () => {
+                    if (busy) return
+                    busy = true
+                    window.removeEventListener('online', retry)
+                    try {
+                        await hasilUjianService.saveFinalResult(hasilData)
+                        clearAnswerBackup(examData.id, user?.id)
+                        signalMonitor(id, 'submit')
+                        notify({ title: 'Jawaban Terkirim', message: 'Jawaban ujian sudah berhasil tersimpan ke server.' })
+                    } catch {
+                        busy = false
+                        window.addEventListener('online', retry)
+                        setTimeout(() => { if (navigator.onLine) retry() }, 10000)
+                    }
+                }
+                window.addEventListener('online', retry)
+                setTimeout(() => { if (navigator.onLine) retry() }, 10000)
             }
         }
 
@@ -1295,6 +1395,11 @@ function TakeExamPage() {
                     <span className="exam-student">{user?.name} • {user?.nim}</span>
                 </div>
                 <div className="exam-timer-container">
+                    {saveState !== 'idle' && (
+                        <span className={`exam-save-state is-${saveState}`} role="status">
+                            {saveState === 'saving' ? 'Menyimpan…' : saveState === 'saved' ? 'Tersimpan ✓' : 'Offline · disimpan di perangkat'}
+                        </span>
+                    )}
                     {/* Security Status Badge */}
                     <div className={`security-badge ${warningCount > 0 ? 'has-warnings' : 'secure'}`}
                         title={`Anti-Cheat: ${antiCheatSettings.antiCheatLevel?.toUpperCase()} | Peringatan: ${warningCount}/${antiCheatSettings.maxWarnings}`}

@@ -159,3 +159,58 @@ export function getFormulaDescription(hasPraktek) {
 }
 
 export { GRADE_TABLE }
+
+const isEssayType = t => t === 'essay' || t === 'uraian'
+const normalizeChoice = (val) => {
+    if (val === null || val === undefined || val === '') return null
+    if (typeof val === 'string' && /^[A-E]$/i.test(val)) {
+        return { A: 0, B: 1, C: 2, D: 3, E: 4 }[val.toUpperCase()]
+    }
+    return Number(val)
+}
+
+/**
+ * Score saved answers against the question bank, the same way the exam page
+ * does on submit. Used to finish an attempt the student never submitted
+ * (left the exam, laptop or connection died) and to repair results saved
+ * without points. Essay scores already given by the dosen are kept.
+ * @param {Array} answers - answers_detail entries ({ questionId, type, answer, ... })
+ * @param {Object} soalById - soal rows keyed by String(id)
+ * @returns {{ answers: Array, raw: number, max: number, essayPending: boolean,
+ *            benar: number, salah: number, kosong: number }}
+ */
+export function gradeAnswerDetails(answers, soalById) {
+    let raw = 0
+    let max = 0
+    const graded = (answers || []).map(a => {
+        const soal = soalById[String(a.questionId)]
+        const type = a.type || soal?.tipe_soal || 'pilihan_ganda'
+        const maxPoints = Number(a.maxPoints ?? soal?.bobot ?? 10) || 0
+        max += maxPoints
+        if (isEssayType(type)) {
+            const earned = a.earnedPoints ?? null
+            raw += earned || 0
+            return { ...a, type, maxPoints, earnedPoints: earned, isCorrect: a.isCorrect ?? null, needsManualGrading: true }
+        }
+        const correct = soal ? soal.jawaban_benar : a.correctAnswer
+        let isCorrect = false
+        if (a.answer !== null && a.answer !== undefined && a.answer !== '' && correct !== null && correct !== undefined) {
+            isCorrect = type === 'benar_salah'
+                ? String(a.answer) === String(correct)
+                : normalizeChoice(a.answer) === normalizeChoice(correct)
+        }
+        const earned = isCorrect ? maxPoints : 0
+        raw += earned
+        return { ...a, type, correctAnswer: correct, maxPoints, isCorrect, earnedPoints: earned, needsManualGrading: false }
+    })
+    const isEmpty = a => a.answer === null || a.answer === undefined || String(a.answer).trim() === ''
+    return {
+        answers: graded,
+        raw,
+        max,
+        essayPending: graded.some(a => a.needsManualGrading && (a.earnedPoints === null || a.earnedPoints === undefined)),
+        benar: graded.filter(a => a.isCorrect === true).length,
+        salah: graded.filter(a => a.isCorrect === false && !isEmpty(a)).length,
+        kosong: graded.filter(isEmpty).length
+    }
+}

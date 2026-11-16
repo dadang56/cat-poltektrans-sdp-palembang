@@ -709,6 +709,9 @@ export const hasilUjianService = {
                     tanggal,
                     tipe,
                     tahun_akademik,
+                    durasi,
+                    waktu_mulai,
+                    waktu_selesai,
                     matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
                     dosen:dosen_id(id, nama, nim_nip)
                 )
@@ -735,6 +738,9 @@ export const hasilUjianService = {
                     tanggal,
                     tipe,
                     tahun_akademik,
+                    durasi,
+                    waktu_mulai,
+                    waktu_selesai,
                     matkul:matkul_id!inner(id, nama, kode, prodi_id, sks_praktek),
                     dosen:dosen_id(id, nama, nim_nip)
                 )
@@ -758,6 +764,9 @@ export const hasilUjianService = {
                     tanggal,
                     tipe,
                     tahun_akademik,
+                    durasi,
+                    waktu_mulai,
+                    waktu_selesai,
                     matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
                     dosen:dosen_id(id, nama, nim_nip)
                 )
@@ -970,6 +979,9 @@ export const hasilUjianService = {
                     tanggal,
                     tipe,
                     tahun_akademik,
+                    durasi,
+                    waktu_mulai,
+                    waktu_selesai,
                     matkul_id,
                     kelas_id,
                     matkul:matkul_id(id, nama, kode, sks_praktek, sks_teori),

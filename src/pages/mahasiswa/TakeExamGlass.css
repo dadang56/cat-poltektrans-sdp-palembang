@@ -109,6 +109,16 @@
     padding: 6px 10px;
 }
 
+/* Answer save status next to the timer */
+.take-exam-page .exam-save-state {
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+    color: var(--gray-500, #64748b);
+}
+.take-exam-page .exam-save-state.is-saved { color: #16a34a; }
+.take-exam-page .exam-save-state.is-offline { color: #b45309; }
+
 .take-exam-page .exam-header .btn-icon {
     width: 40px;
     height: 40px;
@@ -527,6 +537,10 @@
 
     .take-exam-page .security-badge {
         padding: 5px 8px;
+    }
+
+    .take-exam-page .exam-save-state:not(.is-offline) {
+        display: none;
     }
 
     .take-exam-page .exam-header .btn-icon {
