@@ -96,6 +96,14 @@
         .steps li + li { margin-top: 4px; }
         .steps a { color: #2563eb; font-weight: 600; }
         .note { margin: 14px 0 0; font-size: 0.75rem; color: #64748b; }
+        /* iPhone/iPad only: Guided Access must be off, and how to get out if stuck */
+        .ios-tip { display: none; margin: 18px 0 0; padding: 14px 16px; text-align: left; border-radius: 20px;
+            background: #fff7e6; border: 1px solid #f5d28a; color: #7a4b00; font-size: 0.84rem; line-height: 1.5; }
+        .ios-tip h2 { margin: 0 0 6px; font-size: 0.88rem; color: #6b3f00; }
+        .ios-tip ol { margin: 6px 0 0; padding-left: 18px; }
+        .ios-tip li + li { margin-top: 3px; }
+        .ios-tip .warn { margin-top: 10px; padding-top: 10px; border-top: 1px dashed #f0c46c; }
+        body.is-ios .ios-tip { display: block; }
         .android { display: none; }
         body.is-android .android { display: block; }
         body.is-android .not-android { display: none; }
@@ -111,6 +119,21 @@
         <div class="not-android">
             <p class="lead">Ketuk tombol di bawah. Jika muncul pertanyaan <strong>“Buka di SafeExamBrowser?”</strong>, pilih <strong>Buka</strong>, lalu izinkan mode ujian.</p>
             <a id="open-seb" class="btn btn-primary" href="#">Buka di Safe Exam Browser</a>
+
+            <div class="ios-tip">
+                <h2>⚠️ Pengguna iPhone / iPad</h2>
+                Sebelum membuka, pastikan <strong>Akses Terpandu MATI</strong>:<br>
+                <strong>Pengaturan → Aksesibilitas → Akses Terpandu</strong> → matikan.
+                <div class="warn">
+                    <strong>HP terkunci</strong> dengan pesan <em>“Single App Mode/Guided Access Not Allowed”</em>? Lakukan <strong>restart paksa</strong>:
+                    <ol>
+                        <li>Tekan lalu <strong>lepas</strong> Volume Atas.</li>
+                        <li>Tekan lalu <strong>lepas</strong> Volume Bawah.</li>
+                        <li><strong>Tahan tombol samping</strong> sampai logo Apple muncul (±10 detik).</li>
+                    </ol>
+                    Lalu matikan Akses Terpandu dan buka link ini lagi.
+                </div>
+            </div>
 
             <div class="steps">
                 <h2>Belum punya Safe Exam Browser?</h2>
@@ -135,12 +158,17 @@
             var sebLink = 'sebs://' + host + '/sipandu.seb'
             var siteUrl = location.origin + '/login'
             var isAndroid = /android/i.test(navigator.userAgent)
+            // iPadOS reports itself as a Mac; touch points tell them apart
+            var isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) || (/macintosh/i.test(navigator.userAgent) && navigator.maxTouchPoints > 1)
 
             document.getElementById('open-seb').setAttribute('href', sebLink)
             document.getElementById('site-url').textContent = siteUrl
 
             if (isAndroid) {
                 document.body.classList.add('is-android')
+            }
+            if (isIOS) {
+                document.body.classList.add('is-ios')
             }
 
             var copyBtn = document.getElementById('copy-url')
