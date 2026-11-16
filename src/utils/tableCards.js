@@ -13,7 +13,8 @@ import { useEffect } from 'react'
 // Each card is folded to one line, the row's name (Nama / Mata Kuliah /
 // Ujian … column), and opens on tap to show the rest. Cells holding an
 // input (e.g. a score to type) stay visible when folded, so data entry
-// doesn't need a tap per row. Tables with 3 columns or fewer aren't folded.
+// doesn't need a tap per row; so do cells marked data-card-keep (e.g. the
+// tick box for "isi nilai sekaligus"). Tables with 3 columns or fewer aren't folded.
 const MAX_COLUMNS = 9
 const FOLD_MIN_COLUMNS = 4
 const TITLE_PATTERNS = [
@@ -59,7 +60,8 @@ function labelTable(table) {
                 }
                 cell.classList.toggle('card-title-cell', fold && i === titleIndex)
                 cell.classList.toggle('card-keep', fold && i !== titleIndex &&
-                    !!cell.querySelector('input:not([type=checkbox]):not([type=radio]), select, textarea'))
+                    (cell.hasAttribute('data-card-keep') ||
+                        !!cell.querySelector('input:not([type=checkbox]):not([type=radio]), select, textarea')))
             }
             row.classList.toggle('card-fold', fold)
         }

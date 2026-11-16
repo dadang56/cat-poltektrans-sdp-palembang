@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -11,6 +11,8 @@ import {
     Search, Filter, Loader2, Calendar
 } from 'lucide-react'
 import '../admin/Dashboard.css'
+import BulkFillBar from '../../components/BulkFillBar'
+import { useRowSelection } from '../../utils/rowSelection'
 
 const generateTAOptions = () => {
     const opts = []
@@ -100,6 +102,22 @@ function NilaiKondite() {
     const getCurrentNilai = (m) => {
         if (editedValues.hasOwnProperty(m.id)) return editedValues[m.id]
         return nilaiMap[m.id] !== undefined && nilaiMap[m.id] !== null ? nilaiMap[m.id] : ''
+    }
+
+    // Tick several students and give them the same value at once (still
+    // saved with the Simpan button, like values typed one by one)
+    const idsKey = filteredMahasiswa.map(m => m.id).join(',')
+    const rowIds = useMemo(() => (idsKey ? idsKey.split(',') : []), [idsKey])
+    const selection = useRowSelection(rowIds)
+    const handleBulkApply = (_field, value) => {
+        setEditedValues(prev => {
+            const next = { ...prev }
+            selection.selected.forEach(id => { next[id] = String(value) })
+            return next
+        })
+        setSaveStatus({ type: 'info', message: `Nilai ${value} diisikan ke ${selection.selected.size} mahasiswa. Tekan Simpan untuk menyimpan.` })
+        setTimeout(() => setSaveStatus(null), 5000)
+        selection.clear()
     }
 
     const handleChange = (id, value) => {
@@ -321,6 +339,17 @@ function NilaiKondite() {
                         <table className="nk-table">
                             <thead>
                                 <tr>
+                                    <th style={{ width: '40px' }} className="nk-td-center">
+                                        <input
+                                            type="checkbox"
+                                            className="row-check"
+                                            checked={selection.allSelected}
+                                            ref={el => { if (el) el.indeterminate = selection.someSelected }}
+                                            onChange={selection.toggleAll}
+                                            title="Pilih semua"
+                                            aria-label="Pilih semua mahasiswa"
+                                        />
+                                    </th>
                                     <th style={{ width: '50px' }}>No</th>
                                     <th style={{ width: '130px' }}>NIM</th>
                                     <th>Nama</th>
@@ -336,7 +365,17 @@ function NilaiKondite() {
                                     const isEdited = editedValues.hasOwnProperty(m.id)
                                     const filled = val !== '' && val !== null && val !== undefined
                                     return (
-                                        <tr key={m.id} className={isEdited ? 'nk-row-edited' : ''}>
+                                        <tr key={m.id} className={`${isEdited ? 'nk-row-edited' : ''} ${selection.selected.has(m.id) ? 'row-selected' : ''}`}>
+                                            <td className="nk-td-center" data-card-keep>
+                                                <input
+                                                    type="checkbox"
+                                                    className="row-check"
+                                                    checked={selection.selected.has(m.id)}
+                                                    onChange={() => {}}
+                                                    onClick={e => selection.toggle(m.id, e.shiftKey)}
+                                                    aria-label={`Pilih ${m.nama}`}
+                                                />
+                                            </td>
                                             <td className="nk-td-center">{idx + 1}</td>
                                             <td className="nk-td-nim">{m.nim_nip || '-'}</td>
                                             <td className="nk-td-name">{m.nama}</td>
@@ -360,6 +399,15 @@ function NilaiKondite() {
                         </table>
                     </div>
                 )}
+                <BulkFillBar
+                    count={selection.selected.size}
+                    min={0}
+                    max={4}
+                    step={0.1}
+                    onApply={handleBulkApply}
+                    onClear={selection.clear}
+                    hint="Centang mahasiswa (tahan Shift lalu klik untuk memilih satu blok baris), ketik nilainya, tekan Isi, lalu Simpan."
+                />
             </div>
 
             <style>{`

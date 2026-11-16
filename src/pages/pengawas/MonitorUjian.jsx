@@ -30,7 +30,8 @@ import {
   ChevronRight,
   RotateCcw,
   Play,
-  Timer
+  Timer,
+  ArrowLeft
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { jam } from '../../utils/timeFormat'
@@ -919,8 +920,9 @@ function MonitorUjian() {
             {/* Header */}
             <div className="monitor-header">
               <div>
-                <button className="btn btn-ghost btn-sm mb-2" onClick={handleLeaveRoom}>
-                  ← Kembali ke Daftar Ruangan
+                <button className="btn btn-back mb-2" onClick={handleLeaveRoom}>
+                  <ArrowLeft size={18} />
+                  Kembali ke Daftar Ruangan
                 </button>
                 <h1 className="page-title">{selectedRoom.exam}</h1>
                 <p className="page-subtitle keep-mobile">

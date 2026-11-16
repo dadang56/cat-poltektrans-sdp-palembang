@@ -22,7 +22,8 @@ import {
     Database,
     Loader2,
     Upload,
-    FileSpreadsheet
+    FileSpreadsheet,
+    ArrowLeft
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import '../admin/Dashboard.css'
@@ -1718,11 +1719,12 @@ function BuatSoalPage() {
                         ) : (
                             <>
                                 <button
-                                    className="btn btn-ghost"
+                                    className="btn btn-back"
                                     onClick={handleBackToPackages}
-                                    style={{ marginBottom: '0.5rem', padding: '0.25rem 0.5rem' }}
+                                    style={{ marginBottom: '0.75rem' }}
                                 >
-                                    ← Kembali ke Paket Soal
+                                    <ArrowLeft size={18} />
+                                    Kembali ke Paket Soal
                                 </button>
                                 <h1 className="page-title">{getMatkulName(selectedPackage?.matkulId)} - {selectedPackage?.examType}</h1>
                                 {(() => {

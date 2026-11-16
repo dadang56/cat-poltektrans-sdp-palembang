@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -22,6 +22,13 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { toast, errorMessage } from '../../components/Toast'
+import { useConfirm } from '../../components/ConfirmDialog'
+import BulkFillBar from '../../components/BulkFillBar'
+import { useRowSelection } from '../../utils/rowSelection'
+
+// Score column in hasil_ujian for each component of the final grade
+const COMPONENT_COLUMN = { nt: 'nilai_tugas', nuts: 'nilai_uts', np: 'nilai_praktek', uas: 'nilai_uas' }
+const COMPONENT_LABEL = { nt: 'NT', nuts: 'NUTS', np: 'NP', uas: 'UAS' }
 
 // Grade calculation helper functions
 const calculateNAK = (student, hasPraktek) => {
@@ -75,6 +82,7 @@ const getGradeColor = (nh) => {
 
 function NilaiAkhirPage() {
     const { user } = useAuth()
+    const { ask } = useConfirm()
     const { settings } = useSettings()
     const tahunAkademik = getActiveAcademicYear(settings, user)
     const [matkulList, setMatkulList] = useState([])
@@ -217,10 +225,64 @@ function NilaiAkhirPage() {
         return matchesSearch && matchesKelas
     })
 
+    // Tick several students and give them the same score at once
+    const idsKey = filteredGrades.map(s => s.id).join(',')
+    const rowIds = useMemo(() => (idsKey ? idsKey.split(',') : []), [idsKey])
+    const selection = useRowSelection(rowIds)
+    const bulkFields = useMemo(() => [
+        { key: 'nt', label: 'NT (Tugas)' },
+        { key: 'nuts', label: 'NUTS' },
+        ...(hasPraktek ? [{ key: 'np', label: 'NP (Praktek)' }] : []),
+        { key: 'uas', label: 'UAS' }
+    ], [hasPraktek])
+
+    const handleBulkApply = async (field, value) => {
+        const column = COMPONENT_COLUMN[field]
+        const targets = currentGrades.filter(s => selection.selected.has(s.id))
+        if (!column || targets.length === 0) return
+        const label = COMPONENT_LABEL[field]
+        const filled = targets.filter(s => s[field] !== null && s[field] !== undefined && Number(s[field]) !== value).length
+        const ok = await ask({
+            title: `Isi ${label} Sekaligus`,
+            message: `Isi nilai ${label} = ${value} untuk ${targets.length} mahasiswa?` +
+                (filled ? ` ${filled} di antaranya sudah punya nilai ${label} dan akan diganti.` : ''),
+            confirmText: `Isi ${targets.length} Mahasiswa`
+        })
+        if (!ok) return
+        const failed = []
+        const done = new Set()
+        // A few at a time: fast, without flooding the connection
+        for (let i = 0; i < targets.length; i += 6) {
+            await Promise.all(targets.slice(i, i + 6).map(async student => {
+                const ids = student.allResultIds || (student.resultId ? [student.resultId] : [])
+                try {
+                    for (const rid of ids) {
+                        await hasilUjianService.update(rid, { [column]: value })
+                    }
+                    done.add(student.id)
+                } catch (error) {
+                    console.error('[NilaiAkhir] Bulk save failed for', student.id, error)
+                    failed.push(student.name)
+                }
+            }))
+        }
+        setGrades(prev => ({
+            ...prev,
+            [selectedMatkul.id]: (prev[selectedMatkul.id] || []).map(s => done.has(s.id) ? { ...s, [field]: value } : s)
+        }))
+        if (failed.length) {
+            toast.error(`${done.size} tersimpan, ${failed.length} gagal: ${failed.slice(0, 3).join(', ')}${failed.length > 3 ? '…' : ''}. Coba lagi.`)
+        } else {
+            toast.success(`Nilai ${label} = ${value} tersimpan untuk ${done.size} mahasiswa`)
+            selection.clear()
+        }
+    }
+
     const handleMatkulChange = (matkulId) => {
         const matkul = matkulList.find(m => String(m.id) === String(matkulId))
         setSelectedMatkul(matkul)
         setEditingStudent(null)
+        selection.clear()
     }
 
     const handleStartEdit = (student) => {
@@ -625,6 +687,17 @@ function NilaiAkhirPage() {
                                 <table className="table">
                                     <thead>
                                         <tr>
+                                            <th className="text-center" style={{ width: '40px' }}>
+                                                <input
+                                                    type="checkbox"
+                                                    className="row-check"
+                                                    checked={selection.allSelected}
+                                                    ref={el => { if (el) el.indeterminate = selection.someSelected }}
+                                                    onChange={selection.toggleAll}
+                                                    title="Pilih semua"
+                                                    aria-label="Pilih semua mahasiswa"
+                                                />
+                                            </th>
                                             <th>No</th>
                                             <th>Nama</th>
                                             <th>NIM</th>
@@ -645,7 +718,17 @@ function NilaiAkhirPage() {
                                             const nh = getNilaiHuruf(nak)
                                             const score = getScoreAkhir(nak)
                                             return (
-                                                <tr key={student.id}>
+                                                <tr key={student.id} className={selection.selected.has(student.id) ? 'row-selected' : ''}>
+                                                    <td className="text-center" data-card-keep>
+                                                        <input
+                                                            type="checkbox"
+                                                            className="row-check"
+                                                            checked={selection.selected.has(student.id)}
+                                                            onChange={() => {}}
+                                                            onClick={e => selection.toggle(student.id, e.shiftKey)}
+                                                            aria-label={`Pilih ${student.name}`}
+                                                        />
+                                                    </td>
                                                     <td>{index + 1}</td>
                                                     <td>{student.name}</td>
                                                     <td>{student.nim}</td>
@@ -739,6 +822,16 @@ function NilaiAkhirPage() {
                                 </table>
                             </div>
                         )}
+                        <BulkFillBar
+                            count={selection.selected.size}
+                            fields={bulkFields}
+                            min={0}
+                            max={100}
+                            step={0.01}
+                            onApply={handleBulkApply}
+                            onClear={selection.clear}
+                            hint="Centang mahasiswa (tahan Shift lalu klik untuk memilih satu blok baris), pilih komponen, ketik nilainya, lalu tekan Isi."
+                        />
                     </div>
                 </div>
             </div>

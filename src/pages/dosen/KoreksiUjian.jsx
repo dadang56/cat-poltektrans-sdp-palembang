@@ -21,7 +21,8 @@ import {
     Sparkles,
     ExternalLink,
     Copy,
-    ClipboardPaste
+    ClipboardPaste,
+    ArrowLeft
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { useSettings } from '../../contexts/SettingsContext'
@@ -1490,10 +1491,11 @@ function KoreksiUjianPage() {
                     <>
                         {/* Back Button */}
                         <button
-                            className="btn btn-ghost mb-4"
+                            className="btn btn-back mb-4"
                             onClick={() => setSelectedExam(null)}
                         >
-                            ← Kembali ke Daftar Ujian
+                            <ArrowLeft size={18} />
+                            Kembali ke Daftar Ujian
                         </button>
 
                         {/* Exam Header */}
