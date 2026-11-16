@@ -1188,6 +1188,14 @@ export const ruangService = {
 // ============================================
 // Jawaban Mahasiswa Service
 // ============================================
+// The answers live in hasil_ujian.answers_detail. The older per-answer table
+// jawaban_mahasiswa does not exist in this database, so any call to it used to
+// fail — e.g. "Reset Ujian" in Monitor Ujian stopped at its first step with
+// "Could not find the table 'public.jawaban_mahasiswa'". Treat a missing table
+// as "nothing stored there" so those actions continue with hasil_ujian.
+const isMissingTable = (error) => error?.code === 'PGRST205' || error?.code === '42P01' ||
+    /could not find the table|does not exist/i.test(error?.message || '')
+
 export const jawabanMahasiswaService = {
     async getByJadwalAndMahasiswa(jadwalId, mahasiswaId) {
         const { data, error } = await supabase
@@ -1199,7 +1207,7 @@ export const jawabanMahasiswaService = {
             .eq('jadwal_id', jadwalId)
             .eq('mahasiswa_id', mahasiswaId)
 
-        if (error) throw error
+        if (error && !isMissingTable(error)) throw error
         return data
     },
 
@@ -1213,7 +1221,7 @@ export const jawabanMahasiswaService = {
             `)
             .eq('jadwal_id', jadwalId)
 
-        if (error) throw error
+        if (error && !isMissingTable(error)) throw error
         return data
     },
 
@@ -1226,7 +1234,7 @@ export const jawabanMahasiswaService = {
             .select()
             .single()
 
-        if (error) throw error
+        if (error && !isMissingTable(error)) throw error
         return data
     },
 
@@ -1238,7 +1246,7 @@ export const jawabanMahasiswaService = {
             })
             .select()
 
-        if (error) throw error
+        if (error && !isMissingTable(error)) throw error
         return data
     },
 
@@ -1248,7 +1256,7 @@ export const jawabanMahasiswaService = {
             .delete()
             .eq('id', id)
 
-        if (error) throw error
+        if (error && !isMissingTable(error)) throw error
         return true
     },
 
@@ -1260,7 +1268,7 @@ export const jawabanMahasiswaService = {
             .eq('jadwal_id', jadwalId)
             .eq('mahasiswa_id', mahasiswaId)
 
-        if (error) throw error
+        if (error && !isMissingTable(error)) throw error
         return true
     },
 
@@ -1271,7 +1279,7 @@ export const jawabanMahasiswaService = {
             .delete()
             .eq('jadwal_id', jadwalId)
 
-        if (error) throw error
+        if (error && !isMissingTable(error)) throw error
         return true
     }
 }

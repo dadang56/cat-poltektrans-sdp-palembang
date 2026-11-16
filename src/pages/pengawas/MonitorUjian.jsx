@@ -709,6 +709,15 @@ function MonitorUjian() {
       return
     }
 
+    // Extra time only lengthens a running exam. For a student who already
+    // submitted it was saved but changed nothing, which looked like a failure.
+    const target = participants.find(p => p.id === participantId)
+    if (['submitted', 'cheating_submitted'].includes(target?.status)) {
+      toast.warning(`${studentName || 'Peserta'} sudah submit, jadi tambahan waktu tidak berlaku. Untuk mengulang ujian dengan waktu penuh, gunakan Reset Ujian.`)
+      setExtraTimeModal(null)
+      return
+    }
+
     try {
       // Get current tambahan_waktu
       const student = participants.find(p => p.id === participantId)
