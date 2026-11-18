@@ -1,17 +1,23 @@
 /**
  * Grade Calculation Utilities
  * 
- * Two formulas based on SKS type:
- * - With Praktek: NAK = (NT*10%) + (NP*20%) + (NUTS*20%) + (NUAS*50%)
+ * Two formulas based on SKS type (Bobot Penilaian Akademik):
+ * - With Praktek:    NAK = (NT*10%) + (NUTS*30%) + (NP*20%) + (NUAS*40%)
  * - Without Praktek: NAK = (NT*10%) + (NUTS*30%) + (NUAS*60%)
  */
 
 // Grade conversion table
+// Skala penilaian akademik (Pasal 20 - Peraturan Akademik Poltektrans SDP Palembang)
+//  >85,00–100,00 = A  (4,00)   | >75,00–85,00 = AB (3,50)
+//  >65,00–75,00  = B  (3,00)   | >60,00–65,00 = BC (2,50)
+//  >55,00–60,00  = C  (2,00)   | >44,00–55,00 = D  (1,00)
+//  00,00–44,00   = E  (0,00)
+// Nilai dibulatkan 2 desimal, jadi batas ">X,00" diwakili min = X,01.
 const GRADE_TABLE = [
-    { min: 80.01, max: 100, huruf: 'A', bobot: 4.00, predikat: 'Sangat Baik' },
-    { min: 75.01, max: 80, huruf: 'AB', bobot: 3.50, predikat: 'Lebih Dari Baik' },
-    { min: 69.01, max: 75, huruf: 'B', bobot: 3.00, predikat: 'Baik' },
-    { min: 60.01, max: 69, huruf: 'BC', bobot: 2.50, predikat: 'Lebih Dari Cukup' },
+    { min: 85.01, max: 100, huruf: 'A', bobot: 4.00, predikat: 'Sangat Baik' },
+    { min: 75.01, max: 85, huruf: 'AB', bobot: 3.50, predikat: 'Lebih Dari Baik' },
+    { min: 65.01, max: 75, huruf: 'B', bobot: 3.00, predikat: 'Baik' },
+    { min: 60.01, max: 65, huruf: 'BC', bobot: 2.50, predikat: 'Lebih Dari Cukup' },
     { min: 55.01, max: 60, huruf: 'C', bobot: 2.00, predikat: 'Cukup' },
     { min: 44.01, max: 55, huruf: 'D', bobot: 1.00, predikat: 'Kurang' },
     { min: 0, max: 44, huruf: 'E', bobot: 0.00, predikat: 'Sangat Kurang' }
@@ -34,8 +40,8 @@ export function calculateNAK(nt, np, nuts, nuas, hasPraktek) {
 
     let nak
     if (hasPraktek) {
-        // With Praktek: (NT*10%) + (NP*20%) + (NUTS*20%) + (NUAS*50%)
-        nak = (nilaiTugas * 0.10) + (nilaiPraktek * 0.20) + (nilaiUTS * 0.20) + (nilaiUAS * 0.50)
+        // With Praktek: (NT*10%) + (NUTS*30%) + (NP*20%) + (NUAS*40%)
+        nak = (nilaiTugas * 0.10) + (nilaiUTS * 0.30) + (nilaiPraktek * 0.20) + (nilaiUAS * 0.40)
     } else {
         // Without Praktek: (NT*10%) + (NUTS*30%) + (NUAS*60%)
         nak = (nilaiTugas * 0.10) + (nilaiUTS * 0.30) + (nilaiUAS * 0.60)
@@ -153,7 +159,7 @@ export function getGradeColorClass(huruf) {
  */
 export function getFormulaDescription(hasPraktek) {
     if (hasPraktek) {
-        return 'NAK = (NT×10%) + (NP×20%) + (UTS×20%) + (UAS×50%)'
+        return 'NAK = (NT×10%) + (UTS×30%) + (NP×20%) + (UAS×40%)'
     }
     return 'NAK = (NT×10%) + (UTS×30%) + (UAS×60%)'
 }

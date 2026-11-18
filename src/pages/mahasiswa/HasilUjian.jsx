@@ -197,9 +197,9 @@ function HasilUjianPage() {
                             <thead>
                                 <tr>
                                     <th>NT (10%)</th>
-                                    <th>NUTS (${result.np !== null ? '20%' : '30%'})</th>
+                                    <th>NUTS (30%)</th>
                                     ${result.np !== null ? '<th>NP (20%)</th>' : ''}
-                                    <th>UAS (${result.np !== null ? '50%' : '60%'})</th>
+                                    <th>UAS (${result.np !== null ? '40%' : '60%'})</th>
                                     <th>NAK</th>
                                     <th>NH</th>
                                 </tr>

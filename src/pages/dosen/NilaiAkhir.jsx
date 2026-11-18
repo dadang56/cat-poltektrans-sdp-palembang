@@ -38,18 +38,19 @@ const calculateNAK = (student, hasPraktek) => {
     const np = Number(student.np) || 0
     const uas = Number(student.uas) || 0
     if (hasPraktek) {
-        // NT 10% + NUTS 20% + NP 20% + UAS 50%
-        return (nt * 0.1) + (nuts * 0.2) + (np * 0.2) + (uas * 0.5)
+        // NT 10% + NUTS 30% + NP 20% + UAS 40%
+        return (nt * 0.1) + (nuts * 0.3) + (np * 0.2) + (uas * 0.4)
     } else {
         // NT 10% + NUTS 30% + UAS 60%
         return (nt * 0.1) + (nuts * 0.3) + (uas * 0.6)
     }
 }
 
+// Skala Pasal 20 Peraturan Akademik: A>85, AB>75, B>65, BC>60, C>55, D>44, E≤44
 const getNilaiHuruf = (nak) => {
-    if (nak > 80) return 'A'
+    if (nak > 85) return 'A'
     if (nak > 75) return 'AB'
-    if (nak > 69) return 'B'
+    if (nak > 65) return 'B'
     if (nak > 60) return 'BC'
     if (nak > 55) return 'C'
     if (nak > 44) return 'D'
@@ -57,9 +58,9 @@ const getNilaiHuruf = (nak) => {
 }
 
 const getScoreAkhir = (nak) => {
-    if (nak > 80) return 4
+    if (nak > 85) return 4
     if (nak > 75) return 3.5
-    if (nak > 69) return 3
+    if (nak > 65) return 3
     if (nak > 60) return 2.5
     if (nak > 55) return 2
     if (nak > 44) return 1
@@ -348,7 +349,7 @@ function NilaiAkhirPage() {
 
         // Generate rows for XLSX export
         const headers = hasPraktek
-            ? ['No', 'Nama', 'NIM', 'NT (10%)', 'NUTS (20%)', 'NP (20%)', 'UAS (50%)', 'NAK', 'NH', 'Score']
+            ? ['No', 'Nama', 'NIM', 'NT (10%)', 'NUTS (30%)', 'NP (20%)', 'UAS (40%)', 'NAK', 'NH', 'Score']
             : ['No', 'Nama', 'NIM', 'NT (10%)', 'NUTS (30%)', 'UAS (60%)', 'NAK', 'NH', 'Score']
 
         const dataRows = currentGrades.map((student, index) => {
@@ -497,7 +498,7 @@ function NilaiAkhirPage() {
                     <p><strong>Dosen Pengampu:</strong> ${dosenName}</p>
                 </div>
                 <div class="bobot-info">
-                    Bobot: NT ${hasPraktek ? '10%' : '10%'} | NUTS ${hasPraktek ? '20%' : '30%'} ${hasPraktek ? '| NP 20%' : ''} | UAS ${hasPraktek ? '50%' : '60%'}
+                    Bobot: NT 10% | NUTS 30% ${hasPraktek ? '| NP 20%' : ''} | UAS ${hasPraktek ? '40%' : '60%'}
                 </div>
                 <table>
                     <thead>
@@ -505,10 +506,10 @@ function NilaiAkhirPage() {
                             <th style="width:30px">No</th>
                             <th>NIM</th>
                             <th>Nama Mahasiswa</th>
-                            <th style="width:45px">NT<br/>${hasPraktek ? '10%' : '10%'}</th>
-                            <th style="width:45px">NUTS<br/>${hasPraktek ? '20%' : '30%'}</th>
+                            <th style="width:45px">NT<br/>10%</th>
+                            <th style="width:45px">NUTS<br/>30%</th>
                             ${npHeader}
-                            <th style="width:45px">UAS<br/>${hasPraktek ? '50%' : '60%'}</th>
+                            <th style="width:45px">UAS<br/>${hasPraktek ? '40%' : '60%'}</th>
                             <th style="width:45px">NAK</th>
                             <th style="width:35px">NH</th>
                             <th style="width:40px">Score</th>
@@ -645,7 +646,7 @@ function NilaiAkhirPage() {
                             <strong>Rumus Nilai:</strong>
                             <span style={{ marginLeft: '8px' }}>
                                 {hasPraktek
-                                    ? 'NT (10%) + NUTS (20%) + NP (20%) + UAS (50%) = NAK'
+                                    ? 'NT (10%) + NUTS (30%) + NP (20%) + UAS (40%) = NAK'
                                     : 'NT (10%) + NUTS (30%) + UAS (60%) = NAK'
                                 }
                             </span>
@@ -713,9 +714,9 @@ function NilaiAkhirPage() {
                                             <th>Nama</th>
                                             <th>NIM</th>
                                             <th className="text-center">NT<br /><small>10%</small></th>
-                                            <th className="text-center">NUTS<br /><small>{hasPraktek ? '20%' : '30%'}</small></th>
+                                            <th className="text-center">NUTS<br /><small>30%</small></th>
                                             {hasPraktek && <th className="text-center">NP<br /><small>20%</small></th>}
-                                            <th className="text-center">UAS<br /><small>{hasPraktek ? '50%' : '60%'}</small></th>
+                                            <th className="text-center">UAS<br /><small>{hasPraktek ? '40%' : '60%'}</small></th>
                                             <th className="text-center">NAK</th>
                                             <th className="text-center">NH</th>
                                             <th className="text-center">Score</th>

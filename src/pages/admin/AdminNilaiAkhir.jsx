@@ -25,7 +25,8 @@ const calculateNAK = (student, hasPraktek) => {
         const nuts = Number(student.nuts ?? 0)
         const np = Number(student.np ?? 0)
         const uas = Number(student.uas ?? 0)
-        return (nt * 0.1) + (nuts * 0.2) + (np * 0.2) + (uas * 0.5)
+        // NT 10% + NUTS 30% + NP 20% + UAS 40%
+        return (nt * 0.1) + (nuts * 0.3) + (np * 0.2) + (uas * 0.4)
     } else {
         const nt = Number(student.nt ?? 0)
         const nuts = Number(student.nuts ?? 0)
@@ -34,11 +35,12 @@ const calculateNAK = (student, hasPraktek) => {
     }
 }
 
+// Skala Pasal 20 Peraturan Akademik: A>85, AB>75, B>65, BC>60, C>55, D>44, E≤44
 const getNilaiHuruf = (nak) => {
     if (isNaN(nak)) return '-'
-    if (nak > 80) return 'A'
+    if (nak > 85) return 'A'
     if (nak > 75) return 'AB'
-    if (nak > 69) return 'B'
+    if (nak > 65) return 'B'
     if (nak > 60) return 'BC'
     if (nak > 55) return 'C'
     if (nak > 44) return 'D'
@@ -47,9 +49,9 @@ const getNilaiHuruf = (nak) => {
 
 const getScoreAkhir = (nak) => {
     if (isNaN(nak)) return 0
-    if (nak > 80) return 4.0
+    if (nak > 85) return 4.0
     if (nak > 75) return 3.5
-    if (nak > 69) return 3.0
+    if (nak > 65) return 3.0
     if (nak > 60) return 2.5
     if (nak > 55) return 2.0
     if (nak > 44) return 1.0
@@ -395,7 +397,7 @@ function AdminNilaiAkhirPage() {
                 <div class="info-row"><span class="info-label">Mata Kuliah</span>: ${group.matkulNama} (${group.matkulKode})</div>
                 <div class="info-row"><span class="info-label">Dosen Pengampu</span>: ${group.dosenNama}</div>
                 ${kelasFilter !== 'all' ? `<div class="info-row"><span class="info-label">Kelas</span>: ${kelasList.find(k => String(k.id) === String(kelasFilter))?.nama || ''}</div>` : ''}
-                <div class="info-row"><span class="info-label">Rumus Nilai</span>: ${group.hasPraktek ? 'NT(10%) + NUTS(20%) + NP(20%) + UAS(50%)' : 'NT(10%) + NUTS(30%) + UAS(60%)'}</div>
+                <div class="info-row"><span class="info-label">Rumus Nilai</span>: ${group.hasPraktek ? 'NT(10%) + NUTS(30%) + NP(20%) + UAS(40%)' : 'NT(10%) + NUTS(30%) + UAS(60%)'}</div>
 
                 <table>
                     <thead>
@@ -404,9 +406,9 @@ function AdminNilaiAkhirPage() {
                             <th class="left">Nama Mahasiswa</th>
                             <th>NIM</th>
                             <th>NT<br/><small>10%</small></th>
-                            <th>NUTS<br/><small>${group.hasPraktek ? '20%' : '30%'}</small></th>
+                            <th>NUTS<br/><small>30%</small></th>
                             ${group.hasPraktek ? '<th>NP<br/><small>20%</small></th>' : ''}
-                            <th>UAS<br/><small>${group.hasPraktek ? '50%' : '60%'}</small></th>
+                            <th>UAS<br/><small>${group.hasPraktek ? '40%' : '60%'}</small></th>
                             <th>NAK</th>
                             <th>NH</th>
                             <th>Score</th>
@@ -493,9 +495,9 @@ function AdminNilaiAkhirPage() {
                             <th class="left">Nama Mahasiswa</th>
                             <th>NIM</th>
                             <th>NT<br/><small>10%</small></th>
-                            <th>NUTS<br/><small>${group.hasPraktek ? '20%' : '30%'}</small></th>
+                            <th>NUTS<br/><small>30%</small></th>
                             ${group.hasPraktek ? '<th>NP<br/><small>20%</small></th>' : ''}
-                            <th>UAS<br/><small>${group.hasPraktek ? '50%' : '60%'}</small></th>
+                            <th>UAS<br/><small>${group.hasPraktek ? '40%' : '60%'}</small></th>
                             <th>NAK</th>
                             <th>NH</th>
                             <th>Score</th>
@@ -713,7 +715,7 @@ function AdminNilaiAkhirPage() {
                         <div>
                             <strong>Rumus Nilai:</strong>
                             <span style={{ marginLeft: '8px' }}>
-                                Dengan Praktek: NT(10%) + NUTS(20%) + NP(20%) + UAS(50%) | Tanpa Praktek: NT(10%) + NUTS(30%) + UAS(60%)
+                                Dengan Praktek: NT(10%) + NUTS(30%) + NP(20%) + UAS(40%) | Tanpa Praktek: NT(10%) + NUTS(30%) + UAS(60%)
                             </span>
                         </div>
                     </div>
@@ -765,9 +767,9 @@ function AdminNilaiAkhirPage() {
                                                         <th>NIM</th>
                                                         <th>Kelas</th>
                                                         <th className="text-center">NT<br /><small>10%</small></th>
-                                                        <th className="text-center">NUTS<br /><small>{group.hasPraktek ? '20%' : '30%'}</small></th>
+                                                        <th className="text-center">NUTS<br /><small>30%</small></th>
                                                         {group.hasPraktek && <th className="text-center">NP<br /><small>20%</small></th>}
-                                                        <th className="text-center">UAS<br /><small>{group.hasPraktek ? '50%' : '60%'}</small></th>
+                                                        <th className="text-center">UAS<br /><small>{group.hasPraktek ? '40%' : '60%'}</small></th>
                                                         <th className="text-center">NAK</th>
                                                         <th className="text-center">NH</th>
                                                         <th className="text-center">Score</th>

@@ -156,7 +156,7 @@ function MatkulModal({ isOpen, onClose, matkul, onSave, prodiList, isLoading }) 
                             <div className="formula-preview">
                                 <strong>Rumus Nilai:</strong><br />
                                 {hasPraktek ? (
-                                    <span className="formula-text">NAK = (NT×10%) + (NP×20%) + (UTS×20%) + (UAS×50%)</span>
+                                    <span className="formula-text">NAK = (NT×10%) + (UTS×30%) + (NP×20%) + (UAS×40%)</span>
                                 ) : (
                                     <span className="formula-text">NAK = (NT×10%) + (UTS×30%) + (UAS×60%)</span>
                                 )}

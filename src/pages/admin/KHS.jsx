@@ -20,10 +20,11 @@ import {
 import '../admin/Dashboard.css'
 
 // Grade conversion functions (same as NilaiAkhir.jsx)
+// Skala Pasal 20 Peraturan Akademik: A>85, AB>75, B>65, BC>60, C>55, D>44, E≤44
 const getNilaiHuruf = (nak) => {
-    if (nak > 80) return 'A'
+    if (nak > 85) return 'A'
     if (nak > 75) return 'AB'
-    if (nak > 69) return 'B'
+    if (nak > 65) return 'B'
     if (nak > 60) return 'BC'
     if (nak > 55) return 'C'
     if (nak > 44) return 'D'
@@ -31,9 +32,9 @@ const getNilaiHuruf = (nak) => {
 }
 
 const getScoreAkhir = (nak) => {
-    if (nak > 80) return 4.0
+    if (nak > 85) return 4.0
     if (nak > 75) return 3.5
-    if (nak > 69) return 3.0
+    if (nak > 65) return 3.0
     if (nak > 60) return 2.5
     if (nak > 55) return 2.0
     if (nak > 44) return 1.0
@@ -216,8 +217,8 @@ function KHSPage() {
         const hasPraktek = (matkul?.sks_praktek || 0) > 0
 
         if (hasPraktek) {
-            // NT 10% + NUTS 20% + NP 20% + UAS 50%
-            return (nt * 0.1) + (nuts * 0.2) + (np * 0.2) + (uas * 0.5)
+            // NT 10% + NUTS 30% + NP 20% + UAS 40%
+            return (nt * 0.1) + (nuts * 0.3) + (np * 0.2) + (uas * 0.4)
         } else {
             // NT 10% + NUTS 30% + UAS 60%
             return (nt * 0.1) + (nuts * 0.3) + (uas * 0.6)
