@@ -432,7 +432,7 @@ function NilaiAkhirPage() {
         const printContent = `
             <html>
             <head>
-                <title>Nilai Akhir - ${selectedMatkul.nama}</title>
+                <title>${kelasName} - Nilai Akhir - ${selectedMatkul.nama}</title>
                 <style>
                     @page { size: A4 portrait; margin: 8mm 12mm 6mm; }
                     * { margin: 0; padding: 0; box-sizing: border-box; }

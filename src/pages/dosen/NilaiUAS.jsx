@@ -312,7 +312,7 @@ function NilaiUASPage() {
         const printContent = `
             <html>
             <head>
-                <title>Nilai ${exam.examType.toUpperCase()} - ${exam.matkul}</title>
+                <title>${exam.kelas} - Nilai ${exam.examType.toUpperCase()} - ${exam.matkul}</title>
                 <style>
                     @page { size: A4 portrait; margin: 15mm; }
                     body { font-family: 'Times New Roman', serif; padding: 20px; font-size: 12pt; }
