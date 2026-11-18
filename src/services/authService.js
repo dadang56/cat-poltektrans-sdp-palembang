@@ -63,7 +63,8 @@ export async function signInWithNimNip(nimNip, password, options = {}) {
         const { data: byNimNip, error: lookupError } = await supabase
             .from('users')
             .select(`
-                id, nim_nip, nama, email, role, status, password, auth_id,
+                id, nim_nip, nip, nama, email, role, status, password, auth_id,
+                ttd_qr_enabled,
                 prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
                 prodi:prodi_id(id, nama, kode),
                 kelas:kelas_id(id, nama)
@@ -80,7 +81,8 @@ export async function signInWithNimNip(nimNip, password, options = {}) {
             const { data: byUsername, error: usernameError } = await supabase
                 .from('users')
                 .select(`
-                    id, nim_nip, nama, email, role, status, password, auth_id,
+                    id, nim_nip, nip, nama, email, role, status, password, auth_id,
+                    ttd_qr_enabled,
                     prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
                     prodi:prodi_id(id, nama, kode),
                     kelas:kelas_id(id, nama)
@@ -338,7 +340,8 @@ export async function getCurrentUser() {
         const { data: profile } = await supabase
             .from('users')
             .select(`
-                id, nim_nip, nama, email, role, status, auth_id,
+                id, nim_nip, nip, nama, email, role, status, auth_id,
+                ttd_qr_enabled,
                 prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
                 prodi:prodi_id(id, nama, kode),
                 kelas:kelas_id(id, nama)
@@ -374,6 +377,21 @@ export function onAuthStateChange(callback) {
 }
 
 /**
+ * Merge fields into the cached user profile (localStorage 'cat_user') so a
+ * profile edit survives a reload without re-fetching.
+ */
+export function patchCachedProfile(patch) {
+    try {
+        const raw = localStorage.getItem(USER_PROFILE_KEY)
+        if (!raw) return
+        const current = JSON.parse(raw)
+        localStorage.setItem(USER_PROFILE_KEY, JSON.stringify({ ...current, ...patch }))
+    } catch {
+        /* storage blocked */
+    }
+}
+
+/**
  * Update user password
  */
 export async function updatePassword(newPassword) {
@@ -403,6 +421,9 @@ function formatUserProfile(profile, session) {
         authId: session?.user?.id,
         nimNip: profile.nim_nip,
         nim: profile.nim_nip, // alias for compatibility
+        nim_nip: profile.nim_nip, // snake_case alias (used by print signatures)
+        nip: profile.nip || '', // official NIP for signatures (separate from login nim_nip)
+        ttd_qr_enabled: profile.ttd_qr_enabled ?? false, // QR e-signature on prints
         nama: profile.nama,
         name: profile.nama, // alias for compatibility
         email: profile.email,
@@ -428,7 +449,8 @@ async function checkLegacyUser(nimNip, password) {
     const { data: user } = await supabase
         .from('users')
         .select(`
-            id, nim_nip, nama, email, role, status, auth_id,
+            id, nim_nip, nip, nama, email, role, status, auth_id,
+            ttd_qr_enabled,
             prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
             prodi:prodi_id(id, nama, kode),
             kelas:kelas_id(id, nama)
@@ -453,6 +475,7 @@ export default {
     getCurrentUser,
     onAuthStateChange,
     updatePassword,
+    patchCachedProfile,
     validateSession,
     isSupabaseConfigured
 }

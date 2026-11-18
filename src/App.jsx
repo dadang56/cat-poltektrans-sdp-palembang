@@ -52,6 +52,7 @@ const BuatSoal = lazyPage(() => import('./pages/dosen/BuatSoal'), 'dosen')
 const KoreksiUjian = lazyPage(() => import('./pages/dosen/KoreksiUjian'), 'dosen')
 const NilaiUAS = lazyPage(() => import('./pages/dosen/NilaiUAS'), 'dosen')
 const NilaiAkhir = lazyPage(() => import('./pages/dosen/NilaiAkhir'), 'dosen')
+const PengaturanAkun = lazyPage(() => import('./pages/shared/PengaturanAkun'), 'dosen')
 const MahasiswaDashboard = lazyPage(() => import('./pages/mahasiswa/Dashboard'), 'mahasiswa')
 const TakeExam = lazyPage(() => import('./pages/mahasiswa/TakeExam'), 'mahasiswa')
 const UjianPage = lazyPage(() => import('./pages/mahasiswa/UjianMendatang'), 'mahasiswa')
@@ -289,12 +290,20 @@ function App() {
     document.documentElement.setAttribute('data-theme', 'light')
   }
 
+  // Merge fields into the logged-in user (and the cached profile) after a
+  // profile edit, so changes show immediately without a re-login.
+  const updateUser = (patch) => {
+    setUser((u) => (u ? { ...u, ...patch } : u))
+    authService.patchCachedProfile(patch)
+  }
+
   const authValue = {
     user,
     isLoading,
     login,
     logout,
     logoutLocal,
+    updateUser,
     theme,
     toggleTheme,
     sessionMessage
@@ -541,6 +550,11 @@ function App() {
                 <NilaiAkhir />
               </ProtectedRoute>
             } />
+            <Route path="/dosen/pengaturan" element={
+              <ProtectedRoute allowedRoles={['dosen']}>
+                <PengaturanAkun />
+              </ProtectedRoute>
+            } />
 
             {/* Mahasiswa Routes */}
             <Route path="/mahasiswa" element={
@@ -598,6 +612,11 @@ function App() {
             <Route path="/pengawas/berita-acara" element={
               <ProtectedRoute allowedRoles={['pengawas']}>
                 <PengawasBeritaAcara />
+              </ProtectedRoute>
+            } />
+            <Route path="/pengawas/pengaturan" element={
+              <ProtectedRoute allowedRoles={['pengawas']}>
+                <PengaturanAkun />
               </ProtectedRoute>
             } />
 

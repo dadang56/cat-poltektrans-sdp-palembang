@@ -6,6 +6,7 @@ import { getActiveAcademicYear } from '../../utils/academicYear'
 import { exportArrayToXLSX, downloadTemplate } from '../../utils/excelUtils'
 import { hasilUjianService } from '../../services/supabaseService'
 import { toPercentScore } from '../../utils/gradeUtils'
+import { generateTtdQrDataUrl, ttdSignatureInner, ttdPrintCss, hasTtdQr } from '../../utils/ttdSignature'
 import {
     Award,
     Search,
@@ -306,9 +307,17 @@ function NilaiUASPage() {
         downloadTemplate(headers, sampleRows, 'template_import_nilai')
     }
 
-    const handlePrint = (exam) => {
+    const handlePrint = async (exam) => {
         const dosenName = user?.nama || ''
-        const dosenNip = user?.nim_nip || ''
+        const dosenNip = user?.nip || user?.nim_nip || ''
+        const ttdQr = hasTtdQr(user)
+            ? await generateTtdQrDataUrl({
+                nama: dosenName,
+                nip: dosenNip,
+                dokumen: `Daftar Nilai ${exam.examType?.toUpperCase?.() || ''} - ${exam.matkul} (${exam.kelas})`,
+                tanggal: new Date().toLocaleDateString('id-ID'),
+            })
+            : ''
         const printContent = `
             <html>
             <head>
@@ -385,8 +394,9 @@ function NilaiUASPage() {
                     .lulus { color: #166534; font-weight: bold; }
                     .mengulang { color: #dc2626; font-weight: bold; }
                     .signature-section { margin-top: 50px; display: flex; justify-content: flex-end; }
-                    .signature-box { text-align: center; width: 250px; }
-                    .signature-line { margin-top: 60px; padding-top: 5px; }
+                    .signature-box { text-align: center; width: 280px; }
+                    .signature-line { margin-top: ${ttdQr ? '8px' : '60px'}; padding-top: 5px; }
+                    ${ttdPrintCss()}
                 </style>
             </head>
             <body>
@@ -438,12 +448,13 @@ function NilaiUASPage() {
                 </table>
                 <div class="signature-section">
                     <div class="signature-box">
-                        <p>Palembang, ${new Date().toLocaleDateString('id-ID')}</p>
-                        <p>Dosen Pengampu</p>
-                        <div class="signature-line">
-                            <p><strong>${dosenName || '_________________________'}</strong></p>
-                            <p>NIP. ${dosenNip || '_______________'}</p>
-                        </div>
+                        ${ttdSignatureInner({
+                            tanggal: new Date().toLocaleDateString('id-ID'),
+                            peran: 'Dosen Pengampu',
+                            nama: dosenName,
+                            nip: dosenNip,
+                            qrDataUrl: ttdQr,
+                        })}
                     </div>
                 </div>
             </body>

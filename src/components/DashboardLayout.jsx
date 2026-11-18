@@ -100,7 +100,8 @@ const NAV_ITEMS = {
         { path: '/dosen/buat-soal', icon: BookOpen, label: 'Buat Soal' },
         { path: '/dosen/koreksi', icon: CheckSquare, label: 'Koreksi Ujian' },
         { path: '/dosen/nilai-ujian', icon: FileText, label: 'Nilai Ujian' },
-        { path: '/dosen/nilai-akhir', icon: Award, label: 'Nilai Akhir' }
+        { path: '/dosen/nilai-akhir', icon: Award, label: 'Nilai Akhir' },
+        { path: '/dosen/pengaturan', icon: Settings, label: 'Pengaturan Akun' }
     ],
     mahasiswa: [
         { path: '/mahasiswa', icon: Home, label: 'Dashboard', end: true },
@@ -112,7 +113,8 @@ const NAV_ITEMS = {
         { path: '/pengawas', icon: Home, label: 'Dashboard', end: true },
         { path: '/pengawas/monitor', icon: Eye, label: 'Monitor Ujian' },
         { path: '/pengawas/attendance', icon: ClipboardCheck, label: 'Kehadiran' },
-        { path: '/pengawas/berita-acara', icon: FileText, label: 'Berita Acara' }
+        { path: '/pengawas/berita-acara', icon: FileText, label: 'Berita Acara' },
+        { path: '/pengawas/pengaturan', icon: Settings, label: 'Pengaturan Akun' }
     ],
     pusbangkatar: [
         { path: '/pusbangkatar', icon: Home, label: 'Dashboard', end: true },

@@ -3,6 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { useAuth } from '../../App'
+import { generateTtdQrDataUrl, hasTtdQr, nameFontSize } from '../../utils/ttdSignature'
 import { jadwalService, matkulService, prodiService, userService, hasilUjianService, kehadiranService, isSupabaseConfigured } from '../../services/supabaseService'
 import {
     ClipboardCheck,
@@ -42,6 +43,24 @@ function AttendancePage() {
     const [roomStudents, setRoomStudents] = useState([]) // Students in selected room
     const printRef = useRef(null)
     const [saving, setSaving] = useState(false)
+    const [ttdQr, setTtdQr] = useState('')
+
+    // QR e-signature for the pengawas (enabled in Pengaturan Akun).
+    useEffect(() => {
+        let alive = true
+        if (!hasTtdQr(user)) {
+            setTtdQr('')
+            return
+        }
+        generateTtdQrDataUrl({
+            nama: user?.name || user?.nama,
+            nip: user?.nip || user?.nim_nip,
+            dokumen: 'Daftar Hadir Ujian',
+        }).then((url) => {
+            if (alive) setTtdQr(url)
+        })
+        return () => { alive = false }
+    }, [user])
 
     useEffect(() => {
         const loadData = async () => {
@@ -549,8 +568,12 @@ function AttendancePage() {
                             .print-table th { background: #f0f0f0; font-weight: bold; text-align: center; }
                             .print-table td.center { text-align: center; }
                             .print-footer { margin-top: 40px; display: flex; justify-content: space-between; }
-                            .print-sign { text-align: center; width: 200px; }
+                            .print-sign { text-align: center; width: 240px; }
                             .print-sign-line { border-bottom: 1px solid #000; margin-top: 60px; margin-bottom: 5px; }
+                            .print-sign .ttd-qr { width: 70px; height: 70px; object-fit: contain; display: block; margin: 6px auto 2px; }
+                            .print-sign .ttd-note { font-size: 8pt; font-style: italic; color: #333; margin: 0 0 2px; }
+                            .print-sign .ttd-nama { white-space: nowrap; margin-top: 4px; }
+                            .print-sign .ttd-nip { white-space: nowrap; margin-top: 1px; }
                         }
                     `}</style>
 
@@ -620,8 +643,18 @@ function AttendancePage() {
                         <div className="print-sign">
                             <p>Palembang, {new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                             <p>Pengawas Ujian,</p>
-                            <div className="print-sign-line"></div>
-                            <p><strong>{user?.name || '________________________'}</strong></p>
+                            {ttdQr ? (
+                                <>
+                                    <img className="ttd-qr" src={ttdQr} alt="QR Tanda Tangan Elektronik" />
+                                    <p className="ttd-note">Ditandatangani secara elektronik</p>
+                                </>
+                            ) : (
+                                <div className="print-sign-line"></div>
+                            )}
+                            <p className="ttd-nama" style={{ fontSize: nameFontSize(user?.name) }}>
+                                <strong>{user?.name || '________________________'}</strong>
+                            </p>
+                            <p className="ttd-nip">NIP. {user?.nip || user?.nim_nip || '-'}</p>
                         </div>
                     </div>
                 </div>

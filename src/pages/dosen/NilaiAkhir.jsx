@@ -25,6 +25,7 @@ import { toast, errorMessage } from '../../components/Toast'
 import { useConfirm } from '../../components/ConfirmDialog'
 import BulkFillBar from '../../components/BulkFillBar'
 import { useRowSelection } from '../../utils/rowSelection'
+import { generateTtdQrDataUrl, ttdSignatureInner, ttdPrintCss, hasTtdQr } from '../../utils/ttdSignature'
 
 // Score column in hasil_ujian for each component of the final grade
 const COMPONENT_COLUMN = { nt: 'nilai_tugas', nuts: 'nilai_uts', np: 'nilai_praktek', uas: 'nilai_uas' }
@@ -388,14 +389,22 @@ function NilaiAkhirPage() {
     }    
 
     // Print Nilai Akhir with kop surat
-    const handlePrintNilaiAkhir = () => {
+    const handlePrintNilaiAkhir = async () => {
         if (!selectedMatkul || filteredGrades.length === 0) return
 
         const dosenName = user?.nama || ''
-        const dosenNip = user?.nim_nip || ''
+        const dosenNip = user?.nip || user?.nim_nip || ''
         const kelasName = kelasFilter !== 'all'
             ? kelasList.find(k => String(k.id) === String(kelasFilter))?.nama || ''
             : 'Semua Kelas'
+        const ttdQr = hasTtdQr(user)
+            ? await generateTtdQrDataUrl({
+                nama: dosenName,
+                nip: dosenNip,
+                dokumen: `Nilai Akhir - ${selectedMatkul.nama} (${kelasName})`,
+                tanggal: new Date().toLocaleDateString('id-ID'),
+            })
+            : ''
 
         // Sort by NIM
         const sortedStudents = [...filteredGrades].sort((a, b) => (a.nim || '').localeCompare(b.nim || ''))
@@ -463,9 +472,10 @@ function NilaiAkhirPage() {
                     .grade-c { color: #1e40af; }
                     .grade-e { color: #dc2626; font-weight: bold; }
                     .signature-section { margin-top: 20px; display: flex; justify-content: flex-end; page-break-inside: avoid; }
-                    .signature-box { text-align: center; width: 220px; font-size: 9.5pt; }
-                    .signature-line { margin-top: 45px; padding-top: 5px; }
+                    .signature-box { text-align: center; width: 250px; font-size: 9.5pt; }
+                    .signature-line { margin-top: ${ttdQr ? '6px' : '45px'}; padding-top: 5px; }
                     .signature-line p { margin: 2px 0; }
+                    ${ttdPrintCss()}
                 </style>
             </head>
             <body>
@@ -510,12 +520,13 @@ function NilaiAkhirPage() {
                 </table>
                 <div class="signature-section">
                     <div class="signature-box">
-                        <p>Palembang, ${new Date().toLocaleDateString('id-ID')}</p>
-                        <p>Dosen Pengampu</p>
-                        <div class="signature-line">
-                            <p><strong>${dosenName || '_________________________'}</strong></p>
-                            <p>NIP. ${dosenNip || '_______________'}</p>
-                        </div>
+                        ${ttdSignatureInner({
+                            tanggal: new Date().toLocaleDateString('id-ID'),
+                            peran: 'Dosen Pengampu',
+                            nama: dosenName,
+                            nip: dosenNip,
+                            qrDataUrl: ttdQr,
+                        })}
                     </div>
                 </div>
             </body>
