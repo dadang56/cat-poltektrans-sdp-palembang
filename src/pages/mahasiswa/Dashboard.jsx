@@ -18,6 +18,7 @@ import {
 } from 'lucide-react'
 import '../admin/Dashboard.css'
 import { jam } from '../../utils/timeFormat'
+import ConfirmExamModal from '../../components/ConfirmExamModal'
 
 
 function MahasiswaDashboard() {
@@ -32,6 +33,7 @@ function MahasiswaDashboard() {
   const [loaded, setLoaded] = useState(false)
   // re-render every 30 s so the countdown and "sedang berlangsung" stay current
   const [now, setNow] = useState(() => new Date())
+  const [confirmExam, setConfirmExam] = useState(null)
   useEffect(() => {
     const t = setInterval(() => setNow(new Date()), 30000)
     return () => clearInterval(t)
@@ -190,7 +192,11 @@ function MahasiswaDashboard() {
                   </div>
                   <button
                     className="btn btn-lg active-exam-cta"
-                    onClick={() => navigate('/mahasiswa/ujian')}
+                    onClick={() => setConfirmExam({
+                      ...exam,
+                      ruang: exam.ruang || exam.ruangan?.nama,
+                      dosenName: exam.dosenName || exam.dosen?.nama
+                    })}
                   >
                     Kerjakan Sekarang
                     <ArrowRight size={18} />
@@ -682,6 +688,13 @@ function MahasiswaDashboard() {
           margin-right: var(--space-2);
         }
       `}</style>
+
+      <ConfirmExamModal
+        isOpen={!!confirmExam}
+        exam={confirmExam}
+        onClose={() => setConfirmExam(null)}
+        onStart={(ex) => navigate(`/mahasiswa/take-exam/${ex.id}`, { state: { exam: ex } })}
+      />
     </DashboardLayout>
   )
 }
