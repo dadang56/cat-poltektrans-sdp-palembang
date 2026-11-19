@@ -24,30 +24,108 @@ const GRADE_TABLE = [
 ]
 
 /**
+ * Default NAK component weights (%) per Peraturan Akademik Pasal 20.
+ * Dosen may override these per mata kuliah within NAK_WEIGHT_RULES bounds.
+ */
+export const NAK_WEIGHT_DEFAULTS = {
+    praktek: { nt: 10, nuts: 30, np: 20, uas: 40 },
+    nonPraktek: { nt: 10, nuts: 30, uas: 60 }
+}
+
+/**
+ * Allowed range (%) for each aspect. Aspek dengan batas "≤" => max (plafon),
+ * aspek dengan batas "≥" => min (lantai). Total tetap wajib 100%.
+ *   Dengan praktek : NT ≤10, NUTS ≥30, NP ≥20, UAS ≤40
+ *   Tanpa praktek  : NT ≥10, NUTS ≥30, UAS ≤60
+ */
+export const NAK_WEIGHT_RULES = {
+    praktek: {
+        nt: { min: 0, max: 10 },
+        nuts: { min: 30, max: 100 },
+        np: { min: 20, max: 100 },
+        uas: { min: 0, max: 40 }
+    },
+    nonPraktek: {
+        nt: { min: 10, max: 100 },
+        nuts: { min: 30, max: 100 },
+        uas: { min: 0, max: 60 }
+    }
+}
+
+const weightKeys = (hasPraktek) => (hasPraktek ? ['nt', 'nuts', 'np', 'uas'] : ['nt', 'nuts', 'uas'])
+
+/**
+ * Validate a dosen-entered weight set against the regulation bounds + sum=100.
+ * @param {Object} w - { nt, nuts, np?, uas } in percent
+ * @param {boolean} hasPraktek
+ * @returns {{ valid: boolean, errors: string[], sum: number }}
+ */
+export function validateNakWeights(w, hasPraktek) {
+    const rules = hasPraktek ? NAK_WEIGHT_RULES.praktek : NAK_WEIGHT_RULES.nonPraktek
+    const label = { nt: 'NT', nuts: 'NUTS', np: 'NP', uas: 'UAS' }
+    const errors = []
+    let sum = 0
+    for (const k of weightKeys(hasPraktek)) {
+        const v = Number(w?.[k])
+        if (!Number.isFinite(v)) { errors.push(`${label[k]} tidak valid`); continue }
+        sum += v
+        if (v < rules[k].min) errors.push(`${label[k]} minimal ${rules[k].min}%`)
+        if (v > rules[k].max) errors.push(`${label[k]} maksimal ${rules[k].max}%`)
+    }
+    if (Math.round(sum) !== 100) errors.push(`Total bobot harus 100% (sekarang ${Math.round(sum)}%)`)
+    return { valid: errors.length === 0, errors, sum: Math.round(sum) }
+}
+
+/**
+ * Resolve the effective NAK weights for a matkul: its stored bobot_nilai if
+ * present and valid, otherwise the regulation defaults.
+ * @param {Object} matkul - may carry bobot_nilai / bobotNilai (jsonb)
+ * @param {boolean} hasPraktek
+ * @returns {Object} weights in percent (keys per weightKeys)
+ */
+export function getNakWeights(matkul, hasPraktek) {
+    const defaults = hasPraktek ? NAK_WEIGHT_DEFAULTS.praktek : NAK_WEIGHT_DEFAULTS.nonPraktek
+    let stored = matkul?.bobot_nilai ?? matkul?.bobotNilai ?? null
+    if (typeof stored === 'string') {
+        try { stored = JSON.parse(stored) } catch { stored = null }
+    }
+    if (stored && validateNakWeights(stored, hasPraktek).valid) {
+        const out = {}
+        for (const k of weightKeys(hasPraktek)) out[k] = Number(stored[k])
+        return out
+    }
+    return { ...defaults }
+}
+
+/**
+ * Compute NAK from components and an explicit weight set (percent).
+ * @param {Object} c - { nt, nuts, np, uas }
+ * @param {Object} weights - { nt, nuts, np?, uas } in percent
+ * @returns {number} NAK (0-100, 2 decimals)
+ */
+export function nakFromWeights(c, weights) {
+    const w = weights || {}
+    const nak =
+        ((Number(c?.nt) || 0) * (Number(w.nt) || 0) +
+         (Number(c?.nuts) || 0) * (Number(w.nuts) || 0) +
+         (Number(c?.np) || 0) * (Number(w.np) || 0) +
+         (Number(c?.uas) || 0) * (Number(w.uas) || 0)) / 100
+    return Math.round(nak * 100) / 100
+}
+
+/**
  * Calculate NAK (Nilai Akhir) based on grade components
  * @param {number} nt - Nilai Tugas (0-100)
  * @param {number} np - Nilai Praktek (0-100, null if no praktek)
  * @param {number} nuts - Nilai UTS (0-100)
  * @param {number} nuas - Nilai UAS (0-100)
  * @param {boolean} hasPraktek - Whether course has praktek component
+ * @param {Object} [weights] - optional custom weights (percent); defaults to regulation
  * @returns {number} NAK (0-100)
  */
-export function calculateNAK(nt, np, nuts, nuas, hasPraktek) {
-    const nilaiTugas = Number(nt) || 0
-    const nilaiPraktek = Number(np) || 0
-    const nilaiUTS = Number(nuts) || 0
-    const nilaiUAS = Number(nuas) || 0
-
-    let nak
-    if (hasPraktek) {
-        // With Praktek: (NT*10%) + (NUTS*30%) + (NP*20%) + (NUAS*40%)
-        nak = (nilaiTugas * 0.10) + (nilaiUTS * 0.30) + (nilaiPraktek * 0.20) + (nilaiUAS * 0.40)
-    } else {
-        // Without Praktek: (NT*10%) + (NUTS*30%) + (NUAS*60%)
-        nak = (nilaiTugas * 0.10) + (nilaiUTS * 0.30) + (nilaiUAS * 0.60)
-    }
-
-    return Math.round(nak * 100) / 100 // Round to 2 decimal places
+export function calculateNAK(nt, np, nuts, nuas, hasPraktek, weights) {
+    const w = weights || (hasPraktek ? NAK_WEIGHT_DEFAULTS.praktek : NAK_WEIGHT_DEFAULTS.nonPraktek)
+    return nakFromWeights({ nt, nuts, np, uas: nuas }, w)
 }
 
 /**

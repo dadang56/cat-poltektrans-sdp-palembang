@@ -368,7 +368,7 @@ export const jadwalService = {
             .from('jadwal_ujian')
             .select(`
         *,
-        matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
+        matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek, bobot_nilai),
         kelas:kelas_id(id, nama),
         ruangan:ruangan_id(id, nama),
         dosen:dosen_id(id, nama),
@@ -394,7 +394,7 @@ export const jadwalService = {
             .from('jadwal_ujian')
             .select(`
         *,
-        matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek),
+        matkul:matkul_id(id, nama, kode, prodi_id, sks_praktek, bobot_nilai),
         kelas:kelas_id(id, nama),
         ruangan:ruangan_id(id, nama),
         dosen:dosen_id(id, nama),
@@ -984,7 +984,7 @@ export const hasilUjianService = {
                     waktu_selesai,
                     matkul_id,
                     kelas_id,
-                    matkul:matkul_id(id, nama, kode, sks_praktek, sks_teori),
+                    matkul:matkul_id(id, nama, kode, sks_praktek, sks_teori, bobot_nilai),
                     kelas:kelas_id(id, nama),
                     dosen:dosen_id(id, nama)
                 )

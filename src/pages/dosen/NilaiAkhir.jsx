@@ -4,7 +4,8 @@ import { useAuth } from '../../App'
 import { useSettings } from '../../contexts/SettingsContext'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { exportArrayToXLSX } from '../../utils/excelUtils'
-import { hasilUjianService, kelasService, isSupabaseConfigured } from '../../services/supabaseService'
+import { hasilUjianService, kelasService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
+import { getNakWeights, validateNakWeights, nakFromWeights, NAK_WEIGHT_RULES } from '../../utils/gradeUtils'
 import {
     Award,
     Search,
@@ -32,18 +33,9 @@ const COMPONENT_COLUMN = { nt: 'nilai_tugas', nuts: 'nilai_uts', np: 'nilai_prak
 const COMPONENT_LABEL = { nt: 'NT', nuts: 'NUTS', np: 'NP', uas: 'UAS' }
 
 // Grade calculation helper functions
-const calculateNAK = (student, hasPraktek) => {
-    const nt = Number(student.nt) || 0
-    const nuts = Number(student.nuts) || 0
-    const np = Number(student.np) || 0
-    const uas = Number(student.uas) || 0
-    if (hasPraktek) {
-        // NT 10% + NUTS 30% + NP 20% + UAS 40%
-        return (nt * 0.1) + (nuts * 0.3) + (np * 0.2) + (uas * 0.4)
-    } else {
-        // NT 10% + NUTS 30% + UAS 60%
-        return (nt * 0.1) + (nuts * 0.3) + (uas * 0.6)
-    }
+// weights: bobot (%) per aspek dari matkul (getNakWeights). Fallback ke default aturan.
+const calculateNAK = (student, hasPraktek, weights) => {
+    return nakFromWeights(student, weights || getNakWeights(null, hasPraktek))
 }
 
 // Skala Pasal 20 Peraturan Akademik: A>85, AB>75, B>65, BC>60, C>55, D>44, E≤44
@@ -96,6 +88,9 @@ function NilaiAkhirPage() {
     const [saving, setSaving] = useState(false)
     const [kelasList, setKelasList] = useState([])
     const [kelasFilter, setKelasFilter] = useState('all')
+    const [showBobot, setShowBobot] = useState(false)
+    const [bobotDraft, setBobotDraft] = useState(null)
+    const [savingBobot, setSavingBobot] = useState(false)
 
     // Manual grade storage (in-memory fallback)
     const manualGrades = {}
@@ -217,6 +212,40 @@ function NilaiAkhirPage() {
 
     // Check if current matkul has praktek
     const hasPraktek = (selectedMatkul?.sks_praktek > 0) || (selectedMatkul?.sksPraktek > 0)
+
+    // Bobot NAK aktif untuk matkul terpilih (custom dosen atau default aturan)
+    const weights = useMemo(() => getNakWeights(selectedMatkul, hasPraktek), [selectedMatkul, hasPraktek])
+    const bobotKeys = hasPraktek ? ['nt', 'nuts', 'np', 'uas'] : ['nt', 'nuts', 'uas']
+    const bobotRules = hasPraktek ? NAK_WEIGHT_RULES.praktek : NAK_WEIGHT_RULES.nonPraktek
+    const draftValidation = bobotDraft ? validateNakWeights(bobotDraft, hasPraktek) : null
+
+    const openBobotEditor = () => {
+        setBobotDraft({ ...weights })
+        setShowBobot(true)
+    }
+
+    const saveBobot = async () => {
+        if (!selectedMatkul || !draftValidation?.valid) return
+        setSavingBobot(true)
+        try {
+            const payload = {}
+            for (const k of bobotKeys) payload[k] = Number(bobotDraft[k])
+            await matkulService.update(selectedMatkul.id, { bobot_nilai: payload })
+            const patch = { ...selectedMatkul, bobot_nilai: payload }
+            setSelectedMatkul(patch)
+            setMatkulList(list => list.map(m => (m.id === patch.id ? { ...m, bobot_nilai: payload } : m)))
+            setShowBobot(false)
+            toast.success('Bobot NAK disimpan')
+        } catch (e) {
+            toast.error(errorMessage(e, 'Gagal menyimpan bobot'))
+        } finally {
+            setSavingBobot(false)
+        }
+    }
+
+    const resetBobotDefault = () => {
+        setBobotDraft({ ...getNakWeights(null, hasPraktek) })
+    }
 
     const currentGrades = selectedMatkul ? (grades[selectedMatkul.id] || []) : []
 
@@ -349,11 +378,11 @@ function NilaiAkhirPage() {
 
         // Generate rows for XLSX export
         const headers = hasPraktek
-            ? ['No', 'Nama', 'NIM', 'NT (10%)', 'NUTS (30%)', 'NP (20%)', 'UAS (40%)', 'NAK', 'NH', 'Score']
-            : ['No', 'Nama', 'NIM', 'NT (10%)', 'NUTS (30%)', 'UAS (60%)', 'NAK', 'NH', 'Score']
+            ? ['No', 'Nama', 'NIM', `NT (${weights.nt}%)`, `NUTS (${weights.nuts}%)`, `NP (${weights.np}%)`, `UAS (${weights.uas}%)`, 'NAK', 'NH', 'Score']
+            : ['No', 'Nama', 'NIM', `NT (${weights.nt}%)`, `NUTS (${weights.nuts}%)`, `UAS (${weights.uas}%)`, 'NAK', 'NH', 'Score']
 
         const dataRows = currentGrades.map((student, index) => {
-            const nak = calculateNAK(student, hasPraktek)
+            const nak = calculateNAK(student, hasPraktek, weights)
             const nh = getNilaiHuruf(nak)
             const score = getScoreAkhir(nak)
 
@@ -416,11 +445,11 @@ function NilaiAkhirPage() {
             : '<div class="letterhead-logo"><span class="logo-icon">\u2693</span><span class="logo-text">POLTEKTRANS</span></div>'
 
         // Build NP column header
-        const npHeader = hasPraktek ? '<th style="width:45px">NP<br/>20%</th>' : ''
+        const npHeader = hasPraktek ? `<th style="width:45px">NP<br/>${weights.np}%</th>` : ''
 
         // Build table rows
         const tableRows = sortedStudents.map((s, i) => {
-            const nak = calculateNAK(s, hasPraktek)
+            const nak = calculateNAK(s, hasPraktek, weights)
             const nh = getNilaiHuruf(nak)
             const score = getScoreAkhir(nak)
             const gradeClass = nh === 'A' || nh === 'AB' ? 'grade-a' : nh === 'B' || nh === 'BC' ? 'grade-b' : nh === 'C' ? 'grade-c' : 'grade-e'
@@ -498,7 +527,7 @@ function NilaiAkhirPage() {
                     <p><strong>Dosen Pengampu:</strong> ${dosenName}</p>
                 </div>
                 <div class="bobot-info">
-                    Bobot: NT 10% | NUTS 30% ${hasPraktek ? '| NP 20%' : ''} | UAS ${hasPraktek ? '40%' : '60%'}
+                    Bobot: NT ${weights.nt}% | NUTS ${weights.nuts}% ${hasPraktek ? `| NP ${weights.np}%` : ''} | UAS ${weights.uas}%
                 </div>
                 <table>
                     <thead>
@@ -506,10 +535,10 @@ function NilaiAkhirPage() {
                             <th style="width:30px">No</th>
                             <th>NIM</th>
                             <th>Nama Mahasiswa</th>
-                            <th style="width:45px">NT<br/>10%</th>
-                            <th style="width:45px">NUTS<br/>30%</th>
+                            <th style="width:45px">NT<br/>${weights.nt}%</th>
+                            <th style="width:45px">NUTS<br/>${weights.nuts}%</th>
                             ${npHeader}
-                            <th style="width:45px">UAS<br/>${hasPraktek ? '40%' : '60%'}</th>
+                            <th style="width:45px">UAS<br/>${weights.uas}%</th>
                             <th style="width:45px">NAK</th>
                             <th style="width:35px">NH</th>
                             <th style="width:40px">Score</th>
@@ -640,18 +669,72 @@ function NilaiAkhirPage() {
 
                 {/* Bobot Info - Dynamic based on matkul */}
                 <div className="card mb-4 info-box">
-                    <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <div className="card-body" style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <Info size={18} className="info-icon" />
-                        <div>
+                        <div style={{ flex: 1, minWidth: '240px' }}>
                             <strong>Rumus Nilai:</strong>
                             <span style={{ marginLeft: '8px' }}>
                                 {hasPraktek
-                                    ? 'NT (10%) + NUTS (30%) + NP (20%) + UAS (40%) = NAK'
-                                    : 'NT (10%) + NUTS (30%) + UAS (60%) = NAK'
+                                    ? `NT (${weights.nt}%) + NUTS (${weights.nuts}%) + NP (${weights.np}%) + UAS (${weights.uas}%) = NAK`
+                                    : `NT (${weights.nt}%) + NUTS (${weights.nuts}%) + UAS (${weights.uas}%) = NAK`
                                 }
                             </span>
                         </div>
+                        {selectedMatkul && (
+                            <button type="button" className="btn btn-sm btn-outline" onClick={openBobotEditor}>
+                                <Edit2 size={14} /> Atur Bobot
+                            </button>
+                        )}
                     </div>
+
+                    {showBobot && selectedMatkul && (
+                        <div className="card-body" style={{ borderTop: '1px solid var(--border-color, #e5e7eb)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted, #6b7280)' }}>
+                                Atur bobot tiap aspek untuk <strong>{selectedMatkul.nama}</strong>{hasPraktek ? ' (dengan praktek)' : ' (tanpa praktek)'}. Total harus 100%.
+                                Batas: {hasPraktek ? 'NT ≤10%, NUTS ≥30%, NP ≥20%, UAS ≤40%' : 'NT ≥10%, NUTS ≥30%, UAS ≤60%'}.
+                            </div>
+                            <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                                {bobotKeys.map(k => (
+                                    <div key={k} style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                        <label style={{ fontSize: '0.75rem', fontWeight: 600 }}>
+                                            {COMPONENT_LABEL[k]} (%)
+                                            <span style={{ fontWeight: 400, color: 'var(--text-muted, #6b7280)' }}>
+                                                {' '}{bobotRules[k].max < 100 ? `≤${bobotRules[k].max}` : `≥${bobotRules[k].min}`}
+                                            </span>
+                                        </label>
+                                        <input
+                                            type="number"
+                                            min={bobotRules[k].min}
+                                            max={bobotRules[k].max}
+                                            value={bobotDraft?.[k] ?? ''}
+                                            onChange={(e) => setBobotDraft(d => ({ ...d, [k]: e.target.value === '' ? '' : Number(e.target.value) }))}
+                                            className="form-input"
+                                            style={{ width: '90px' }}
+                                        />
+                                    </div>
+                                ))}
+                                <div style={{ fontSize: '0.85rem', fontWeight: 700, color: draftValidation?.sum === 100 ? 'var(--color-success, #16a34a)' : 'var(--color-error, #dc2626)' }}>
+                                    Total: {draftValidation?.sum ?? 0}%
+                                </div>
+                            </div>
+                            {draftValidation && !draftValidation.valid && (
+                                <div style={{ fontSize: '0.8rem', color: 'var(--color-error, #dc2626)' }}>
+                                    {draftValidation.errors.join(' · ')}
+                                </div>
+                            )}
+                            <div style={{ display: 'flex', gap: '8px' }}>
+                                <button type="button" className="btn btn-sm btn-primary" disabled={!draftValidation?.valid || savingBobot} onClick={saveBobot}>
+                                    <Save size={14} /> {savingBobot ? 'Menyimpan…' : 'Simpan Bobot'}
+                                </button>
+                                <button type="button" className="btn btn-sm btn-outline" onClick={resetBobotDefault}>
+                                    Reset ke Default Aturan
+                                </button>
+                                <button type="button" className="btn btn-sm btn-ghost" onClick={() => setShowBobot(false)}>
+                                    Batal
+                                </button>
+                            </div>
+                        </div>
+                    )}
                 </div>
 
                 {/* Grade Conversion Table */}
@@ -713,10 +796,10 @@ function NilaiAkhirPage() {
                                             <th>No</th>
                                             <th>Nama</th>
                                             <th>NIM</th>
-                                            <th className="text-center">NT<br /><small>10%</small></th>
-                                            <th className="text-center">NUTS<br /><small>30%</small></th>
-                                            {hasPraktek && <th className="text-center">NP<br /><small>20%</small></th>}
-                                            <th className="text-center">UAS<br /><small>{hasPraktek ? '40%' : '60%'}</small></th>
+                                            <th className="text-center">NT<br /><small>{weights.nt}%</small></th>
+                                            <th className="text-center">NUTS<br /><small>{weights.nuts}%</small></th>
+                                            {hasPraktek && <th className="text-center">NP<br /><small>{weights.np}%</small></th>}
+                                            <th className="text-center">UAS<br /><small>{weights.uas}%</small></th>
                                             <th className="text-center">NAK</th>
                                             <th className="text-center">NH</th>
                                             <th className="text-center">Score</th>
@@ -726,7 +809,7 @@ function NilaiAkhirPage() {
                                     <tbody>
                                         {filteredGrades.map((student, index) => {
                                             const isEditing = editingStudent === student.id
-                                            const nak = calculateNAK(student, hasPraktek)
+                                            const nak = calculateNAK(student, hasPraktek, weights)
                                             const nh = getNilaiHuruf(nak)
                                             const score = getScoreAkhir(nak)
                                             return (

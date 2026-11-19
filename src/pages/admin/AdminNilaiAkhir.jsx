@@ -16,23 +16,13 @@ import {
     ChevronUp,
     Users
 } from 'lucide-react'
+import { getNakWeights, nakFromWeights } from '../../utils/gradeUtils'
 import '../admin/Dashboard.css'
 
 // Grade calculation helper functions
-const calculateNAK = (student, hasPraktek) => {
-    if (hasPraktek) {
-        const nt = Number(student.nt ?? 0)
-        const nuts = Number(student.nuts ?? 0)
-        const np = Number(student.np ?? 0)
-        const uas = Number(student.uas ?? 0)
-        // NT 10% + NUTS 30% + NP 20% + UAS 40%
-        return (nt * 0.1) + (nuts * 0.3) + (np * 0.2) + (uas * 0.4)
-    } else {
-        const nt = Number(student.nt ?? 0)
-        const nuts = Number(student.nuts ?? 0)
-        const uas = Number(student.uas ?? 0)
-        return (nt * 0.1) + (nuts * 0.3) + (uas * 0.6)
-    }
+// weights: bobot (%) per aspek dari matkul (group.weights). Fallback ke default aturan.
+const calculateNAK = (student, hasPraktek, weights) => {
+    return nakFromWeights(student, weights || getNakWeights(null, hasPraktek))
 }
 
 // Skala Pasal 20 Peraturan Akademik: A>85, AB>75, B>65, BC>60, C>55, D>44, E≤44
@@ -161,11 +151,13 @@ function AdminNilaiAkhirPage() {
                     const groupKey = `${matkul.id}_${dosenId}`
 
                     if (!groups[groupKey]) {
+                        const gHasPraktek = (matkul.sks_praktek > 0) || (matkul.sksPraktek > 0)
                         groups[groupKey] = {
                             matkulId: matkul.id,
                             matkulNama: matkul.nama || 'N/A',
                             matkulKode: matkul.kode || '',
-                            hasPraktek: (matkul.sks_praktek > 0) || (matkul.sksPraktek > 0),
+                            hasPraktek: gHasPraktek,
+                            weights: getNakWeights(matkul, gHasPraktek),
                             dosenId: dosenId,
                             dosenNama: dosenNama,
                             dosenNip: dosenNip,
@@ -225,11 +217,13 @@ function AdminNilaiAkhirPage() {
                                 kelasMap.set(kelas.id, kelas.nama)
                             }
 
+                            const gHasPraktek2 = (matkul.sks_praktek > 0) || (matkul.sksPraktek > 0)
                             groups[groupKey] = {
                                 matkulId: matkul.id,
                                 matkulNama: matkul.nama || 'N/A',
                                 matkulKode: matkul.kode || '',
-                                hasPraktek: (matkul.sks_praktek > 0) || (matkul.sksPraktek > 0),
+                                hasPraktek: gHasPraktek2,
+                                weights: getNakWeights(matkul, gHasPraktek2),
                                 dosenId: dosenId,
                                 dosenNama: dosenNama,
                                 dosenNip: dosenNip,
@@ -397,7 +391,7 @@ function AdminNilaiAkhirPage() {
                 <div class="info-row"><span class="info-label">Mata Kuliah</span>: ${group.matkulNama} (${group.matkulKode})</div>
                 <div class="info-row"><span class="info-label">Dosen Pengampu</span>: ${group.dosenNama}</div>
                 ${kelasFilter !== 'all' ? `<div class="info-row"><span class="info-label">Kelas</span>: ${kelasList.find(k => String(k.id) === String(kelasFilter))?.nama || ''}</div>` : ''}
-                <div class="info-row"><span class="info-label">Rumus Nilai</span>: ${group.hasPraktek ? 'NT(10%) + NUTS(30%) + NP(20%) + UAS(40%)' : 'NT(10%) + NUTS(30%) + UAS(60%)'}</div>
+                <div class="info-row"><span class="info-label">Rumus Nilai</span>: ${group.hasPraktek ? `NT(${group.weights.nt}%) + NUTS(${group.weights.nuts}%) + NP(${group.weights.np}%) + UAS(${group.weights.uas}%)` : `NT(${group.weights.nt}%) + NUTS(${group.weights.nuts}%) + UAS(${group.weights.uas}%)`}</div>
 
                 <table>
                     <thead>
@@ -405,10 +399,10 @@ function AdminNilaiAkhirPage() {
                             <th style="width:30px">No</th>
                             <th class="left">Nama Mahasiswa</th>
                             <th>NIM</th>
-                            <th>NT<br/><small>10%</small></th>
-                            <th>NUTS<br/><small>30%</small></th>
-                            ${group.hasPraktek ? '<th>NP<br/><small>20%</small></th>' : ''}
-                            <th>UAS<br/><small>${group.hasPraktek ? '40%' : '60%'}</small></th>
+                            <th>NT<br/><small>${group.weights.nt}%</small></th>
+                            <th>NUTS<br/><small>${group.weights.nuts}%</small></th>
+                            ${group.hasPraktek ? `<th>NP<br/><small>${group.weights.np}%</small></th>` : ''}
+                            <th>UAS<br/><small>${group.weights.uas}%</small></th>
                             <th>NAK</th>
                             <th>NH</th>
                             <th>Score</th>
@@ -416,7 +410,7 @@ function AdminNilaiAkhirPage() {
                     </thead>
                     <tbody>
                         ${studentsFiltered.map((s, idx) => {
-            const nak = calculateNAK(s, group.hasPraktek)
+            const nak = calculateNAK(s, group.hasPraktek, group.weights)
             const nh = getNilaiHuruf(nak)
             const score = getScoreAkhir(nak)
             return `
@@ -494,10 +488,10 @@ function AdminNilaiAkhirPage() {
                             <th style="width:30px">No</th>
                             <th class="left">Nama Mahasiswa</th>
                             <th>NIM</th>
-                            <th>NT<br/><small>10%</small></th>
-                            <th>NUTS<br/><small>30%</small></th>
-                            ${group.hasPraktek ? '<th>NP<br/><small>20%</small></th>' : ''}
-                            <th>UAS<br/><small>${group.hasPraktek ? '40%' : '60%'}</small></th>
+                            <th>NT<br/><small>${group.weights.nt}%</small></th>
+                            <th>NUTS<br/><small>${group.weights.nuts}%</small></th>
+                            ${group.hasPraktek ? `<th>NP<br/><small>${group.weights.np}%</small></th>` : ''}
+                            <th>UAS<br/><small>${group.weights.uas}%</small></th>
                             <th>NAK</th>
                             <th>NH</th>
                             <th>Score</th>
@@ -505,7 +499,7 @@ function AdminNilaiAkhirPage() {
                     </thead>
                     <tbody>
                         ${students.map((s, idx) => {
-                const nak = calculateNAK(s, group.hasPraktek)
+                const nak = calculateNAK(s, group.hasPraktek, group.weights)
                 const nh = getNilaiHuruf(nak)
                 const score = getScoreAkhir(nak)
                 return `
@@ -592,7 +586,7 @@ function AdminNilaiAkhirPage() {
         filteredGroups.forEach(g => {
             const students = g.studentsFiltered || g.students
             students.forEach(s => {
-                const nak = calculateNAK(s, g.hasPraktek)
+                const nak = calculateNAK(s, g.hasPraktek, g.weights)
                 const nh = getNilaiHuruf(nak)
                 const score = getScoreAkhir(nak)
                 rows.push([
@@ -715,7 +709,7 @@ function AdminNilaiAkhirPage() {
                         <div>
                             <strong>Rumus Nilai:</strong>
                             <span style={{ marginLeft: '8px' }}>
-                                Dengan Praktek: NT(10%) + NUTS(30%) + NP(20%) + UAS(40%) | Tanpa Praktek: NT(10%) + NUTS(30%) + UAS(60%)
+                                Default — Dengan Praktek: NT(10%) + NUTS(30%) + NP(20%) + UAS(40%) | Tanpa Praktek: NT(10%) + NUTS(30%) + UAS(60%). Bobot dapat disesuaikan dosen per mata kuliah (lihat persen di tiap kolom).
                             </span>
                         </div>
                     </div>
@@ -766,10 +760,10 @@ function AdminNilaiAkhirPage() {
                                                         <th>Nama</th>
                                                         <th>NIM</th>
                                                         <th>Kelas</th>
-                                                        <th className="text-center">NT<br /><small>10%</small></th>
-                                                        <th className="text-center">NUTS<br /><small>30%</small></th>
-                                                        {group.hasPraktek && <th className="text-center">NP<br /><small>20%</small></th>}
-                                                        <th className="text-center">UAS<br /><small>{group.hasPraktek ? '40%' : '60%'}</small></th>
+                                                        <th className="text-center">NT<br /><small>{group.weights.nt}%</small></th>
+                                                        <th className="text-center">NUTS<br /><small>{group.weights.nuts}%</small></th>
+                                                        {group.hasPraktek && <th className="text-center">NP<br /><small>{group.weights.np}%</small></th>}
+                                                        <th className="text-center">UAS<br /><small>{group.weights.uas}%</small></th>
                                                         <th className="text-center">NAK</th>
                                                         <th className="text-center">NH</th>
                                                         <th className="text-center">Score</th>
@@ -777,7 +771,7 @@ function AdminNilaiAkhirPage() {
                                                 </thead>
                                                 <tbody>
                                                     {studentsFiltered.map((student, index) => {
-                                                        const nak = calculateNAK(student, group.hasPraktek)
+                                                        const nak = calculateNAK(student, group.hasPraktek, group.weights)
                                                         const nh = getNilaiHuruf(nak)
                                                         const score = getScoreAkhir(nak)
                                                         return (

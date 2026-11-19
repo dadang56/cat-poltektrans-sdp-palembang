@@ -17,6 +17,7 @@ import {
     RefreshCw,
     ChevronDown
 } from 'lucide-react'
+import { getNakWeights, nakFromWeights } from '../../utils/gradeUtils'
 import '../admin/Dashboard.css'
 
 // Grade conversion functions (same as NilaiAkhir.jsx)
@@ -215,14 +216,8 @@ function KHSPage() {
         const uas = gradeData.uas ?? 0
 
         const hasPraktek = (matkul?.sks_praktek || 0) > 0
-
-        if (hasPraktek) {
-            // NT 10% + NUTS 30% + NP 20% + UAS 40%
-            return (nt * 0.1) + (nuts * 0.3) + (np * 0.2) + (uas * 0.4)
-        } else {
-            // NT 10% + NUTS 30% + UAS 60%
-            return (nt * 0.1) + (nuts * 0.3) + (uas * 0.6)
-        }
+        // Bobot custom per matkul (bobot_nilai) bila ada, else default aturan
+        return nakFromWeights({ nt, nuts, np, uas }, getNakWeights(matkul, hasPraktek))
     }
 
     // Get student's grades for KHS
