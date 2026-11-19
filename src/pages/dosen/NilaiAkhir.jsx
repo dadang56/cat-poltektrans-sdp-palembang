@@ -744,13 +744,13 @@ function NilaiAkhirPage() {
                     </div>
                     <div className="card-body">
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                            <span className="badge badge-success">A (&gt;80) = 4.0</span>
-                            <span className="badge badge-success">AB (&gt;75-80) = 3.5</span>
-                            <span className="badge badge-warning">B (&gt;69-75) = 3.0</span>
-                            <span className="badge badge-warning">BC (&gt;60-69) = 2.5</span>
+                            <span className="badge badge-success">A (&gt;85-100) = 4.0</span>
+                            <span className="badge badge-success">AB (&gt;75-85) = 3.5</span>
+                            <span className="badge badge-warning">B (&gt;65-75) = 3.0</span>
+                            <span className="badge badge-warning">BC (&gt;60-65) = 2.5</span>
                             <span className="badge badge-info">C (&gt;55-60) = 2.0</span>
                             <span className="badge badge-error">D (&gt;44-55) = 1.0</span>
-                            <span className="badge badge-error">E (&lt;44) = 0</span>
+                            <span className="badge badge-error">E (&le;44) = 0</span>
                         </div>
                     </div>
                 </div>

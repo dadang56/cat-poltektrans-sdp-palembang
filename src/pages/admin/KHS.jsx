@@ -946,13 +946,13 @@ function KHSPage() {
                                                 }}>
                                                     <strong>Keterangan Nilai:</strong>
                                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: '8px' }}>
-                                                        <span><span style={{ color: 'var(--color-success)', fontWeight: 700 }}>A</span> (&gt;80) = 4.0</span>
-                                                        <span><span style={{ color: 'var(--color-success)', fontWeight: 700 }}>AB</span> (75-80) = 3.5</span>
-                                                        <span><span style={{ color: 'var(--color-warning)', fontWeight: 700 }}>B</span> (69-75) = 3.0</span>
-                                                        <span><span style={{ color: 'var(--color-warning)', fontWeight: 700 }}>BC</span> (60-69) = 2.5</span>
-                                                        <span><span style={{ color: 'var(--color-info)', fontWeight: 700 }}>C</span> (55-60) = 2.0</span>
-                                                        <span><span style={{ color: 'var(--color-error)', fontWeight: 700 }}>D</span> (44-55) = 1.0</span>
-                                                        <span><span style={{ color: 'var(--color-error)', fontWeight: 700 }}>E</span> (&lt;44) = 0</span>
+                                                        <span><span style={{ color: 'var(--color-success)', fontWeight: 700 }}>A</span> (&gt;85-100) = 4.0</span>
+                                                        <span><span style={{ color: 'var(--color-success)', fontWeight: 700 }}>AB</span> (&gt;75-85) = 3.5</span>
+                                                        <span><span style={{ color: 'var(--color-warning)', fontWeight: 700 }}>B</span> (&gt;65-75) = 3.0</span>
+                                                        <span><span style={{ color: 'var(--color-warning)', fontWeight: 700 }}>BC</span> (&gt;60-65) = 2.5</span>
+                                                        <span><span style={{ color: 'var(--color-info)', fontWeight: 700 }}>C</span> (&gt;55-60) = 2.0</span>
+                                                        <span><span style={{ color: 'var(--color-error)', fontWeight: 700 }}>D</span> (&gt;44-55) = 1.0</span>
+                                                        <span><span style={{ color: 'var(--color-error)', fontWeight: 700 }}>E</span> (&le;44) = 0</span>
                                                     </div>
                                                 </div>
                                             </>
