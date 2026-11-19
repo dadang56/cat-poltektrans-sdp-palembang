@@ -86,8 +86,12 @@ export function SettingsProvider({ children }) {
             // Generate lighter/darker variants
             const primaryHSL = hexToHSL(settings.primaryColor)
             if (primaryHSL) {
+                // Pale tint for light backgrounds (badges, summary panels,
+                // selected rows). Must stay very light so dark text on top of
+                // it stays readable — a +15% bump left dark brand colours
+                // nearly mid-tone, hiding the text.
                 document.documentElement.style.setProperty('--color-primary-light',
-                    `hsl(${primaryHSL.h}, ${primaryHSL.s}%, ${Math.min(primaryHSL.l + 15, 95)}%)`)
+                    `hsl(${primaryHSL.h}, ${Math.min(primaryHSL.s, 45)}%, 94%)`)
                 document.documentElement.style.setProperty('--color-primary-dark',
                     `hsl(${primaryHSL.h}, ${primaryHSL.s}%, ${Math.max(primaryHSL.l - 15, 5)}%)`)
                 
