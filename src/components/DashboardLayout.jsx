@@ -186,6 +186,28 @@ function DashboardLayout({ children }) {
         if (mainRef.current) mainRef.current.scrollTop = 0
     }, [location.pathname])
 
+    // Auto-hide the floating bottom nav while scrolling down (more reading
+    // room on small screens); reveal it again on any scroll up or near the top
+    const [barHidden, setBarHidden] = useState(false)
+    useEffect(() => {
+        setBarHidden(false)
+        const el = mainRef.current
+        if (!el) return
+        let last = el.scrollTop
+        const onScroll = () => {
+            const y = el.scrollTop
+            if (y < 60) setBarHidden(false)
+            else if (y > last + 6) setBarHidden(true)
+            else if (y < last - 6) setBarHidden(false)
+            last = y
+        }
+        el.addEventListener('scroll', onScroll, { passive: true })
+        return () => el.removeEventListener('scroll', onScroll)
+    }, [location.pathname])
+
+    // Subtle tap feedback on supported phones
+    const tapHaptic = () => { try { navigator.vibrate && navigator.vibrate(8) } catch { /* no-op */ } }
+
     // Lock the page itself while the dashboard is shown. body/#root use
     // min-height 100vh, which on phone browsers is taller than the visible
     // screen (address bar), so the whole page could scroll and push the top
@@ -411,13 +433,17 @@ function DashboardLayout({ children }) {
 
             {/* Mobile bottom navigation (frosted glass, raised center button) */}
             {bottomItems.length > 0 && (
-                <nav className="mobile-bottom-nav" aria-label="Navigasi cepat">
+                <nav
+                    className={`mobile-bottom-nav ${barHidden && !sidebarOpen ? 'is-hidden' : ''}`}
+                    aria-label="Navigasi cepat"
+                >
                     <div className="mbn-group">
                         {bottomLeft.map(item => (
                             <NavLink
                                 key={item.path}
                                 to={item.path}
                                 end={item.end}
+                                onClick={tapHaptic}
                                 className={({ isActive }) => `mbn-item ${isActive ? 'active' : ''}`}
                             >
                                 <span className="mbn-icon"><item.icon size={22} /></span>
@@ -426,14 +452,18 @@ function DashboardLayout({ children }) {
                         ))}
                     </div>
 
-                    <button
-                        type="button"
-                        className="mbn-fab"
-                        onClick={() => setSidebarOpen(true)}
-                        aria-label="Buka menu lengkap"
-                    >
-                        <LayoutGrid size={24} />
-                    </button>
+                    <div className="mbn-center">
+                        <button
+                            type="button"
+                            className={`mbn-fab ${sidebarOpen ? 'is-open' : ''}`}
+                            onClick={() => { tapHaptic(); setSidebarOpen(true) }}
+                            aria-label="Buka menu lengkap"
+                            aria-expanded={sidebarOpen}
+                        >
+                            <LayoutGrid size={24} />
+                        </button>
+                        <span className="mbn-fab-label">Menu</span>
+                    </div>
 
                     <div className="mbn-group">
                         {bottomRight.map(item => (
@@ -441,6 +471,7 @@ function DashboardLayout({ children }) {
                                 key={item.path}
                                 to={item.path}
                                 end={item.end}
+                                onClick={tapHaptic}
                                 className={({ isActive }) => `mbn-item ${isActive ? 'active' : ''}`}
                             >
                                 <span className="mbn-icon"><item.icon size={22} /></span>

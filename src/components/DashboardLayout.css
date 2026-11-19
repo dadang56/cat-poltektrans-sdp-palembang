@@ -1058,6 +1058,21 @@
                     0 2px 8px rgba(15, 23, 42, 0.12),
                     inset 0 1px 0 rgba(255, 255, 255, 0.6);
         z-index: 150;
+        transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1),
+                    opacity 0.28s ease;
+        animation: mbn-rise 0.4s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* Auto-hidden while scrolling down */
+    .mobile-bottom-nav.is-hidden {
+        transform: translate(-50%, 180%);
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    @keyframes mbn-rise {
+        from { transform: translate(-50%, 180%); opacity: 0; }
+        to   { transform: translateX(-50%); opacity: 1; }
     }
 
     /* Content must clear the floating bar */
@@ -1074,6 +1089,7 @@
     }
 
     .mbn-item {
+        position: relative;
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -1087,6 +1103,17 @@
         border-radius: var(--radius-lg);
         transition: color var(--transition-fast), transform var(--transition-fast);
         -webkit-tap-highlight-color: transparent;
+    }
+
+    /* Active-tab indicator dot */
+    .mbn-item.active::before {
+        content: '';
+        position: absolute;
+        top: 1px;
+        width: 5px;
+        height: 5px;
+        border-radius: var(--radius-full);
+        background: var(--primary-600);
     }
 
     .mbn-icon {
@@ -1123,14 +1150,22 @@
     }
 
     /* Raised center button that opens the full menu */
-    .mbn-fab {
+    .mbn-center {
         flex: 0 0 auto;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: flex-start;
+        width: 60px;
+        margin: 0 0.1rem;
+    }
+
+    .mbn-fab {
         display: flex;
         align-items: center;
         justify-content: center;
         width: 56px;
         height: 56px;
-        margin: 0 0.15rem;
         transform: translateY(-16px);
         border: 4px solid var(--bg-primary);
         border-radius: var(--radius-full);
@@ -1144,6 +1179,35 @@
 
     .mbn-fab:active {
         transform: translateY(-16px) scale(0.92);
+    }
+
+    /* Pressed look while the full menu (sidebar) is open */
+    .mbn-fab.is-open {
+        transform: translateY(-16px) rotate(90deg);
+        box-shadow: 0 4px 12px -3px rgba(30, 58, 95, 0.5);
+    }
+
+    .mbn-fab-label {
+        margin-top: -12px;
+        font-size: 10px;
+        font-weight: var(--font-semibold);
+        line-height: 1;
+        color: var(--text-muted);
+    }
+}
+
+/* Respect reduced-motion: no auto-hide slide or entrance animation */
+@media (max-width: 1024px) and (prefers-reduced-motion: reduce) {
+    .mobile-bottom-nav {
+        animation: none;
+        transition: opacity 0.2s ease;
+    }
+    .mobile-bottom-nav.is-hidden {
+        transform: translateX(-50%);
+        opacity: 0;
+    }
+    .mbn-fab.is-open {
+        transform: translateY(-16px);
     }
 }
 
