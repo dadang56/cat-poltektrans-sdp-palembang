@@ -10,6 +10,12 @@ import { hashBypassPassword, isSebGateOn, isSebBrowser, grantBypass, SebRequired
 const USER_PROFILE_KEY = 'cat_user'
 const SESSION_TOKEN_KEY = 'cat_session_token'
 
+// Roles allowed to be logged in from several devices/tabs at once. They get a
+// fixed "multi_device_allowed" token so a new login never kicks out the old
+// one. Only mahasiswa and pengawas stay single-session (exam integrity).
+const MULTI_DEVICE_ROLES = ['admin_prodi', 'superadmin', 'admin', 'dosen']
+const isMultiDeviceRole = (role) => MULTI_DEVICE_ROLES.includes(role)
+
 /**
  * "Wajib SEB" gate: called after the password is verified and BEFORE a
  * session token is written, so a refused attempt from a normal browser never
@@ -124,8 +130,8 @@ export async function signInWithNimNip(nimNip, password, options = {}) {
                 throw gateError
             }
 
-            // Generate session token (skip for admin_prodi/superadmin to allow multi-device)
-            const skipSessionToken = ['admin_prodi', 'superadmin'].includes(existingUser.role)
+            // Generate session token (skipped for multi-device roles)
+            const skipSessionToken = isMultiDeviceRole(existingUser.role)
             if (!skipSessionToken) {
                 const sessionToken = generateSessionToken()
                 await supabase
@@ -151,8 +157,8 @@ export async function signInWithNimNip(nimNip, password, options = {}) {
 
             await enforceSebGate(existingUser, options)
 
-            // Generate session token (skip for admin_prodi/superadmin to allow multi-device)
-            const skipSessionToken = ['admin_prodi', 'superadmin'].includes(existingUser.role)
+            // Generate session token (skipped for multi-device roles)
+            const skipSessionToken = isMultiDeviceRole(existingUser.role)
             if (!skipSessionToken) {
                 const sessionToken = generateSessionToken()
                 await supabase
@@ -277,7 +283,7 @@ export async function validateSession() {
         return { valid: false, reason: 'no_session' }
     }
 
-    // Skip validation for multi-device roles (admin_prodi, superadmin)
+    // Skip validation for multi-device roles (see MULTI_DEVICE_ROLES)
     if (localToken === 'multi_device_allowed') {
         return { valid: true }
     }
