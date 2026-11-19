@@ -30,7 +30,8 @@ import {
     Shield,
     Download,
     ChevronDown,
-    Power
+    Power,
+    LayoutGrid
 } from 'lucide-react'
 import { useState, useEffect, useRef, Fragment } from 'react'
 import './DashboardLayout.css'
@@ -131,6 +132,34 @@ const EXTRA_PAGE_TITLES = {
     '/ujian/': 'Ujian'
 }
 
+// Short labels for the compact mobile bottom nav (full labels are too long
+// to fit under a small icon). Falls back to the first word of the label.
+const BOTTOM_NAV_LABELS = {
+    'Dashboard': 'Home',
+    'Manajemen User': 'User',
+    'Program Studi': 'Prodi',
+    'Mata Kuliah': 'Matkul',
+    'Jadwal Ujian': 'Jadwal',
+    'Cetak Kartu': 'Kartu',
+    'Ruang Ujian': 'Ruang',
+    'Rekap Nilai Ujian': 'Nilai',
+    'Rekap Kehadiran': 'Hadir',
+    'Buat Soal': 'Soal',
+    'Koreksi Ujian': 'Koreksi',
+    'Nilai Ujian': 'Nilai',
+    'Nilai Akhir': 'Akhir',
+    'Hasil Ujian': 'Hasil',
+    'Safe Exam Browser': 'SEB',
+    'Monitor Ujian': 'Monitor',
+    'Kehadiran': 'Hadir',
+    'Berita Acara': 'Berita',
+    'Nilai Kondite': 'Kondite',
+    'Nilai Semapta': 'Semapta',
+    'Pengaturan Akun': 'Akun',
+    'Pengaturan': 'Atur'
+}
+const shortNavLabel = (label = '') => BOTTOM_NAV_LABELS[label] || label.split(' ')[0]
+
 // Role labels
 const ROLE_LABELS = {
     superadmin: 'Super Administrator',
@@ -218,6 +247,12 @@ function DashboardLayout({ children }) {
         || Object.entries(EXTRA_PAGE_TITLES).find(([suffix]) => location.pathname.includes(suffix))?.[1]
         || 'Si-PANDU'
     useTableCards(mainRef, pageTitle)
+
+    // Mobile bottom nav: the 4 primary role pages flank a raised center
+    // button that opens the full menu (sidebar), so every item stays reachable
+    const bottomItems = navItems.slice(0, 4)
+    const bottomLeft = bottomItems.slice(0, 2)
+    const bottomRight = bottomItems.slice(2, 4)
 
     return (
         <div className="dashboard-layout">
@@ -373,6 +408,48 @@ function DashboardLayout({ children }) {
                     {children}
                 </div>
             </main>
+
+            {/* Mobile bottom navigation (frosted glass, raised center button) */}
+            {bottomItems.length > 0 && (
+                <nav className="mobile-bottom-nav" aria-label="Navigasi cepat">
+                    <div className="mbn-group">
+                        {bottomLeft.map(item => (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                end={item.end}
+                                className={({ isActive }) => `mbn-item ${isActive ? 'active' : ''}`}
+                            >
+                                <span className="mbn-icon"><item.icon size={22} /></span>
+                                <span className="mbn-label">{shortNavLabel(item.label)}</span>
+                            </NavLink>
+                        ))}
+                    </div>
+
+                    <button
+                        type="button"
+                        className="mbn-fab"
+                        onClick={() => setSidebarOpen(true)}
+                        aria-label="Buka menu lengkap"
+                    >
+                        <LayoutGrid size={24} />
+                    </button>
+
+                    <div className="mbn-group">
+                        {bottomRight.map(item => (
+                            <NavLink
+                                key={item.path}
+                                to={item.path}
+                                end={item.end}
+                                className={({ isActive }) => `mbn-item ${isActive ? 'active' : ''}`}
+                            >
+                                <span className="mbn-icon"><item.icon size={22} /></span>
+                                <span className="mbn-label">{shortNavLabel(item.label)}</span>
+                            </NavLink>
+                        ))}
+                    </div>
+                </nav>
+            )}
         </div>
     )
 }
