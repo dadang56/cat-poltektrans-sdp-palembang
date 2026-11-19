@@ -162,6 +162,16 @@ html {
   --color-error: var(--error-500);
   --color-danger: var(--error-500);
   --color-info: var(--info-500);
+  /* Primary/secondary aliases for light mode. Dark mode overrides these to
+     gold further down (with !important), so those rules still win there.
+     Without these, --color-primary* were undefined in light mode and any
+     element using them (KHS, nilai pages, etc.) lost its colour/background. */
+  --color-primary: var(--primary-600);
+  --color-primary-light: var(--primary-50);
+  --color-primary-dark: var(--primary-800);
+  --color-secondary: var(--secondary-500);
+  --color-secondary-light: var(--secondary-50);
+  --color-secondary-dark: var(--secondary-700);
 }
 
 /* Base Theme Transition & Scrollbar */
