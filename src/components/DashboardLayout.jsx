@@ -37,6 +37,7 @@ import { useState, useEffect, useRef, Fragment } from 'react'
 import './DashboardLayout.css'
 import { useTableCards } from '../utils/tableCards'
 import { useEdgeSwipe } from '../utils/edgeSwipe'
+import { useNavBadges } from '../hooks/useNavBadges'
 
 // Navigation items per role
 // Icon tile colors for the boxed sidebar menu (cycled per item)
@@ -190,7 +191,6 @@ function DashboardLayout({ children }) {
     // room on small screens); reveal it again on any scroll up or near the top
     const [barHidden, setBarHidden] = useState(false)
     useEffect(() => {
-        setBarHidden(false)
         const el = mainRef.current
         if (!el) return
         let last = el.scrollTop
@@ -201,12 +201,17 @@ function DashboardLayout({ children }) {
             else if (y < last - 6) setBarHidden(false)
             last = y
         }
+        onScroll() // reveal the bar on each new page (starts at top)
         el.addEventListener('scroll', onScroll, { passive: true })
         return () => el.removeEventListener('scroll', onScroll)
     }, [location.pathname])
 
     // Subtle tap feedback on supported phones
     const tapHaptic = () => { try { navigator.vibrate && navigator.vibrate(8) } catch { /* no-op */ } }
+
+    // Live counts (e.g. exams in progress) shown as badges on nav items
+    const navBadges = useNavBadges()
+    const badgeText = (n) => (n > 9 ? '9+' : String(n))
 
     // Lock the page itself while the dashboard is shown. body/#root use
     // min-height 100vh, which on phone browsers is taller than the visible
@@ -275,6 +280,32 @@ function DashboardLayout({ children }) {
     const bottomItems = navItems.slice(0, 4)
     const bottomLeft = bottomItems.slice(0, 2)
     const bottomRight = bottomItems.slice(2, 4)
+    // Keep both sides the same width so the center button stays centred even
+    // when a role has an odd number of items (e.g. only 3)
+    const bottomSlots = Math.max(bottomLeft.length, bottomRight.length)
+    const bottomSpacers = (count) =>
+        Array.from({ length: Math.max(0, bottomSlots - count) }).map((_, i) => (
+            <span key={`mbn-sp-${i}`} className="mbn-item mbn-spacer" aria-hidden="true" />
+        ))
+    const renderBottomItem = (item) => (
+        <NavLink
+            key={item.path}
+            to={item.path}
+            end={item.end}
+            onClick={tapHaptic}
+            className={({ isActive }) => `mbn-item ${isActive ? 'active' : ''}`}
+        >
+            <span className="mbn-icon">
+                <item.icon size={22} />
+                {navBadges[item.path] > 0 && (
+                    <span className="mbn-badge" aria-label={`${navBadges[item.path]} berlangsung`}>
+                        {badgeText(navBadges[item.path])}
+                    </span>
+                )}
+            </span>
+            <span className="mbn-label">{shortNavLabel(item.label)}</span>
+        </NavLink>
+    )
 
     return (
         <div className="dashboard-layout">
@@ -339,6 +370,11 @@ function DashboardLayout({ children }) {
                                         <item.icon size={18} />
                                     </span>
                                     <span className="nav-label">{item.label}</span>
+                                    {navBadges[item.path] > 0 && (
+                                        <span className="nav-badge" aria-label={`${navBadges[item.path]} berlangsung`}>
+                                            {badgeText(navBadges[item.path])}
+                                        </span>
+                                    )}
                                 </NavLink>
                                 </Fragment>
                             )
@@ -438,18 +474,8 @@ function DashboardLayout({ children }) {
                     aria-label="Navigasi cepat"
                 >
                     <div className="mbn-group">
-                        {bottomLeft.map(item => (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                end={item.end}
-                                onClick={tapHaptic}
-                                className={({ isActive }) => `mbn-item ${isActive ? 'active' : ''}`}
-                            >
-                                <span className="mbn-icon"><item.icon size={22} /></span>
-                                <span className="mbn-label">{shortNavLabel(item.label)}</span>
-                            </NavLink>
-                        ))}
+                        {bottomLeft.map(renderBottomItem)}
+                        {bottomSpacers(bottomLeft.length)}
                     </div>
 
                     <div className="mbn-center">
@@ -466,18 +492,8 @@ function DashboardLayout({ children }) {
                     </div>
 
                     <div className="mbn-group">
-                        {bottomRight.map(item => (
-                            <NavLink
-                                key={item.path}
-                                to={item.path}
-                                end={item.end}
-                                onClick={tapHaptic}
-                                className={({ isActive }) => `mbn-item ${isActive ? 'active' : ''}`}
-                            >
-                                <span className="mbn-icon"><item.icon size={22} /></span>
-                                <span className="mbn-label">{shortNavLabel(item.label)}</span>
-                            </NavLink>
-                        ))}
+                        {bottomRight.map(renderBottomItem)}
+                        {bottomSpacers(bottomRight.length)}
                     </div>
                 </nav>
             )}
