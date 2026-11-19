@@ -1573,6 +1573,7 @@ img {
 }
 
 .student-item {
+  position: relative;
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
@@ -1581,21 +1582,31 @@ img {
   border: 1px solid var(--border-color);
   background: var(--bg-secondary);
   cursor: pointer;
-  transition: transform var(--transition-fast), border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--transition-fast), background var(--transition-fast), box-shadow var(--transition-fast);
   margin-bottom: var(--space-2);
 }
 
 .student-item:hover {
-  transform: translateY(-2px);
-  border-color: var(--color-primary, var(--primary-400));
+  border-color: var(--primary-300);
   box-shadow: var(--shadow-sm);
   background: var(--bg-tertiary);
 }
 
+/* Selected: flat primary tint with a left accent bar — readable, no gradient */
 .student-item.active {
-  background: linear-gradient(135deg, var(--color-primary-light, var(--primary-50)) 0%, rgba(255, 255, 255, 0.5) 100%);
-  border-color: var(--color-primary, var(--primary-600));
-  box-shadow: var(--shadow-md), 0 4px 12px var(--color-primary-light, rgba(59, 103, 159, 0.08));
+  background: var(--primary-50);
+  border-color: var(--primary-400);
+  box-shadow: inset 3px 0 0 0 var(--primary-600);
+}
+
+.student-item.active .student-item-name {
+  color: var(--primary-800);
+}
+
+.student-item.active .student-item-details {
+  color: var(--primary-600);
 }
 
 [data-theme="dark"] .student-item {
@@ -1605,13 +1616,21 @@ img {
 
 [data-theme="dark"] .student-item:hover {
   background: var(--gray-800);
-  border-color: var(--color-primary, var(--accent-500));
+  border-color: var(--primary-200);
 }
 
 [data-theme="dark"] .student-item.active {
-  background: linear-gradient(135deg, var(--color-primary-dark, rgba(8, 145, 178, 0.15)) 0%, var(--gray-900) 100%);
-  border-color: var(--color-primary, var(--accent-500));
-  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  background: var(--primary-100);
+  border-color: var(--primary-300);
+  box-shadow: inset 3px 0 0 0 var(--primary-300);
+}
+
+[data-theme="dark"] .student-item.active .student-item-name {
+  color: #e2ecf9;
+}
+
+[data-theme="dark"] .student-item.active .student-item-details {
+  color: #a9c6ec;
 }
 
 .student-item-name {
