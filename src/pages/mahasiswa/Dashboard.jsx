@@ -64,7 +64,7 @@ function MahasiswaDashboard() {
   const oneDayMs = 24 * 60 * 60 * 1000
 
   // Get upcoming exams (not expired more than 1 day)
-  const upcomingExams = jadwalList
+  const examsDerived = jadwalList
     .filter(j => {
       const jKelasId = getField(j, 'kelas_id', 'kelasId')
       if (jKelasId !== mahasiswaKelasId) return false
@@ -110,11 +110,29 @@ function MahasiswaDashboard() {
       if (a.tanggal !== b.tanggal) return a.tanggal.localeCompare(b.tanggal)
       return (a.waktuMulai || '').localeCompare(b.waktuMulai || '')
     })
-    .slice(0, 2) // Show only 2 upcoming exams
 
-  // Calculate stats
-  const activeExams = upcomingExams.filter(e => e.status === 'active').length
-  const pendingExams = upcomingExams.filter(e => e.status === 'upcoming').length
+  // Exams the student has already finished (submitted/graded) — these should
+  // not be offered as "active" any more
+  const finishedJadwalIds = new Set(
+    hasilList
+      .filter(h => ['submitted', 'graded', 'cheating_submitted'].includes(h.status))
+      .map(h => h.jadwal?.id ?? h.jadwal_id)
+      .filter(Boolean)
+  )
+
+  // Exams in progress RIGHT NOW that the student can still take. Computed from
+  // the full list (not the trimmed one) so a recently-expired exam can never
+  // push today's active exam out of view.
+  const activeExamList = examsDerived.filter(
+    e => e.status === 'active' && !finishedJadwalIds.has(e.id)
+  )
+
+  // "Ujian Mendatang" card still shows the nearest two
+  const upcomingExams = examsDerived.slice(0, 2)
+
+  // Calculate stats (from the full list)
+  const activeExams = activeExamList.length
+  const pendingExams = examsDerived.filter(e => e.status === 'upcoming').length
 
   const doneCount = hasilList.length
   const waitingCount = hasilList.filter(h => h.status !== 'graded').length
@@ -125,8 +143,9 @@ function MahasiswaDashboard() {
     { label: 'Menunggu Hasil', value: String(waitingCount), icon: Award, color: 'warning' }
   ]
 
-  // The exam that matters most right now: one in progress, else the next one
-  const nextExam = upcomingExams.find(e => e.status === 'active') || upcomingExams.find(e => e.status === 'upcoming')
+  // The hero highlights the next upcoming exam; exams in progress now get
+  // their own prominent section above it
+  const nextExam = examsDerived.find(e => e.status === 'upcoming')
   const untilText = (ms) => {
     const mins = Math.max(0, Math.round(ms / 60000))
     const d = Math.floor(mins / 1440)
@@ -153,7 +172,36 @@ function MahasiswaDashboard() {
           <p className="page-subtitle">Selamat datang, {user?.name}! NIM: {user?.nim}</p>
         </div>
 
-        {/* Next exam first: what a student opens the app for */}
+        {/* Ujian aktif: the loudest thing on the page — can be started now */}
+        {loaded && activeExamList.length > 0 && (
+          <div className="active-exam-alert">
+            <div className="active-exam-alert-head">
+              <span className="active-pulse" aria-hidden="true" />
+              <span>Ujian Aktif Sekarang — langsung bisa dikerjakan</span>
+            </div>
+            <div className="active-exam-list">
+              {activeExamList.map(exam => (
+                <div key={exam.id} className="active-exam-item">
+                  <div className="active-exam-item-info">
+                    <h3 className="active-exam-item-title">{exam.tipeUjian} {exam.matkulName}</h3>
+                    <div className="active-exam-item-meta">
+                      <span><Clock size={15} /> Berakhir {jam(exam.waktuSelesai)} · sisa {untilText(exam.examEnd - now)}</span>
+                    </div>
+                  </div>
+                  <button
+                    className="btn btn-lg active-exam-cta"
+                    onClick={() => navigate('/mahasiswa/ujian')}
+                  >
+                    Kerjakan Sekarang
+                    <ArrowRight size={18} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Next exam: what a student opens the app for when nothing is active */}
         {!loaded ? (
           <span className="skeleton skeleton-card next-exam-skeleton" aria-label="Memuat" />
         ) : nextExam ? (
@@ -174,11 +222,11 @@ function MahasiswaDashboard() {
               </span>
             </div>
             <button className="btn btn-lg next-exam-btn" onClick={() => navigate('/mahasiswa/ujian')}>
-              {nextExam.status === 'active' ? 'Masuk Ujian' : 'Lihat Ujian'}
+              Lihat Ujian
               <ArrowRight size={18} />
             </button>
           </div>
-        ) : (
+        ) : activeExamList.length === 0 ? (
           <div className="next-exam is-empty">
             <div className="next-exam-info">
               <span className="next-exam-eyebrow">Jadwal ujian</span>
@@ -186,7 +234,7 @@ function MahasiswaDashboard() {
               <span className="next-exam-countdown">Ujian akan muncul di sini begitu dijadwalkan.</span>
             </div>
           </div>
-        )}
+        ) : null}
 
         {/* Stats Grid */}
         <div className="stats-grid">
@@ -319,6 +367,99 @@ function MahasiswaDashboard() {
       </div>
 
       <style>{`
+        .active-exam-alert {
+          margin-bottom: var(--space-5);
+          padding: 1rem 1.25rem 1.25rem;
+          border-radius: 26px;
+          color: #fff;
+          background: linear-gradient(135deg, #047857 0%, #059669 55%, #10b981 100%);
+          box-shadow: 0 18px 44px -18px rgba(5, 150, 105, 0.75);
+          border: 1px solid rgba(255, 255, 255, 0.18);
+        }
+        .active-exam-alert-head {
+          display: flex;
+          align-items: center;
+          gap: 0.55rem;
+          font-size: 0.8rem;
+          font-weight: 800;
+          letter-spacing: 0.04em;
+          text-transform: uppercase;
+          margin-bottom: 0.9rem;
+        }
+        .active-pulse {
+          width: 11px;
+          height: 11px;
+          border-radius: 50%;
+          background: #fff;
+          box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.8);
+          animation: active-pulse 1.6s infinite;
+          flex-shrink: 0;
+        }
+        @keyframes active-pulse {
+          0%   { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); }
+          70%  { box-shadow: 0 0 0 10px rgba(255, 255, 255, 0); }
+          100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+        .active-exam-list {
+          display: flex;
+          flex-direction: column;
+          gap: 0.75rem;
+        }
+        .active-exam-item {
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 1rem;
+          flex-wrap: wrap;
+          padding: 0.9rem 1.1rem;
+          border-radius: 18px;
+          background: rgba(255, 255, 255, 0.14);
+          backdrop-filter: blur(6px);
+        }
+        .active-exam-item-info {
+          min-width: 0;
+          display: flex;
+          flex-direction: column;
+          gap: 0.3rem;
+        }
+        .active-exam-item-title {
+          margin: 0;
+          font-size: 1.12rem;
+          font-weight: 800;
+          line-height: 1.25;
+        }
+        .active-exam-item-meta {
+          font-size: 0.85rem;
+          opacity: 0.95;
+        }
+        .active-exam-item-meta span {
+          display: inline-flex;
+          align-items: center;
+          gap: 0.35rem;
+        }
+        .active-exam-cta {
+          flex-shrink: 0;
+          min-height: 48px;
+          padding: 0 1.4rem;
+          border: none;
+          border-radius: 999px;
+          background: #fff !important;
+          color: #047857 !important;
+          font-weight: 800;
+          gap: 0.4rem;
+        }
+        .active-exam-cta:hover {
+          background: #ecfdf5 !important;
+        }
+        @media (max-width: 640px) {
+          .active-exam-item {
+            padding: 0.85rem 0.95rem;
+          }
+          .active-exam-cta {
+            width: 100%;
+            justify-content: center;
+          }
+        }
         .next-exam {
           display: flex;
           align-items: center;
