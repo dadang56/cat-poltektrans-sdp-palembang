@@ -212,6 +212,33 @@ function KelasPage() {
         return matchesSearch && matchesProdi
     })
 
+    // Summary stats follow the prodi scope the user is actually viewing
+    // (an admin prodi only ever counts their own prodi), ignoring the
+    // live search text so the totals stay stable while searching.
+    const statKelas = kelasList.filter(k =>
+        effectiveProdiFilter === 'all' || String(k.prodi_id) === String(effectiveProdiFilter))
+
+    // Chips: break down by prodi when viewing every prodi, otherwise by
+    // tingkat (e.g. PK-2A/PK-2B -> "PK-2") within the single prodi in view.
+    const tingkatOf = (nama) => {
+        const t = (nama || '').trim()
+        return t.replace(/\s*[A-Za-z]+$/, '') || t
+    }
+    const statChips = effectiveProdiFilter === 'all'
+        ? prodiList.slice(0, 3).map(p => ({
+            key: `prodi-${p.id}`,
+            label: p.kode,
+            count: kelasList.filter(k => k.prodi_id === p.id).length
+        }))
+        : Object.entries(statKelas.reduce((acc, k) => {
+            const t = tingkatOf(k.nama)
+            acc[t] = (acc[t] || 0) + 1
+            return acc
+        }, {}))
+            .sort((a, b) => a[0].localeCompare(b[0], undefined, { numeric: true }))
+            .slice(0, 3)
+            .map(([label, count]) => ({ key: `tingkat-${label}`, label, count }))
+
     const handleAddKelas = () => {
         setEditingKelas(null)
         setModalOpen(true)
@@ -308,13 +335,13 @@ function KelasPage() {
 
                 <div className="mini-stats">
                     <div className="mini-stat">
-                        <span className="mini-stat-value">{kelasList.length}</span>
+                        <span className="mini-stat-value">{statKelas.length}</span>
                         <span className="mini-stat-label">Total Kelas</span>
                     </div>
-                    {prodiList.slice(0, 3).map(p => (
-                        <div key={p.id} className="mini-stat">
-                            <span className="mini-stat-value">{kelasList.filter(k => k.prodi_id === p.id).length}</span>
-                            <span className="mini-stat-label">{p.kode}</span>
+                    {statChips.map(c => (
+                        <div key={c.key} className="mini-stat">
+                            <span className="mini-stat-value">{c.count}</span>
+                            <span className="mini-stat-label">{c.label}</span>
                         </div>
                     ))}
                 </div>
