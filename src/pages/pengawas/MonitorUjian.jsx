@@ -36,6 +36,7 @@ import {
 import '../admin/Dashboard.css'
 import { jam } from '../../utils/timeFormat'
 import { watchMonitor } from '../../services/monitorSignal'
+import { joinRoomLocks } from '../../services/roomPresence'
 
 function MonitorUjian() {
   const { user } = useAuth()
@@ -62,6 +63,9 @@ function MonitorUjian() {
   const [loading, setLoading] = useState(true)
   const [extraTimeModal, setExtraTimeModal] = useState(null) // { participantId, studentName }
   const [extraTimeMinutes, setExtraTimeMinutes] = useState(15)
+  // Shared room locks from Realtime Presence: { [roomId]: { pengawasId, pengawasName } }
+  const [remoteLocks, setRemoteLocks] = useState({})
+  const roomLockRef = useRef(null)
 
   // Helper functions for status mapping
   const getDerivedStatus = (hasil) => {
@@ -220,13 +224,52 @@ function MonitorUjian() {
     loadActiveExams()
   }, [tahunAkademik])
 
-  // Check if user can access room (admin/superadmin can access any, pengawas only available rooms)
+  // Join the shared room-lock presence channel so every viewer sees who is
+  // supervising which room, live, across devices
+  useEffect(() => {
+    if (!user?.id) return
+    const handle = joinRoomLocks({
+      pengawasId: user.id,
+      pengawasName: user.name,
+      onSync: setRemoteLocks
+    })
+    roomLockRef.current = handle
+    return () => {
+      handle.leave()
+      roomLockRef.current = null
+    }
+  }, [user?.id, user?.name])
+
+  // Claim / release the room this pengawas is currently supervising
+  useEffect(() => {
+    const handle = roomLockRef.current
+    if (!handle || user?.role !== 'pengawas') return
+    if (selectedRoom?.id) handle.setRoom(selectedRoom.id)
+    else handle.clearRoom()
+  }, [selectedRoom?.id, user?.role])
+
+  // Check if user can access room (admin/superadmin can access any, pengawas
+  // only rooms that are free or already held by themselves)
   const canAccessRoom = (room) => {
     if (['superadmin', 'admin_prodi'].includes(user?.role)) return true
+    const lock = remoteLocks[room.id]
+    if (lock) return lock.pengawasId === user?.id
     if (room.status === 'available') return true
     if (room.pengawas === user?.id) return true
     return false
   }
+
+  // If someone else claimed the room we're in (e.g. a near-simultaneous open),
+  // step out so two pengawas never supervise the same room
+  useEffect(() => {
+    if (user?.role !== 'pengawas' || !selectedRoom?.id) return
+    const lock = remoteLocks[selectedRoom.id]
+    if (lock && lock.pengawasId !== user?.id) {
+      toast.warning(`Ruangan ini sudah diawasi oleh ${lock.pengawasName}.`)
+      handleLeaveRoom()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remoteLocks, selectedRoom?.id])
 
   const handleSelectRoom = async (room) => {
     if (!canAccessRoom(room)) {
@@ -857,10 +900,18 @@ function MonitorUjian() {
               </div>
             ) : (
               <div className="room-selection-grid">
-                {rooms.map(room => (
+                {rooms.map(room => {
+                  // Merge the live presence lock over the room's base state
+                  const lock = remoteLocks[room.id]
+                  const lockedByMe = lock && lock.pengawasId === user?.id
+                  const lockedByOther = lock && lock.pengawasId !== user?.id
+                  const effStatus = lock ? 'occupied' : room.status
+                  const effPengawasName = lock ? lock.pengawasName : room.pengawasName
+                  const accessible = canAccessRoom(room)
+                  return (
                   <div
                     key={room.id}
-                    className={`room-card ${room.status} ${!canAccessRoom(room) ? 'locked' : ''}`}
+                    className={`room-card ${effStatus} ${!accessible ? 'locked' : ''} ${lockedByMe ? 'mine' : ''}`}
                     onClick={() => handleSelectRoom(room)}
                   >
                     <div className="room-header">
@@ -869,7 +920,7 @@ function MonitorUjian() {
                         <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>{room.name}</span>
                         <h3 style={{ margin: 0 }}>{room.kelasName ? `Kelas ${room.kelasName}` : room.name}</h3>
                       </div>
-                      {room.status === 'occupied' && <Lock size={16} className="lock-icon" />}
+                      {lockedByOther && <Lock size={16} className="lock-icon" />}
                     </div>
                     <div className="room-exam" style={{ fontSize: '0.85rem' }}>{room.exam}</div>
                     <div className="room-time">
@@ -880,10 +931,10 @@ function MonitorUjian() {
                       <Users size={14} />
                       {room.participants} Peserta
                     </div>
-                    {room.status === 'occupied' && (
+                    {effStatus === 'occupied' && (
                       <div className="room-pengawas">
                         <Eye size={14} />
-                        Diawasi oleh: {room.pengawasName}
+                        Diawasi oleh: {effPengawasName}{lockedByMe ? ' (Anda)' : ''}
                       </div>
                     )}
                     {/* Exam on/off: a labelled switch, not a big button, so it
@@ -902,15 +953,16 @@ function MonitorUjian() {
                       </span>
                     </button>
                     <div className="room-card-footer">
-                      <span className={`room-status-badge ${room.status}`}>
-                        {room.status === 'available' ? 'Belum ada pengawas' : 'Sedang diawasi'}
+                      <span className={`room-status-badge ${effStatus}`}>
+                        {effStatus === 'available' ? 'Belum ada pengawas' : lockedByMe ? 'Anda awasi' : 'Sedang diawasi'}
                       </span>
                       <span className="room-open-btn">
-                        {canAccessRoom(room) ? <>Pantau Ruangan <ChevronRight size={16} /></> : <><Lock size={14} /> Terkunci</>}
+                        {accessible ? <>Pantau Ruangan <ChevronRight size={16} /></> : <><Lock size={14} /> Terkunci</>}
                       </span>
                     </div>
                   </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </>
