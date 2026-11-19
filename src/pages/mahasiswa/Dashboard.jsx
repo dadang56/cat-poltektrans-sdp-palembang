@@ -281,7 +281,7 @@ function MahasiswaDashboard() {
                       <div className="exam-details">
                         <div className="exam-detail">
                           <Calendar size={14} />
-                          <span>{exam.tanggal}</span>
+                          <span>{tanggalText(exam.tanggal)}</span>
                         </div>
                         <div className="exam-detail">
                           <Clock size={14} />
