@@ -249,6 +249,20 @@ function NilaiAkhirPage() {
 
     const currentGrades = selectedMatkul ? (grades[selectedMatkul.id] || []) : []
 
+    // Hanya kelas yang benar-benar diampu dosen untuk matkul ini (punya mahasiswa di data),
+    // bukan semua kelas di sistem.
+    const availableKelas = useMemo(() => {
+        const ids = new Set(currentGrades.map(s => String(s.kelas_id)).filter(id => id && id !== 'null'))
+        return kelasList.filter(k => ids.has(String(k.id)))
+    }, [currentGrades, kelasList])
+
+    // Reset filter kelas kalau pindah matkul dan kelas lama tak ada di matkul ini
+    useEffect(() => {
+        if (kelasFilter !== 'all' && !availableKelas.some(k => String(k.id) === String(kelasFilter))) {
+            setKelasFilter('all')
+        }
+    }, [selectedMatkul])
+
     const filteredGrades = currentGrades.filter(s => {
         const matchesSearch = s.name.toLowerCase().includes(search.toLowerCase()) ||
             s.nim.includes(search)
@@ -659,7 +673,7 @@ function NilaiAkhirPage() {
                                 style={{ minWidth: '160px' }}
                             >
                                 <option value="all">Semua Kelas</option>
-                                {kelasList.map(k => (
+                                {availableKelas.map(k => (
                                     <option key={k.id} value={k.id}>{k.nama} ({k.angkatan})</option>
                                 ))}
                             </select>
