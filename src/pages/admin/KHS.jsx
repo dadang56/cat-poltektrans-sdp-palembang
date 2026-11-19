@@ -783,7 +783,8 @@ function KHSPage() {
                                             </div>
                                         ) : (
                                             <>
-                                                <table className="data-table" style={{ width: '100%' }}>
+                                                <div className="khs-grades-scroll">
+                                                <table className="data-table no-cards khs-grades-table" style={{ width: '100%' }}>
                                                     <thead>
                                                         <tr>
                                                             <th style={{ width: '40px' }}>No</th>
@@ -837,6 +838,7 @@ function KHSPage() {
                                                         </tr>
                                                     </tfoot>
                                                 </table>
+                                                </div>
 
                                                 {/* Summary: IPS, NK, NS, PAS */}
                                                 <div style={{

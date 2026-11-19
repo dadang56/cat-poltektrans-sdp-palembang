@@ -1656,3 +1656,25 @@ img {
   text-align: center;
   color: var(--text-secondary);
 }
+
+/* KHS grades table: a formal 7-column table that must not fold into cards.
+   Scroll it sideways on narrow screens instead of crushing the columns. */
+.khs-grades-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+}
+.khs-grades-table {
+  min-width: 520px;
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .khs-grades-table {
+    font-size: 0.8rem;
+  }
+  .khs-grades-table th,
+  .khs-grades-table td {
+    padding: 7px 9px;
+  }
+}
