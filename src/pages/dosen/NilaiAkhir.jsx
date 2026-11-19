@@ -695,8 +695,13 @@ function NilaiAkhirPage() {
                             </span>
                         </div>
                         {selectedMatkul && (
-                            <button type="button" className="btn btn-sm btn-outline" onClick={openBobotEditor}>
-                                <Edit2 size={14} /> Atur Bobot
+                            <button
+                                type="button"
+                                className="btn btn-primary"
+                                onClick={openBobotEditor}
+                                style={{ fontWeight: 600, padding: '10px 20px', fontSize: '0.95rem', whiteSpace: 'nowrap', gap: '8px' }}
+                            >
+                                <Edit2 size={18} /> Atur Bobot
                             </button>
                         )}
                     </div>
