@@ -511,9 +511,16 @@
     }
 }
 
-/* ---------- Page switch: short opacity fade only ---------- */
+/* ---------- Page switch: short opacity fade only ----------
+   fill-mode is "backwards", NOT "both": a "forwards"/"both" opacity
+   animation keeps a persistent stacking context on the page wrapper even
+   after it ends, which traps position:fixed pop-ups (the correction modal,
+   etc.) INSIDE the content area so the fixed sidebar paints over their left
+   edge at narrow widths. "backwards" still fades in (end state is the base
+   opacity:1) but releases the stacking context once finished, letting
+   modals cover the whole viewport. Do not change this back to "both". */
 .dashboard-layout .animate-fadeIn {
-    animation: glass-page-in 0.16s ease-out both;
+    animation: glass-page-in 0.16s ease-out backwards;
 }
 
 @keyframes glass-page-in {
