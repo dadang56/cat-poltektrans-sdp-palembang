@@ -557,6 +557,14 @@ export const soalService = {
         return selectAll(query)
     },
 
+    // Questions for a student taking an exam: no answer key, only while the
+    // jadwal is ongoing (RPC exam_questions, see supabase/security/03).
+    async getForExam(jadwalId) {
+        const { data, error } = await supabase.rpc('exam_questions', { p_jadwal_id: jadwalId })
+        if (error) throw error
+        return data || []
+    },
+
     async getByJadwal(jadwalId) {
         // Get matkul_id from jadwal first, then get soal
         const jadwal = await jadwalService.getById(jadwalId)
@@ -1063,6 +1071,21 @@ export const hasilUjianService = {
 
     // Periodic auto-save during an exam. Only updates a row that is still
     // in_progress so a late auto-save can't undo a finished result.
+    // Submit a finished exam. The server grades it and stores the result
+    // (RPC submit_exam); retries network failures a few times.
+    async submitExam(params) {
+        let lastError = null
+        for (let attempt = 1; attempt <= 5; attempt++) {
+            const { data, error } = await supabase.rpc('submit_exam', params)
+            if (!error) return data
+            lastError = error
+            // Permission / validation errors will not fix themselves
+            if (error.code === '42501' || error.code === 'P0001') break
+            await new Promise(r => setTimeout(r, 1500 * attempt))
+        }
+        throw lastError
+    },
+
     async autosaveAnswers(jadwalId, mahasiswaId, answersDetail) {
         const { error } = await supabase
             .from('hasil_ujian')

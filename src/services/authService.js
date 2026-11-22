@@ -325,12 +325,20 @@ export async function validateSession() {
  * Get current user profile - OPTIMIZED: uses localStorage cache first
  */
 export async function getCurrentUser() {
-    // Check localStorage for cached profile (works for both auth and legacy users)
+    // A cached profile only counts while there is a Supabase Auth session.
+    // Sessions from the old login (no Supabase session) must log in again:
+    // the database no longer answers requests without one.
     const localUser = localStorage.getItem(USER_PROFILE_KEY)
     if (localUser) {
+        const { data: { session: cachedSession } } = await supabase.auth.getSession()
+        if (!cachedSession) {
+            localStorage.removeItem(USER_PROFILE_KEY)
+            localStorage.removeItem(SESSION_TOKEN_KEY)
+            return null
+        }
         try {
             return JSON.parse(localUser)
-        } catch (e) {
+        } catch {
             localStorage.removeItem(USER_PROFILE_KEY)
         }
     }

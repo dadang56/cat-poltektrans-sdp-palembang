@@ -5,7 +5,6 @@ import { useAuth } from '../../App'
 import { SEBService, AntiCheat } from '../../services/SEBService'
 import { jadwalService, matkulService, soalService, hasilUjianService, isSupabaseConfigured } from '../../services/supabaseService'
 import { useSettings } from '../../contexts/SettingsContext'
-import { toPercentScore } from '../../utils/gradeUtils'
 import { getActiveAcademicYear } from '../../utils/academicYear'
 import { syncServerClock, serverNow } from '../../utils/serverTime'
 import {
@@ -105,6 +104,7 @@ function TakeExamPage() {
     const [showWarning, setShowWarning] = useState(false)
     const [warningCount, setWarningCount] = useState(0)
     const [submitted, setSubmitted] = useState(false)
+    const [serverResult, setServerResult] = useState(null)
     const [showConfirmSubmit, setShowConfirmSubmit] = useState(false)
     const [showNavigator, setShowNavigator] = useState(false)
     const [examStartTime, setExamStartTime] = useState(null) // actual waktu_mulai
@@ -149,32 +149,11 @@ function TakeExamPage() {
                     matkulList = matkulData
 
                     if (jadwal) {
-                        const matkulId = jadwal.matkul_id || jadwal.matkulId
-                        let examType = (jadwal.tipe || jadwal.tipe_ujian || jadwal.tipeUjian || '').toUpperCase()
-
-                        // For ULANG exams, load soal based on the parent jadwal's tipe (UTS/UAS)
-                        if (examType === 'ULANG' && jadwal.parent_jadwal_id) {
-                            try {
-                                const parentJadwal = await jadwalService.getById(jadwal.parent_jadwal_id)
-                                if (parentJadwal) {
-                                    examType = (parentJadwal.tipe || 'UTS').toUpperCase()
-                                    console.log('TakeExam: ULANG exam, using parent tipe:', examType)
-                                }
-                            } catch (e) {
-                                console.error('TakeExam: Error loading parent jadwal:', e)
-                            }
-                        }
-
-                        const tahunAkademik = jadwal.tahun_akademik || getActiveAcademicYear(settings, user)
-                        console.log('[TakeExam] Loading soal:', { matkulId, examType, tahunAkademik })
-
-                        const soalByMatkul = await soalService.getAll({
-                            matkul_id: matkulId,
-                            tahun_akademik: tahunAkademik
-                        })
-                        allSoal = soalByMatkul.filter(s => s.tipe_ujian?.toUpperCase() === examType)
-
-                        console.log('[TakeExam] Questions scoped to academic year and exam type:', allSoal.length)
+                        // Questions come from the server WITHOUT the answer key
+                        // (RPC exam_questions: same matkul / exam type / academic
+                        // year scope as before, only while the jadwal is ongoing).
+                        allSoal = await soalService.getForExam(jadwal.id)
+                        console.log('[TakeExam] Questions for this exam:', allSoal.length)
                     }
                 }
 
@@ -214,7 +193,6 @@ function TakeExamPage() {
                             if (typeof o === 'string') return { text: o, image: null }
                             return { text: o.text || '', image: o.image || null }
                         }),
-                        correctAnswer: s.jawaban_benar ?? s.correctAnswer,
                         image: s.gambar || null,
                         clusterId: s.cluster_id || null,
                         // Dosen-enabled math symbol keyboard for essay answers
@@ -844,126 +822,32 @@ function TakeExamPage() {
         setSubmitted(true)
         setShowConfirmSubmit(false)
 
-        // Calculate score
-        let totalScore = 0
-        let maxScore = 0
-        const answerDetails = questions.map(q => {
-            maxScore += q.points
-            let earned = 0
-            let isCorrect = false
-
-            // Normalize comparison: ensure both sides are the same type
-            // answers[q.id] is always a number (from handleAnswer(index))
-            // q.correctAnswer from JSONB could be number, string, or even "A"/"B" format
-            const normalizeAnswer = (val) => {
-                if (val === null || val === undefined) return null
-                // If it's a letter like "A", "B", convert to index
-                if (typeof val === 'string' && /^[A-E]$/i.test(val)) {
-                    return { 'A': 0, 'B': 1, 'C': 2, 'D': 3, 'E': 4 }[val.toUpperCase()]
-                }
-                return Number(val)
-            }
-
-            const studentAnswer = normalizeAnswer(answers[q.id])
-            const correctAns = normalizeAnswer(q.correctAnswer)
-
-            if (q.type === 'pilihan_ganda' && studentAnswer !== null) {
-                if (studentAnswer === correctAns) {
-                    earned = q.points
-                    isCorrect = true
-                }
-            } else if (q.type === 'benar_salah' && answers[q.id] !== undefined) {
-                // For benar_salah, compare directly (boolean or string)
-                if (String(answers[q.id]) === String(q.correctAnswer)) {
-                    earned = q.points
-                    isCorrect = true
-                }
-            }
-            // Essay questions need manual grading, set earnedPoints to null
-            const needsManualGrading = q.type === 'essay' || q.type === 'uraian'
-
-            totalScore += earned
-
-            return {
-                questionId: q.id,
-                type: q.type,
-                answer: answers[q.id] ?? null,
-                correctAnswer: q.correctAnswer,
-                maxPoints: q.points,
-                earnedPoints: needsManualGrading ? null : earned,
-                isCorrect: needsManualGrading ? null : isCorrect,
-                needsManualGrading
-            }
-        })
-
-        // Create exam result object
-        const examResult = {
-            id: Date.now(),
-            examId: examData.id,
-            examName: examData.name,
-            matkulName: examData.matkulName,
-            mahasiswaId: user?.id,
-            mahasiswaName: user?.name || user?.nama,
-            nim: user?.nim,
-            kelasId: user?.kelasId,
-            answers: answerDetails,
-            totalScore: totalScore,
-            maxScore: maxScore,
-            hasEssay: answerDetails.some(a => a.needsManualGrading),
-            isFullyCorrected: !answerDetails.some(a => a.needsManualGrading),
-            warningCount: warningCount,
-            submittedAt: new Date().toISOString(),
-            submittedAtDisplay: new Date().toLocaleString('id-ID')
+        // Answers sent to the server, which grades them (the answer key is
+        // never in this browser). Includes unanswered questions (null).
+        const answerPayload = questions.map(q => ({
+            questionId: q.id,
+            answer: answers[q.id] ?? null
+        }))
+        const submitParams = {
+            p_jadwal_id: examData.id,
+            p_answers: answerPayload,
+            p_submit_type: autoSubmitVal ? 'auto' : 'manual',
+            p_cheating: isCheating,
+            p_violations: isCheating ? (options.violationCount ?? warningCount) : null,
+            p_waktu_mulai: examStartTime
+                ? examStartTime.toISOString()
+                : new Date(serverNow().getTime() - (examData.duration * 60 * 1000)).toISOString()
         }
 
-        // Save to Supabase
         const saveExamResult = async () => {
-            // Count statistics
-            const jumlahBenar = answerDetails.filter(a => a.isCorrect === true).length
-            const jumlahSalah = answerDetails.filter(a => a.isCorrect === false).length
-            const jumlahKosong = answerDetails.filter(a => a.answer === null).length
-
-            let hasilData = null
             try {
-                // Normalize raw points to 0-100 (bobot soal bisa tidak berjumlah 100)
-                const nilaiTotal = toPercentScore(totalScore, maxScore)
-
-                // Determine if this is an ULANG exam and apply score capping (on 0-100 scale)
-                const isUlang = examData.tipeUjian === 'ULANG'
-                let nilaiFinal = nilaiTotal
-                if (isUlang && nilaiFinal >= 70) {
-                    nilaiFinal = 70 // Cap at 70 for remedial exams
-                    console.log('[TakeExam] ULANG exam: score capped from', nilaiTotal, 'to', nilaiFinal)
-                }
-
-                // Save to hasil_ujian table
-                hasilData = {
-                    jadwal_id: examData.id,
-                    mahasiswa_id: user?.id,
-                    nilai_total: nilaiTotal,
-                    nilai_final: nilaiFinal,
-                    is_ulang: isUlang,
-                    jumlah_benar: jumlahBenar,
-                    jumlah_salah: jumlahSalah,
-                    jumlah_kosong: jumlahKosong,
-                    waktu_mulai: examStartTime ? examStartTime.toISOString() : new Date(serverNow().getTime() - (examData.duration * 60 * 1000)).toISOString(),
-                    waktu_selesai: serverNow().toISOString(),
-                    status: isCheating
-                        ? 'cheating_submitted'
-                        : (answerDetails.some(a => a.needsManualGrading) ? 'submitted' : 'graded'),
-                    submit_type: autoSubmitVal ? 'auto' : 'manual',
-                    ...(isCheating ? { jumlah_pelanggaran: options.violationCount ?? warningCount } : {}),
-                    // Store detailed answers as JSON
-                    answers_detail: JSON.stringify(answerDetails)
-                }
-
-                await hasilUjianService.saveFinalResult(hasilData)
+                const result = await hasilUjianService.submitExam(submitParams)
+                setServerResult(result)
                 clearAnswerBackup(examData.id, user?.id)
                 signalMonitor(id, 'submit')
-                console.log('[TakeExam] Exam result saved to Supabase:', hasilData)
+                console.log('[TakeExam] Exam submitted, graded on server:', result)
             } catch (error) {
-                console.error('[TakeExam] Error saving to Supabase:', error)
-                if (!hasilData) return
+                console.error('[TakeExam] Error submitting exam:', error)
                 notify({ title: 'Jawaban Belum Terkirim', message: 'Koneksi internet bermasalah, jawaban belum terkirim ke server. Jawaban tetap tersimpan di perangkat ini dan akan dikirim ulang otomatis saat internet tersambung. Jangan tutup halaman ini dan lapor ke pengawas.' })
                 // Keep trying while the page is open: every 10 s and as soon
                 // as the connection comes back.
@@ -973,7 +857,8 @@ function TakeExamPage() {
                     busy = true
                     window.removeEventListener('online', retry)
                     try {
-                        await hasilUjianService.saveFinalResult(hasilData)
+                        const result = await hasilUjianService.submitExam(submitParams)
+                        setServerResult(result)
                         clearAnswerBackup(examData.id, user?.id)
                         signalMonitor(id, 'submit')
                         notify({ title: 'Jawaban Terkirim', message: 'Jawaban ujian sudah berhasil tersimpan ke server.' })
@@ -1001,23 +886,11 @@ function TakeExamPage() {
     handleCheatingAutoSubmitRef.current = handleCheatingAutoSubmit
     existingHasilIdRef.current = existingHasilId
 
-    // Calculate score for display
-    const calculateScore = () => {
-        let score = 0
-        let total = 0
-        questions.forEach(q => {
-            total += q.points
-            // Simple scoring for multiple choice
-            if (q.type === 'pilihan_ganda' && answers[q.id] !== undefined) {
-                // Check if answer matches correct answer index
-                if (answers[q.id] === q.correctAnswer) score += q.points
-            }
-            if (q.type === 'benar_salah' && answers[q.id] !== undefined) {
-                if (answers[q.id] === q.correctAnswer) score += q.points
-            }
-        })
-        return { score, total }
-    }
+    // Score for display comes from the server (null until it answers)
+    const calculateScore = () => ({
+        score: serverResult ? Number(serverResult.skor ?? 0) : '…',
+        total: serverResult ? Number(serverResult.skor_maks ?? 0) : '…'
+    })
 
     // Loading state
     if (loading) {
