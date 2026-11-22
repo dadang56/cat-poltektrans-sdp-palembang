@@ -54,127 +54,124 @@ function generateSessionToken() {
     return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}-${Math.random().toString(36).substr(2, 9)}`
 }
 
+// Profile columns read after login. The password column is never read here.
+const PROFILE_COLUMNS = `
+    id, nim_nip, nip, nama, email, role, status, auth_id,
+    ttd_qr_enabled,
+    prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
+    prodi:prodi_id(id, nama, kode),
+    kelas:kelas_id(id, nama)
+`
+
 /**
- * Sign in with NIM/NIP and password
- * OPTIMIZED Flow:
- * 1. First lookup user in DB by nim_nip (1 lightweight query)
- * 2. If user has auth_id -> authenticate via Supabase Auth
- * 3. If user has NO auth_id -> legacy password check (no Supabase Auth call)
- * This avoids wasting a Supabase Auth call for every legacy user login.
+ * After a password check passed: SEB gate, single-session token, cache.
+ */
+async function finishLogin(user, session, options) {
+    if (user.status !== 'active') {
+        if (session) await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+        throw new Error('Akun tidak aktif. Hubungi administrator.')
+    }
+
+    try {
+        await enforceSebGate(user, options)
+    } catch (gateError) {
+        // Drop only this browser's auth session; leave session_token alone
+        if (session) await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+        throw gateError
+    }
+
+    // Generate session token (skipped for multi-device roles)
+    if (!isMultiDeviceRole(user.role)) {
+        const sessionToken = generateSessionToken()
+        await supabase
+            .from('users')
+            .update({ session_token: sessionToken })
+            .eq('id', user.id)
+        localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
+    } else {
+        // Fixed token for multi-device roles so validation always passes
+        localStorage.setItem(SESSION_TOKEN_KEY, 'multi_device_allowed')
+    }
+
+    const formattedUser = formatUserProfile(user, session)
+    localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
+    return formattedUser
+}
+
+/**
+ * Sign in with NIM/NIP (or username) and password.
+ * 1. Ask the database for this account's Supabase Auth email (RPC
+ *    login_email). The password never leaves Supabase Auth.
+ * 2. Accounts not moved to Supabase Auth yet: old check, kept only until
+ *    every account has been moved (see supabase/security/).
  */
 export async function signInWithNimNip(nimNip, password, options = {}) {
     try {
-        // STEP 1: Lookup user in DB first (lightweight - select only needed columns)
-        let existingUser = null
-        const { data: byNimNip, error: lookupError } = await supabase
-            .from('users')
-            .select(`
-                id, nim_nip, nip, nama, email, role, status, password, auth_id,
-                ttd_qr_enabled,
-                prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
-                prodi:prodi_id(id, nama, kode),
-                kelas:kelas_id(id, nama)
-            `)
-            .ilike('nim_nip', nimNip)
-            .maybeSingle()
+        const identifier = (nimNip || '').trim()
 
-        if (!lookupError || lookupError.code === 'PGRST116') {
-            existingUser = byNimNip
+        // === SUPABASE AUTH ===
+        const { data: authEmail, error: rpcError } = await supabase
+            .rpc('login_email', { p_identifier: identifier })
+        if (rpcError && rpcError.code !== 'PGRST202') {
+            // PGRST202 = function not installed yet -> fall through to legacy
+            console.error('[AuthService] login_email error:', rpcError)
         }
 
-        // If not found by nim_nip, try by username
-        if (!existingUser) {
-            const { data: byUsername, error: usernameError } = await supabase
-                .from('users')
-                .select(`
-                    id, nim_nip, nip, nama, email, role, status, password, auth_id,
-                    ttd_qr_enabled,
-                    prodi_id, kelas_id, matkul_ids, kelas_ids, prodi_ids,
-                    prodi:prodi_id(id, nama, kode),
-                    kelas:kelas_id(id, nama)
-                `)
-                .ilike('username', nimNip)
-                .maybeSingle()
-
-            if (!usernameError || usernameError.code === 'PGRST116') {
-                existingUser = byUsername
+        if (authEmail) {
+            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
+                email: authEmail,
+                password
+            })
+            if (authError || !authData?.session) {
+                throw new Error('Password salah')
             }
+
+            const { data: user, error: profileError } = await supabase
+                .from('users')
+                .select(PROFILE_COLUMNS)
+                .eq('auth_id', authData.user.id)
+                .maybeSingle()
+            if (profileError || !user) {
+                await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
+                throw new Error('Profil pengguna tidak ditemukan. Hubungi administrator.')
+            }
+
+            const formattedUser = await finishLogin(user, authData.session, options)
+            return { data: formattedUser, error: null }
+        }
+
+        // === LEGACY (account not moved to Supabase Auth yet) ===
+        const legacyColumns = `${PROFILE_COLUMNS}, password`
+        let existingUser = null
+        const { data: byNimNip } = await supabase
+            .from('users')
+            .select(legacyColumns)
+            .ilike('nim_nip', identifier)
+            .maybeSingle()
+        existingUser = byNimNip
+        if (!existingUser) {
+            const { data: byUsername } = await supabase
+                .from('users')
+                .select(legacyColumns)
+                .ilike('username', identifier)
+                .maybeSingle()
+            existingUser = byUsername
         }
 
         if (!existingUser) {
             throw new Error('NIM/NIP tidak ditemukan dalam sistem')
         }
-
-        if (existingUser.status !== 'active') {
+        if (existingUser.auth_id) {
+            // Moved to Supabase Auth but login_email gave nothing: inactive
             throw new Error('Akun tidak aktif. Hubungi administrator.')
         }
-
-        // STEP 2: Route based on whether user has Supabase Auth
-        if (existingUser.auth_id) {
-            // === SUPABASE AUTH USER ===
-            const email = `${nimNip.toLowerCase()}@cat.poltektrans.local`
-            const { data: authData, error: authError } = await supabase.auth.signInWithPassword({
-                email,
-                password
-            })
-
-            if (authError || !authData?.session) {
-                throw new Error('Password salah')
-            }
-
-            try {
-                await enforceSebGate(existingUser, options)
-            } catch (gateError) {
-                // Drop only this browser's auth session; leave session_token alone
-                await supabase.auth.signOut({ scope: 'local' }).catch(() => {})
-                throw gateError
-            }
-
-            // Generate session token (skipped for multi-device roles)
-            const skipSessionToken = isMultiDeviceRole(existingUser.role)
-            if (!skipSessionToken) {
-                const sessionToken = generateSessionToken()
-                await supabase
-                    .from('users')
-                    .update({ session_token: sessionToken })
-                    .eq('id', existingUser.id)
-                localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
-            } else {
-                // Use a fixed token for multi-device roles so validation always passes
-                localStorage.setItem(SESSION_TOKEN_KEY, 'multi_device_allowed')
-            }
-            const formattedUser = formatUserProfile(existingUser, authData.session)
-            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
-
-            return { data: formattedUser, error: null }
-
-        } else {
-            // === LEGACY USER (no Supabase Auth call needed!) ===
-            const storedPassword = existingUser.password || '123456'
-            if (password !== storedPassword) {
-                throw new Error('Password salah')
-            }
-
-            await enforceSebGate(existingUser, options)
-
-            // Generate session token (skipped for multi-device roles)
-            const skipSessionToken = isMultiDeviceRole(existingUser.role)
-            if (!skipSessionToken) {
-                const sessionToken = generateSessionToken()
-                await supabase
-                    .from('users')
-                    .update({ session_token: sessionToken })
-                    .eq('id', existingUser.id)
-                localStorage.setItem(SESSION_TOKEN_KEY, sessionToken)
-            } else {
-                localStorage.setItem(SESSION_TOKEN_KEY, 'multi_device_allowed')
-            }
-
-            const formattedUser = formatUserProfile(existingUser, null)
-            localStorage.setItem(USER_PROFILE_KEY, JSON.stringify(formattedUser))
-            
-            return { data: formattedUser, error: null }
+        if (!existingUser.password || password !== existingUser.password) {
+            throw new Error('Password salah')
         }
+
+        const { password: _pw, ...userWithoutPassword } = existingUser
+        const formattedUser = await finishLogin(userWithoutPassword, null, options)
+        return { data: formattedUser, error: null }
     } catch (error) {
         console.error('[AuthService] Sign in error:', error)
         return { data: null, error }
