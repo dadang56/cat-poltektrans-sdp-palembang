@@ -47,7 +47,8 @@ function Login() {
                 return
             }
             try {
-                const { error } = await supabase.from('users').select('id', { head: true }).limit(1)
+                // Public RPC: the users table is no longer readable before login
+                const { error } = await supabase.rpc('server_now')
                 if (!cancelled) setDbStatus(error ? 'error' : 'ok')
             } catch {
                 if (!cancelled) setDbStatus('error')
