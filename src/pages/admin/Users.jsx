@@ -3,7 +3,7 @@ import DashboardLayout from '../../components/DashboardLayout'
 import { downloadTemplate, importFromFile, isValidSpreadsheetFile } from '../../utils/excelUtils'
 import { useAuth } from '../../App'
 import { useConfirm } from '../../components/ConfirmDialog'
-import { userService, prodiService, kelasService, matkulService, isSupabaseConfigured } from '../../services/supabaseService'
+import { userService, prodiService, kelasService, matkulService, isSupabaseConfigured, passwordVaultService } from '../../services/supabaseService'
 import {
     Users,
     Search,
@@ -568,7 +568,9 @@ function UsersPage() {
                     kelasIds: u.kelas_ids ? (typeof u.kelas_ids === 'string' ? JSON.parse(u.kelas_ids) : u.kelas_ids) : [],
                     matkulIds: u.matkul_ids ? (typeof u.matkul_ids === 'string' ? JSON.parse(u.matkul_ids) : u.matkul_ids) : [],
                     photo: u.photo,
-                    password: u.password || ''
+                    // Passwords are never read back; superadmin can view them
+                    // through the audited vault (Cetak Kredensial / Kartu Peserta)
+                    password: ''
                 }))
                 setUsers(mappedUsers)
                 setProdiList(prodiData)
@@ -1006,7 +1008,20 @@ function UsersPage() {
     }
 
     // Print credentials for filtered users
-    const handlePrintCredentials = () => {
+    const handlePrintCredentials = async () => {
+        // Open the window first (inside the click) so pop-up blockers allow it
+        const printWindow = window.open('', '_blank')
+        const isSuperadmin = currentUser?.role === 'superadmin'
+        let passwordMap = {}
+        if (isSuperadmin) {
+            try {
+                passwordMap = await passwordVaultService.getMany(filteredUsers.map(u => u.id))
+            } catch (err) {
+                console.error('[Users] Gagal membuka brankas password:', err)
+                toast.error('Gagal mengambil password dari brankas')
+            }
+        }
+        const passwordFor = (u) => passwordMap[u.id] || (isSuperadmin ? '-' : '(hanya superadmin)')
         const roleLabels = {
             'all': 'Semua Role',
             'mahasiswa': 'Mahasiswa',
@@ -1029,7 +1044,7 @@ function UsersPage() {
             (a.name || '').localeCompare(b.name || '')
         )
 
-        const printWindow = window.open('', '_blank')
+        if (!printWindow) return
         printWindow.document.write(`
             <!DOCTYPE html>
             <html>
@@ -1089,7 +1104,7 @@ function UsersPage() {
                                 <td class="no-col">${i + 1}</td>
                                 <td>${u.name || '-'}</td>
                                 <td><strong>${u.username || u.nim || '-'}</strong></td>
-                                <td class="password-col">${u.password || '123456'}</td>
+                                <td class="password-col">${passwordFor(u)}</td>
                                 ${roleFilter === 'mahasiswa' || roleFilter === 'all' ? `<td>${u.nim || '-'}</td>` : ''}
                                 ${roleFilter === 'mahasiswa' ? `<td>${u.kelas?.nama || '-'}</td>` : ''}
                             </tr>

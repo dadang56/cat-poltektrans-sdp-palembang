@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import DashboardLayout from '../../components/DashboardLayout'
 import { useSettings } from '../../contexts/SettingsContext'
 import { useAuth } from '../../App'
-import { userService, prodiService, kelasService, isSupabaseConfigured } from '../../services/supabaseService'
+import { userService, prodiService, kelasService, isSupabaseConfigured, passwordVaultService } from '../../services/supabaseService'
 import {
     CreditCard,
     Search,
@@ -70,9 +70,19 @@ function StudentCardPage() {
                         kelasId: kelasId,
                         photo: u.photo,
                         username: u.username || u.nim_nip || u.nim || '',
-                        password: u.password || '******'
+                        password: '******'
                     }
                 })
+
+                // Only a superadmin may open the password vault (audited)
+                if (currentUser?.role === 'superadmin' && mhs.length) {
+                    try {
+                        const passwordMap = await passwordVaultService.getMany(mhs.map(m => m.id))
+                        mhs.forEach(m => { if (passwordMap[m.id]) m.password = passwordMap[m.id] })
+                    } catch (err) {
+                        console.error('[StudentCard] Gagal membuka brankas password:', err)
+                    }
+                }
 
                 console.log('[StudentCard] Total mahasiswa:', mhs.length)
                 setMahasiswaData(mhs)

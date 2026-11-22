@@ -535,6 +535,20 @@ export const jadwalService = {
 }
 
 // ============================================
+// Password vault (superadmin only, every read is audited)
+// ============================================
+export const passwordVaultService = {
+    // Returns { [userId]: password } for the given user ids
+    async getMany(userIds) {
+        const ids = (userIds || []).filter(Boolean)
+        if (!ids.length) return {}
+        const { data, error } = await supabase.rpc('admin_view_passwords', { p_user_ids: ids })
+        if (error) throw error
+        return Object.fromEntries((data || []).map(r => [r.user_id, r.password]))
+    }
+}
+
+// ============================================
 // Soal Service
 // ============================================
 export const soalService = {
