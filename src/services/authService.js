@@ -406,7 +406,15 @@ export function patchCachedProfile(patch) {
  * Update user password
  */
 export async function updatePassword(newPassword) {
-    return await supabase.auth.updateUser({ password: newPassword })
+    // Goes through public.users so Supabase Auth and the superadmin password
+    // vault are updated together (trigger b_users_password)
+    const { data: { session } } = await supabase.auth.getSession()
+    if (!session) return { data: null, error: new Error('Sesi berakhir, silakan login ulang') }
+    const { error } = await supabase
+        .from('users')
+        .update({ password: newPassword })
+        .eq('auth_id', session.user.id)
+    return { data: error ? null : { user: session.user }, error }
 }
 
 // ============================================
