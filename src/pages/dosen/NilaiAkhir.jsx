@@ -710,7 +710,7 @@ function NilaiAkhirPage() {
                         <div className="card-body" style={{ borderTop: '1px solid var(--border-color, #e5e7eb)', display: 'flex', flexDirection: 'column', gap: '12px' }}>
                             <div style={{ fontSize: '0.85rem', color: 'var(--text-muted, #6b7280)' }}>
                                 Atur bobot tiap aspek untuk <strong>{selectedMatkul.nama}</strong>{hasPraktek ? ' (dengan praktek)' : ' (tanpa praktek)'}. Total harus 100%.
-                                Batas: {hasPraktek ? 'NT ≤10%, NUTS ≤30%, NP ≤20%, UAS ≤40%' : 'NT ≥10%, NUTS ≥30%, UAS ≤60%'}.
+                                Batas: {hasPraktek ? 'NT ≤10%, NUTS ≥30%, NP ≥20%, UAS ≤40%' : 'NT ≥10%, NUTS ≥30%, UAS ≤60%'}.
                             </div>
                             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                                 {bobotKeys.map(k => (

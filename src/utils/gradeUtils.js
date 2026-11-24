@@ -35,14 +35,14 @@ export const NAK_WEIGHT_DEFAULTS = {
 /**
  * Allowed range (%) for each aspect. Aspek dengan batas "≤" => max (plafon),
  * aspek dengan batas "≥" => min (lantai). Total tetap wajib 100%.
- *   Dengan praktek : NT ≤10, NUTS ≤30, NP ≤20, UAS ≤40
+ *   Dengan praktek : NT ≤10, NUTS ≥30, NP ≥20, UAS ≤40
  *   Tanpa praktek  : NT ≥10, NUTS ≥30, UAS ≤60
  */
 export const NAK_WEIGHT_RULES = {
     praktek: {
         nt: { min: 0, max: 10 },
-        nuts: { min: 0, max: 30 },
-        np: { min: 0, max: 20 },
+        nuts: { min: 30, max: 100 },
+        np: { min: 20, max: 100 },
         uas: { min: 0, max: 40 }
     },
     nonPraktek: {
