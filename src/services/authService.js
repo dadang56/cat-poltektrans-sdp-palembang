@@ -377,13 +377,25 @@ export async function getCurrentUser() {
  * Subscribe to auth state changes
  */
 export function onAuthStateChange(callback) {
-    return supabase.auth.onAuthStateChange(async (event, session) => {
-        if (event === 'SIGNED_IN' && session) {
-            const user = await getCurrentUser()
-            callback(event, { ...session, profile: user })
-        } else {
-            callback(event, session)
+    // IMPORTANT: never call another supabase.auth.* method (getSession,
+    // signInWithPassword, etc.) inside this callback. Supabase invokes it while
+    // holding the auth lock, so an awaited auth call here DEADLOCKS the client:
+    // the lock is never released and every later sign-in and token-bearing
+    // request hangs forever (symptom: login stuck on "Memproses…" and the DB
+    // status badge stuck on "Menghubungkan…" when returning to /login while a
+    // session already exists). Read the cached profile from localStorage
+    // synchronously instead — no supabase call, no deadlock.
+    return supabase.auth.onAuthStateChange((event, session) => {
+        let profile = null
+        if (session) {
+            try {
+                const raw = localStorage.getItem(USER_PROFILE_KEY)
+                profile = raw ? JSON.parse(raw) : null
+            } catch {
+                profile = null
+            }
         }
+        callback(event, session ? { ...session, profile } : session)
     })
 }
 
