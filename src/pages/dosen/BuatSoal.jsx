@@ -33,6 +33,14 @@ import { soalService, matkulService, kelasService } from '../../services/supabas
 import { isSupabaseConfigured } from '../../lib/supabase'
 import { toast, errorMessage } from '../../components/Toast'
 
+// Jenis ujian yang bisa dibuatkan paket soal (UTS, UAS, Ujian Ulang/remedial)
+const EXAM_TYPES = [
+    { value: 'UTS', label: 'UTS' },
+    { value: 'UAS', label: 'UAS' },
+    { value: 'ULANG', label: 'Ujian Ulang' }
+]
+const examTypeLabel = (v) => EXAM_TYPES.find(t => t.value === (v || '').toUpperCase())?.label || v
+
 // Bank Soal Modal for selecting existing questions
 function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId, tahunAkademik }) {
     const [selectedQuestions, setSelectedQuestions] = useState([])
@@ -115,8 +123,9 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId, tahunAkade
                             onChange={e => setExamTypeFilter(e.target.value)}
                         >
                             <option value="all">Semua Tipe</option>
-                            <option value="UTS">UTS</option>
-                            <option value="UAS">UAS</option>
+                            {EXAM_TYPES.map(t => (
+                                <option key={t.value} value={t.value}>{t.label}</option>
+                            ))}
                         </select>
                     </div>
                     <div className="bank-soal-list">
@@ -141,7 +150,7 @@ function BankSoalModal({ isOpen, onClose, onSelectQuestions, dosenId, tahunAkade
                                 <div className="bank-soal-content">
                                     <p>{q.text}</p>
                                     <div className="bank-soal-meta">
-                                        <span className="badge badge-primary">{q.examType}</span>
+                                        <span className="badge badge-primary">{examTypeLabel(q.examType)}</span>
                                         <span className="badge badge-outline">{q.type}</span>
                                         <span>{q.points} poin</span>
                                         <span style={{ color: 'var(--text-muted)' }}>• {q.matkul}</span>
@@ -445,10 +454,7 @@ function QuestionModal({ isOpen, onClose, question, onSave, matkul, kelasList, c
                             <div className="form-group">
                                 <label className="form-label">Jenis Ujian</label>
                                 <div className="type-selector">
-                                    {[
-                                        { value: 'UTS', label: 'UTS' },
-                                        { value: 'UAS', label: 'UAS' }
-                                    ].map(type => (
+                                    {EXAM_TYPES.map(type => (
                                         <button
                                             key={type.value}
                                             type="button"
@@ -1726,7 +1732,7 @@ function BuatSoalPage() {
                                     <ArrowLeft size={18} />
                                     Kembali ke Paket Soal
                                 </button>
-                                <h1 className="page-title">{getMatkulName(selectedPackage?.matkulId)} - {selectedPackage?.examType}</h1>
+                                <h1 className="page-title">{getMatkulName(selectedPackage?.matkulId)} - {examTypeLabel(selectedPackage?.examType)}</h1>
                                 {(() => {
                                     const pkgQ = getPackageQuestions()
                                     const totalPts = calcEffectivePoints(pkgQ)
@@ -1861,8 +1867,8 @@ function BuatSoalPage() {
                                                     {getMatkulName(pkg.matkulId)}
                                                 </h3>
                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
-                                                    <span className={`badge badge-${pkg.examType === 'UAS' ? 'error' : 'warning'}`}>
-                                                        {pkg.examType}
+                                                    <span className={`badge badge-${pkg.examType === 'UAS' ? 'error' : pkg.examType === 'ULANG' ? 'info' : 'warning'}`}>
+                                                        {examTypeLabel(pkg.examType)}
                                                     </span>
                                                 </div>
                                                 {/* Show selected kelas for this package */}
@@ -2316,15 +2322,15 @@ function BuatSoalPage() {
                                     <div className="form-group">
                                         <label className="form-label">Jenis Ujian</label>
                                         <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                            {['UTS', 'UAS'].map(t => (
+                                            {EXAM_TYPES.map(t => (
                                                 <button
-                                                    key={t}
+                                                    key={t.value}
                                                     type="button"
-                                                    className={`btn ${newPkgForm.examType === t ? 'btn-primary' : 'btn-outline'}`}
+                                                    className={`btn ${newPkgForm.examType === t.value ? 'btn-primary' : 'btn-outline'}`}
                                                     style={{ flex: 1 }}
-                                                    onClick={() => setNewPkgForm({ ...newPkgForm, examType: t })}
+                                                    onClick={() => setNewPkgForm({ ...newPkgForm, examType: t.value })}
                                                 >
-                                                    {t}
+                                                    {t.label}
                                                 </button>
                                             ))}
                                         </div>
@@ -2398,15 +2404,15 @@ function BuatSoalPage() {
                                 <div className="form-group">
                                     <label className="form-label">Jenis Ujian</label>
                                     <div style={{ display: 'flex', gap: '0.5rem' }}>
-                                        {['UTS', 'UAS'].map(t => (
+                                        {EXAM_TYPES.map(t => (
                                             <button
-                                                key={t}
+                                                key={t.value}
                                                 type="button"
-                                                className={`btn ${editMatkulTarget.examType === t ? 'btn-primary' : 'btn-outline'}`}
+                                                className={`btn ${editMatkulTarget.examType === t.value ? 'btn-primary' : 'btn-outline'}`}
                                                 style={{ flex: 1 }}
-                                                onClick={() => setEditMatkulTarget({ ...editMatkulTarget, examType: t })}
+                                                onClick={() => setEditMatkulTarget({ ...editMatkulTarget, examType: t.value })}
                                             >
-                                                {t}
+                                                {t.label}
                                             </button>
                                         ))}
                                     </div>
